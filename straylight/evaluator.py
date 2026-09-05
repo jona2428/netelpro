@@ -349,7 +349,7 @@ def stray_equals(a: Any, b: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _exec_primitive(head: str, args: list[Any], node: Call) -> Any:
+def _exec_primitive(head: str, args: list[Any], node: Call, capabilities: Optional[set[str]] = None) -> Any:
     line, col = node.line, node.col
 
     if head in ("+", "-", "*", "/", "quot", "rem", "==", "!=", "<", "<=", ">", ">=", "cons", "nth", "str-cat"):
@@ -505,6 +505,9 @@ def _exec_primitive(head: str, args: list[Any], node: Call) -> Any:
         return float(n)
 
     if head == "print":
+        caps = capabilities if capabilities is not None else set()
+        if "io" not in caps:
+            raise StrayRuntimeError("capability 'io' required by 'print' but not granted", line, col)
         x = args[0]
         print(format_value(x))
         return NIL
@@ -529,7 +532,7 @@ def _validate_params(params: Sequence[Sym | str], line: int, col: int) -> list[s
     return param_names
 
 
-def eval_loop(node: Node, env: Environment) -> Any:
+def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = None) -> Any:
     """Iterative evaluation loop supporting tail-call optimization."""
     curr_node: Node = node
     curr_env: Environment = env
@@ -552,7 +555,7 @@ def eval_loop(node: Node, env: Environment) -> Any:
             except KeyError:
                 raise StrayRuntimeError(f"unbound symbol '{curr_node.name}'", curr_node.line, curr_node.col)
         elif isinstance(curr_node, ListLit):
-            items = [eval_loop(item, curr_env) for item in curr_node.items]
+            items = [eval_loop(item, curr_env, capabilities) for item in curr_node.items]
             result = StrayList(items)
         elif isinstance(curr_node, Fn):
             _validate_params(curr_node.params, curr_node.line, curr_node.col)
@@ -570,7 +573,7 @@ def eval_loop(node: Node, env: Environment) -> Any:
         elif isinstance(curr_node, Grant):
             result = NIL
         elif isinstance(curr_node, Def):
-            val = eval_loop(curr_node.value, curr_env)
+            val = eval_loop(curr_node.value, curr_env, capabilities)
             curr_env.set_global(curr_node.name.name, val)
             result = NIL
         elif isinstance(curr_node, Defn):
@@ -586,7 +589,7 @@ def eval_loop(node: Node, env: Environment) -> Any:
             curr_env.set_global(curr_node.name.name, closure)
             result = NIL
         elif isinstance(curr_node, If):
-            cond_val = eval_loop(curr_node.cond, curr_env)
+            cond_val = eval_loop(curr_node.cond, curr_env, capabilities)
             if type(cond_val) is not bool:
                 c_line = getattr(curr_node.cond, "line", 0) or curr_node.line
                 c_col = getattr(curr_node.cond, "col", 0) or curr_node.col
@@ -597,12 +600,12 @@ def eval_loop(node: Node, env: Environment) -> Any:
                 curr_node = curr_node.else_
             continue
         elif isinstance(curr_node, Let):
-            val = eval_loop(curr_node.value, curr_env)
+            val = eval_loop(curr_node.value, curr_env, capabilities)
             curr_env = curr_env.extend({curr_node.name.name: val})
             curr_node = curr_node.body
             continue
         elif isinstance(curr_node, And):
-            l_val = eval_loop(curr_node.l, curr_env)
+            l_val = eval_loop(curr_node.l, curr_env, capabilities)
             if type(l_val) is not bool:
                 l_line = getattr(curr_node.l, "line", 0) or curr_node.line
                 l_col = getattr(curr_node.l, "col", 0) or curr_node.col
@@ -616,7 +619,7 @@ def eval_loop(node: Node, env: Environment) -> Any:
                 must_be_bool_stack.append((r_line, r_col))
                 continue
         elif isinstance(curr_node, Or):
-            l_val = eval_loop(curr_node.l, curr_env)
+            l_val = eval_loop(curr_node.l, curr_env, capabilities)
             if type(l_val) is not bool:
                 l_line = getattr(curr_node.l, "line", 0) or curr_node.line
                 l_col = getattr(curr_node.l, "col", 0) or curr_node.col
@@ -632,8 +635,8 @@ def eval_loop(node: Node, env: Environment) -> Any:
         elif isinstance(curr_node, Call):
             head = curr_node.head
             if head in PRIMITIVES:
-                arg_vals = [eval_loop(a, curr_env) for a in curr_node.args]
-                result = _exec_primitive(head, arg_vals, curr_node)
+                arg_vals = [eval_loop(a, curr_env, capabilities) for a in curr_node.args]
+                result = _exec_primitive(head, arg_vals, curr_node, capabilities)
             else:
                 try:
                     fn_val = curr_env.get(head)
@@ -647,7 +650,7 @@ def eval_loop(node: Node, env: Environment) -> Any:
                         curr_node.line,
                         curr_node.col,
                     )
-                arg_vals = [eval_loop(a, curr_env) for a in curr_node.args]
+                arg_vals = [eval_loop(a, curr_env, capabilities) for a in curr_node.args]
                 param_bindings = {
                     (p.name if isinstance(p, Sym) else str(p)): v
                     for p, v in zip(fn_val.params, arg_vals)
@@ -656,7 +659,7 @@ def eval_loop(node: Node, env: Environment) -> Any:
                 curr_node = fn_val.body
                 continue
         elif isinstance(curr_node, Program):
-            result = evaluate(curr_node, curr_env)
+            result = evaluate(curr_node, curr_env, capabilities=capabilities)
         else:
             raise StrayRuntimeError(
                 f"unsupported AST node: {type(curr_node).__name__}",
@@ -673,9 +676,9 @@ def eval_loop(node: Node, env: Environment) -> Any:
         return result
 
 
-def eval_node(node: Node, env: Environment) -> Any:
+def eval_node(node: Node, env: Environment, capabilities: Optional[set[str]] = None) -> Any:
     """Evaluate an individual AST node within an environment."""
-    return eval_loop(node, env)
+    return eval_loop(node, env, capabilities)
 
 
 # ---------------------------------------------------------------------------
@@ -686,9 +689,9 @@ def eval_node(node: Node, env: Environment) -> Any:
 class Evaluator:
     """Stateful evaluator instance tracking capabilities and global environment."""
 
-    def __init__(self, env: Optional[Environment] = None) -> None:
+    def __init__(self, env: Optional[Environment] = None, capabilities: Optional[set[str]] = None) -> None:
         self.env = env if env is not None else Environment()
-        self.capabilities: set[str] = set()
+        self.capabilities: set[str] = set(capabilities) if capabilities else set()
 
     def evaluate(self, program: Program) -> Any:
         last_val: Any = NIL
@@ -700,7 +703,7 @@ class Evaluator:
                     name = cap.name if isinstance(cap, Sym) else str(cap)
                     self.capabilities.add(name)
             elif isinstance(form, Def):
-                val = eval_loop(form.value, self.env)
+                val = eval_loop(form.value, self.env, self.capabilities)
                 self.env.set_global(form.name.name, val)
             elif isinstance(form, Defn):
                 _validate_params(form.params, form.line, form.col)
@@ -714,13 +717,13 @@ class Evaluator:
                 )
                 self.env.set_global(form.name.name, closure)
             else:
-                last_val = eval_loop(form, self.env)
+                last_val = eval_loop(form, self.env, self.capabilities)
                 has_expr = True
 
         return last_val if has_expr else NIL
 
 
-def _guard_recursion(program: Program, env: Optional[Environment]) -> Any:
+def _guard_recursion(program: Program, env: Optional[Environment], capabilities: Optional[set[str]] = None) -> Any:
     """Translate raw Python RecursionError into a prosecutorial StrayRuntimeError.
 
     NON-tail recursion depth is bounded by the host interpreter stack; exceeding
@@ -728,7 +731,7 @@ def _guard_recursion(program: Program, env: Optional[Environment]) -> Any:
     reports it instead of leaking a traceback.
     """
     try:
-        return Evaluator(env=env).evaluate(program)
+        return Evaluator(env=env, capabilities=capabilities).evaluate(program)
     except RecursionError:
         raise StrayRuntimeError(
             "non-tail recursion exceeded host stack depth (no TCO on this call path)",
@@ -737,9 +740,9 @@ def _guard_recursion(program: Program, env: Optional[Environment]) -> Any:
         ) from None
 
 
-def evaluate(program: Program, env: Optional[Environment] = None) -> Any:
+def evaluate(program: Program, env: Optional[Environment] = None, capabilities: Optional[set[str]] = None) -> Any:
     """Evaluate a Program AST and return the value of the last evaluated expression form (nil if none)."""
-    return _guard_recursion(program, env)
+    return _guard_recursion(program, env, capabilities)
 
 
 def run_source(src: str, env: Optional[Environment] = None) -> Any:

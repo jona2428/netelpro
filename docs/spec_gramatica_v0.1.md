@@ -57,7 +57,7 @@ Types: `Int`, `Float`, `Str`, `Bool`, `List<T>`. That is all.
 ```straylight
 (sorry "reason as a string literal")     ; yields a value of whatever type context demands;
                                          ; Phase 4: silent holes = compile error, reason mandatory
-(grant io net)                           ; top-level only; declares file-wide capabilities;
+(grant io)                               ; top-level only; declares file-wide capabilities;
                                          ; Phase 3: un-granted capability use = compile error, not runtime
 ```
 
@@ -111,3 +111,15 @@ Prosecutor rules added in Phase 2 (verified adversarially):
 Known limit of record (accepted for v0.1): static-position attribution for host-stack exhaustion reports the program entry position (1,1), not the exact call site — an exact-site fix requires a depth-tracking parameter in `eval_loop` and lands with the capability/typing pass in Phase 3.
 
 No-first-class-calls note: v0.1 has no first-class function calls; closures exist (capturing env) and are returned/bound via `def`, but the head of a call must be a table head or a registered `defn`. Lifting this requires an AST-level call-node rewrite (Phase 3+ design decision), not an evaluator patch.
+
+## 11. Phase 3 implementation notes (capabilities as types)
+
+Phase 3 delivered static capability enforcement (`straylight/caps.py`), compiler CLI integration (`straylight/__main__.py`), and runtime defense-in-depth (`straylight/evaluator.py`).
+
+Design decisions of record:
+1. **Capability set v0.1 = `{"io"}`**: The only capability-requiring primitive in v0.1 is `print` (requires `io`). Known capabilities and per-primitive requirements are declared in `spec/arity_table.json` (`known_capabilities` object + `capabilities` arrays on primitives) and derived at runtime by `straylight/caps.py` (`_derive_capabilities_from_table`). Declaring an unknown capability in a `(grant ...)` form is a compile error.
+2. **Enforcement is a SEPARATE static compiler pass (`straylight/caps.py`)**: Full recursive AST walk (`check_capabilities`), aggregating parser-style `CapError` diagnostics with exact line/col coordinates rather than failing fast. Integrated in `straylight/__main__.py` strictly AFTER `parse` and BEFORE `evaluate`: un-granted IO is a COMPILE error — the program never starts.
+3. **File-wide grants**: The granted set is the union of all top-level `(grant ...)` forms across the translation unit (`collect_grants`); no per-function effect tracking in v0.1 (upgrade path: per-function effect typing when first needed).
+4. **No-first-class-calls makes the analysis fully static**: `Call.head` is a plain string, so every capability-requiring site is known at compile time without evaluating anything.
+5. **Defense-in-depth**: The evaluator also carries the capability set (threaded through `eval_loop` and `_exec_primitive`), and `print` raises `StrayRuntimeError` if `io` is not granted — protects direct-API users who skip the static pass. The static pass remains THE enforcement.
+6. **`sorry` semantics untouched**: Reaching a `sorry` form continues to evaluate as a runtime hole (`StrayHoleError`); static hole verification is reserved for Phase 4 scope.

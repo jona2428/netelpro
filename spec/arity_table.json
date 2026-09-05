@@ -39,7 +39,7 @@
     "int->str":  {"arity": [1, 1],  "sig": "(int->str n)"},
     "str->int":  {"arity": [1, 1],  "sig": "(str->int s)"},
     "int->float":{"arity": [1, 1],  "sig": "(int->float n)"},
-    "print":     {"arity": [1, 1],  "sig": "(print x)", "phase": "requires capability io from Phase 3"}
+    "print":     {"arity": [1, 1],  "sig": "(print x)", "phase": "requires capability io from Phase 3", "capabilities": ["io"]}
   },
   "literals": {
     "int":   "-?[0-9]+",
@@ -48,5 +48,8 @@
     "string": "\"...\" with escapes \\n \\t \\\\\" \\\\\\\\",
     "nil":   "nil (the empty list)",
     "symbol": "[A-Za-z_][A-Za-z0-9_?\\->]* or one of the operator heads listed above"
+  },
+  "known_capabilities": {
+    "io": "stdout printing"
   }
 }

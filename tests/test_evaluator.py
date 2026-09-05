@@ -372,10 +372,17 @@ class TestTopLevel:
         assert is_nil(rs("(def x 1)"))
 
     def test_print_output_and_nil_return(self, capsys: pytest.CaptureFixture[str]) -> None:
-        res = rs('(print "hola")')
+        # Phase 3: 'print' requires the 'io' capability — granted file-wide.
+        res = rs('(grant io) (print "hola")')
         captured = capsys.readouterr()
         assert "hola" in captured.out
         assert is_nil(res)
+
+    def test_print_without_grant_is_runtime_blocked(self) -> None:
+        # Defense-in-depth: a direct-API caller skipping the static pass
+        # still cannot print — the runtime guard is the second fence.
+        with pytest.raises(StrayRuntimeError, match="capability 'io'"):
+            rs('(print "hola")')
 
 
 class TestValues:

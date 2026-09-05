@@ -12,6 +12,7 @@ from straylight.evaluator import (
     format_value,
     is_nil,
 )
+from straylight.caps import check_capabilities, collect_grants
 from straylight.parser import parse
 
 
@@ -39,6 +40,14 @@ def main(argv: list[str] | None = None) -> int:
     if not parse_result.ok:
         for err in parse_result.errors:
             print(f"line {err.line}, col {err.col}: {err.message}", file=sys.stderr)
+        return 1
+
+    # Phase 3: static capability enforcement — un-granted IO is a COMPILE error.
+    granted = collect_grants(parse_result.program)
+    cap_errors = check_capabilities(parse_result.program, granted)
+    if cap_errors:
+        for err in cap_errors:
+            print(str(err), file=sys.stderr)
         return 1
 
     try:
