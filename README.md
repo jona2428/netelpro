@@ -19,12 +19,15 @@ Four verified layers. Each failure class dies at the earliest layer, with exact 
 | 1 | **Fiscal parser** | parse time | Unknown heads, duplicate top-level definitions, arity violations — every form audited against `spec/arity_table.json`, the machine-consumed single source of truth |
 | 2 | **Capabilities as types** | static pass | Any capability use without a top-level `(grant ...)` — IO requires `(grant io)`, enforced statically, even when buried in unexercised branches |
 | 3 | **Sorry manifest** | static pass | Silent holes are impossible: the only legal unimplemented branch is `(sorry "reason")`, and every declared hole is listed with `line:col` + reason on stderr at every compilation |
-| 4 | **LLVM native backend** | codegen | Non-representable types at use (`Float`/`Str`/`List`/fn-as-value) and Bool-demand violations at the machine boundary; `llvmlite 0.49`, `i64`/`i1`, structural TCO |
+| 4 | **LLVM native backend** | codegen | Non-representable types at use (`Float`/`List`/fn-as-value) and boundary type violations; `llvmlite 0.49`, `i64`/`i1`/`i8*`, structural TCO |
 
-Gate rules (the Phase 6 bridge) take `Int` (i64) **and `Bool` (i1) params** since v0.2:
-a param used as an `if`/`and`/`or`/`not` operand crosses the boundary as a native 1-bit
-flag via `ctypes.c_bool`; mixed use of the same param is a compile error with exact
-coordinates.
+Gate rules (the Phase 6 bridge) take `Int` (i64), `Bool` (i1) and — since v0.3 —
+`Str` (i8*) params: a Bool-used param crosses as a native 1-bit flag
+(`ctypes.c_bool`); a Str-used param crosses as a **read-only NUL-terminated UTF-8
+pointer** (`ctypes.c_char_p`), comparable with type-aware `==`/`!=` (libc `strcmp`)
+and `prefix?` (libc `strncmp`), printable with `%s`. Strings are inputs and
+comparisons, never products: return-Str is a compile error. Mixed use of the same
+param is a compile error with exact coordinates.
 
 The prosecutor's voice is a product feature. Real output from `examples/broken_arity.sl`:
 
@@ -90,7 +93,7 @@ Every program runs on **both engines**, by contract:
 - **Python interpreter** — the reference semantics.
 - **LLVM native backend** — the verified implementation.
 
-The native backend is a strict subset compiler: it accepts only programs whose values are representable in machine words and rejects everything else with a prosecutorial compile error — never a silent fallback, never a silent divergence. The test suite runs every program through both engines and compares: **322 tests passing, zero mismatches**. The same principle is exposed programmatically by the Phase 6 bridge: `RuleFilter.verify(cases)` returns any `(args, expected, interpreted, native)` mismatches; an empty list means full agreement.
+The native backend is a strict subset compiler: it accepts only programs whose values are representable in machine words and rejects everything else with a prosecutorial compile error — never a silent fallback, never a silent divergence. The test suite runs every program through both engines and compares: **356 tests passing, zero mismatches**. The same principle is exposed programmatically by the Phase 6 bridge: `RuleFilter.verify(cases)` returns any `(args, expected, interpreted, native)` mismatches; an empty list means full agreement.
 
 ## Phase history
 
@@ -104,17 +107,20 @@ The native backend is a strict subset compiler: it accepts only programs whose v
 | **Fase 5** | LLVM native backend: `llvmlite 0.49`, `i64`/`i1`, structural TCO, JIT invocation via ctypes |
 | **Fase 6** | Neuromancer rule-filter bridge: `compile_filter` compiles real Neuromancer gate rules to native code, called from Python via ctypes |
 
-The Phase 6 use case, `examples/gate_rule.sl` — a Neuromancer gate rule as a compiled pure function:
+The Phase 6 use case, `examples/zone_policy.sl` (v0.3) — the Neuromancer zone policy as a compiled pure function over real path strings:
 
 ```netelpro
-(defn filter-rule (priority confidence approved)
-  (or (and (>= priority 3) (< confidence 90))
-      (== approved 1)))
+(defn filter-rule (path approved mode)
+  (if (or (== path ".env") (or (== path "routes.py") (== path "container.py")))
+      false
+      (if (or (prefix? path "src/") (or (prefix? path "tests/") (prefix? path "skills/")))
+          (and approved (== mode 1))
+          true)))
 ```
 
 ## Status
 
-- **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md) (v0.2: Bool params at the boundary); machine-consumed arity table at `spec/arity_table.json`.
-- **Release:** v0.2.0 (Bool params at the native boundary). In production: the Netelpro rule gate decides the Neuromancer agent's zone policy (compiled native rule, differential-tested).
-- **History:** every claim in the spec is backed by the test suite (`tests/`, 304 tests) and the examples (`examples/`).
-- **Deliberate v0.2 limits** (documented, not accidental): the compiled subset is `Int`/`Bool`; recursion must be tail-recursive to compile; no first-class functions; capabilities are file-scoped (`{io}`); boundary params are `Int` (i64) / `Bool` (i1) per-param, no `Str`/`List` at the machine boundary.
+- **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md) (v0.3: strings at the native boundary); machine-consumed arity table at `spec/arity_table.json`.
+- **Release:** v0.3.0 (strings, read-only, at the native boundary). In production: the Netelpro rule gate decides the Neuromancer agent's zone policy (compiled native rule, differential-tested).
+- **History:** every claim in the spec is backed by the test suite (`tests/`, 356 tests) and the examples (`examples/`).
+- **Deliberate v0.3 limits** (documented, not accidental): the compiled subset is `Int`/`Bool`/`Str`-read-only; string/list PRODUCTION (`str-cat`, `int->str`, `cons`, ...) remains interpreter-only — native code decides over strings, it does not build them; return-Str is a compile error; recursion must be tail-recursive to compile; no first-class functions; capabilities are file-scoped (`{io}`).

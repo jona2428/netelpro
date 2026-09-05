@@ -39,6 +39,7 @@
     "int->str":  {"arity": [1, 1],  "sig": "(int->str n)"},
     "str->int":  {"arity": [1, 1],  "sig": "(str->int s)"},
     "int->float":{"arity": [1, 1],  "sig": "(int->float n)"},
+    "prefix?":   {"arity": [2, 2],  "sig": "(prefix? text prefix)", "phase": "v0.3"},
     "print":     {"arity": [1, 1],  "sig": "(print x)", "phase": "requires capability io from Phase 3", "capabilities": ["io"]}
   },
   "literals": {

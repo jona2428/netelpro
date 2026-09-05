@@ -261,7 +261,10 @@ class TestProsecutorRejections:
         assert_rejected("(defn f () 3.14)", "Float literals are not supported", stage="codegen")
 
     def test_string_literal_rejected_at_codegen(self) -> None:
-        assert_rejected('(defn f () "hola")', "String literals are not supported", stage="codegen")
+        # v0.3: string literals are legal as intermediate values (== / prefix?
+        # / print), but a bare Str in return position is still prosecuted:
+        # strings are read-only at the native boundary (no ownership model).
+        assert_rejected('(defn f () "hola")', "cannot be a return value", stage="codegen")
 
     def test_nil_literal_rejected_at_codegen(self) -> None:
         assert_rejected("(defn f () nil)", "Nil literals are not supported", stage="codegen")
@@ -341,7 +344,17 @@ class TestProsecutorRejections:
         assert_rejected("(defn f (b) (+ b 1))\n(f true)", "type mismatch", stage="codegen")
 
     def test_compare_bool_rejected_at_codegen(self) -> None:
-        assert_rejected("(defn f (b) (== b true))", "expected Int", stage="codegen")
+        # v0.3: homogeneous equality is legal -- (== b true) binds b to Bool
+        # and verifies natively (i1 slot); a CONCRETE heterogeneous mismatch
+        # (var already anchored Int by arithmetic, then compared to Str) is
+        # prosecuted with exact coordinates. Cross-type == that the
+        # interpreter answers dynamically (False) is refused at codegen when
+        # both sides are concrete.
+        assert_rejected(
+            '(defn f (n) (let m (+ n 1) (== n "s")))',
+            "type mismatch for '==' operands: Int vs Str",
+            stage="codegen",
+        )
 
     def test_if_branch_type_mismatch_rejected_at_codegen(self) -> None:
         assert_rejected("(defn f (c) (if c 1 true))", "type mismatch for 'if' branches", stage="codegen")
@@ -467,3 +480,111 @@ class TestCLINativeFlag:
         assert rc == 1
         assert "compile error" in captured.err
         assert "Float literals are not supported" in captured.err
+class TestDifferentialStrings:
+    """v0.3: strings at the native boundary (read-only).
+
+    The zone-policy use case: the house's access rules are pure Netelpro
+    functions over NUL-terminated path strings. Native ==/!= dispatch on the
+    compiled LLVM type (icmp for i64/i1, strcmp for pointers); `prefix?` is
+    strncmp(a, b, strlen(b)) == 0. Return type must be i1/i64 -- strings are
+    inputs and comparisons, never products of native code.
+    """
+
+    @pytest.mark.parametrize(
+        "src, expected",
+        [
+            ('(== "a" "a")', 1),
+            ('(== "a" "b")', 0),
+            ('(!= "a" "b")', 1),
+            ('(!= "a" "a")', 0),
+            ('(== "" "")', 1),
+            ('(== "" "a")', 0),
+            ('(prefix? "src/main.py" "src/")', 1),
+            ('(prefix? "src/main.py" "main")', 0),
+            ('(prefix? "src/main.py" "")', 1),
+            ('(prefix? "" "")', 1),
+            ('(prefix? "" "x")', 0),
+            # Longer-than-prefix text with shared prefix bytes (strncmp NUL-guard)
+            ('(prefix? "abc" "abc")', 1),
+            ('(prefix? "abcd" "abc")', 1),
+            ('(prefix? "abd" "abc")', 0),
+            # Unicode: literals are UTF-8 NUL-terminated constants
+            ('(== "ñandú" "ñandú")', 1),
+            ('(prefix? "ñandú.txt" "ñandú")', 1),
+            ('(prefix? "ñandux.txt" "ñandú")', 0),
+        ],
+    )
+    def test_str_compare_agrees(self, src: str, expected: int) -> None:
+        assert_agree(src)
+
+    def test_str_in_defn_and_return_bool(self) -> None:
+        # String literals as intermediates; boolean result crosses as i1.
+        src = '(defn same (a) (== a "x"))\n(same "x")\n(same "y")'
+        assert_agree(src + "\n")  # top-level last expr -> 0 (false)
+
+    def test_str_param_zone_policy(self) -> None:
+        # THE use case: the house zone policy as a pure native gate.
+        src = (
+            '(defn zone (path approved)\n'
+            '  (if (or (== path ".env") (== path "routes.py"))\n'
+            '      false\n'
+            '      (prefix? path "src/")))\n'
+            '(zone ".env" true)\n'
+            '(zone "src/foo.py" false)'
+        )
+        assert_agree(src)
+
+    def test_str_tco_loop_with_prefix(self) -> None:
+        # TCO loop that consumes a Str param at 100k levels: the pointer slot
+        # round-trips through the back-edge, native == interpreter.
+        src = (
+            '(defn scan (n path)\n'
+            '  (if (<= n 0)\n'
+            '      (prefix? path "ok/")\n'
+            '      (scan (- n 1) path)))\n'
+            '(scan 100000 "ok/file.txt")'
+        )
+        assert_agree(src)
+
+    def test_str_mixed_with_int_and_bool(self) -> None:
+        src = (
+            '(defn gate (path level approved)\n'
+            '  (or (and (prefix? path "src/") (>= level 3))\n'
+            '      (== approved true)))\n'
+            '(gate "src/a.py" 3 false)'
+        )
+        assert_agree(src)
+
+    def test_str_param_via_let(self) -> None:
+        src = '(defn f (p) (let q (== p "src") (if q 1 0)))\n(f "src")'
+        assert_agree(src)
+
+    def test_return_str_rejected(self) -> None:
+        assert_rejected('(defn f () "hola")', "cannot be a return value", stage="codegen")
+
+    def test_heterogeneous_eq_rejected(self) -> None:
+        assert_rejected(
+            '(defn f (n) (let m (+ n 1) (== n "s")))',
+            "type mismatch for '==' operands: Int vs Str",
+            stage="codegen",
+        )
+
+    def test_prefix_on_int_rejected(self) -> None:
+        # A lone (prefix? n "s") is legal: n binds to Str by use (same contract
+        # as ==). Rejection fires when n is ALREADY anchored (concrete Int vs
+        # demanded Str).
+        assert_rejected(
+            '(defn f (n) (let m (+ n 1) (prefix? n "s")))',
+            "type mismatch",
+            stage="codegen",
+        )
+
+    def test_str_top_level_eq_widens_to_i64(self) -> None:
+        # Top-level comparisons yield i1 and are widened to i64 by main()'s
+        # return contract (existing law) -- strings never flow as values, so
+        # no pointer ever reaches a return register.
+        assert_agree('(== "a" "b")') == 0
+        assert_agree('(== "a" "a")') == 1
+
+    def test_str_cat_still_interpreter_only(self) -> None:
+        assert_rejected('(defn f (s) (str-cat s "x"))', "not supported", stage="codegen")

@@ -88,6 +88,7 @@ class CodegenError(StrayError):
 
 TYPE_INT = "Int"
 TYPE_BOOL = "Bool"
+TYPE_STR = "Str"
 TYPE_NIL = "Nil"
 
 
@@ -246,7 +247,11 @@ class CompiledProgram:
 
 
 def _to_llvm_type(t: str) -> ir.Type:
-    return ir.IntType(1) if t == TYPE_BOOL else ir.IntType(64)
+    if t == TYPE_BOOL:
+        return ir.IntType(1)
+    if t == TYPE_STR:
+        return ir.PointerType()
+    return ir.IntType(64)
 
 
 def _llvm_name_for(stray_name: str) -> str:
@@ -335,7 +340,7 @@ def compile_program(program: Program) -> CompiledProgram:
         if isinstance(node, FloatLit):
             raise CodegenError("Float literals are not supported in native codegen v0.1", node.line, node.col)
         if isinstance(node, StrLit):
-            raise CodegenError("String literals are not supported in native codegen v0.1", node.line, node.col)
+            return TYPE_STR
         if isinstance(node, NilLit):
             raise CodegenError("Nil literals are not supported in native codegen v0.1", node.line, node.col)
         if isinstance(node, ListLit):
@@ -397,7 +402,30 @@ def compile_program(program: Program) -> CompiledProgram:
                 _unify(TYPE_INT, a1_t, node.args[1].line, node.args[1].col, f"'{head}' second operand")
                 return TYPE_INT
 
-            if head in ("<", "<=", ">", ">=", "==", "!="):
+            if head in ("==", "!="):
+                if len(node.args) != 2:
+                    raise CodegenError(f"'{head}' expects 2 arguments, got {len(node.args)}", node.line, node.col)
+                a0_t = typecheck(node.args[0], lex_env, current_defn)
+                a1_t = typecheck(node.args[1], lex_env, current_defn)
+                # v0.3 homogeneous equality: operands must resolve to ONE type
+                # (Int/Int, Bool/Bool, Str/Str). Heterogeneous comparison is
+                # prosecuted DIRECTLY on resolved types -- not via deferred
+                # unification: a lone `(== n "s")` with `n` unbound stays
+                # polymorphic (n binds to Str, like any param bound by use),
+                # but a var already anchored elsewhere (or a concrete
+                # mismatch) dies here instead of silently re-binding.
+                a0_res = a0_t.find() if isinstance(a0_t, TypeVar) else a0_t
+                a1_res = a1_t.find() if isinstance(a1_t, TypeVar) else a1_t
+                if isinstance(a0_res, str) and isinstance(a1_res, str) and a0_res != a1_res:
+                    raise CodegenError(
+                        f"type mismatch for '{head}' operands: {a0_res} vs {a1_res}",
+                        node.args[1].line,
+                        node.args[1].col,
+                    )
+                _unify(a0_t, a1_t, node.args[1].line, node.args[1].col, f"'{head}' operands")
+                return TYPE_BOOL
+
+            if head in ("<", "<=", ">", ">="):
                 if len(node.args) != 2:
                     raise CodegenError(f"'{head}' expects 2 arguments, got {len(node.args)}", node.line, node.col)
                 a0_t = typecheck(node.args[0], lex_env, current_defn)
@@ -413,13 +441,24 @@ def compile_program(program: Program) -> CompiledProgram:
                 _unify(TYPE_BOOL, a0_t, node.args[0].line, node.args[0].col, "'not' operand")
                 return TYPE_BOOL
 
+            if head == "prefix?":
+                if len(node.args) != 2:
+                    raise CodegenError(f"'prefix?' expects 2 arguments, got {len(node.args)}", node.line, node.col)
+                a0_t = typecheck(node.args[0], lex_env, current_defn)
+                a1_t = typecheck(node.args[1], lex_env, current_defn)
+                _unify(a0_t, TYPE_STR, node.args[0].line, node.args[0].col, "'prefix?' text operand")
+                _unify(a1_t, TYPE_STR, node.args[1].line, node.args[1].col, "'prefix?' prefix operand")
+                return TYPE_BOOL
+
             if head == "print":
                 if len(node.args) != 1:
                     raise CodegenError(f"'print' expects 1 argument, got {len(node.args)}", node.line, node.col)
                 if "io" not in granted_caps:
                     raise CodegenError("capability 'io' required by 'print' but not granted", node.line, node.col)
-                a0_t = typecheck(node.args[0], lex_env, current_defn)
-                _unify(TYPE_INT, a0_t, node.args[0].line, node.args[0].col, "'print' operand")
+                typecheck(node.args[0], lex_env, current_defn)
+                # v0.3: print accepts Int (i64, %lld) or Str (i8*, %s) --
+                # the operand type is resolved by inference; the emit phase
+                # selects the format string by LLVM type inspection.
                 return TYPE_NIL
 
             if head in defns:
@@ -470,6 +509,13 @@ def compile_program(program: Program) -> CompiledProgram:
     printf_ty = ir.FunctionType(i32, [ir.PointerType()], var_arg=True)
     printf_fn = ir.Function(mod, printf_ty, name="printf")
 
+    strcmp_ty = ir.FunctionType(i32, [ir.PointerType(), ir.PointerType()])
+    strcmp_fn = ir.Function(mod, strcmp_ty, name="strcmp")
+    strncmp_ty = ir.FunctionType(i32, [ir.PointerType(), ir.PointerType(), i64])
+    strncmp_fn = ir.Function(mod, strncmp_ty, name="strncmp")
+    strlen_ty = ir.FunctionType(i64, [ir.PointerType()])
+    strlen_fn = ir.Function(mod, strlen_ty, name="strlen")
+
     exit_ty = ir.FunctionType(ir.VoidType(), [i32])
     exit_fn = ir.Function(mod, exit_ty, name="exit")
 
@@ -497,6 +543,28 @@ def compile_program(program: Program) -> CompiledProgram:
     fmt_int_gv.linkage = "internal"
     fmt_int_gv.global_constant = True
     fmt_int_gv.initializer = fmt_int_const
+
+    fmt_str_bytes = bytearray(b"%s\n\0")
+    fmt_str_const = ir.Constant(ir.ArrayType(ir.IntType(8), len(fmt_str_bytes)), fmt_str_bytes)
+    fmt_str_gv = ir.GlobalVariable(mod, fmt_str_const.type, name="__fmt_str")
+    fmt_str_gv.linkage = "internal"
+    fmt_str_gv.global_constant = True
+    fmt_str_gv.initializer = fmt_str_const
+
+    str_const_pool: dict[str, ir.GlobalVariable] = {}
+
+    def intern_str_const(text: str) -> ir.GlobalVariable:
+        """Intern a NUL-terminated UTF-8 string literal as an internal constant global."""
+        gv = str_const_pool.get(text)
+        if gv is None:
+            data = bytearray(text.encode("utf-8") + b"\0")
+            const = ir.Constant(ir.ArrayType(ir.IntType(8), len(data)), data)
+            gv = ir.GlobalVariable(mod, const.type, name=f"__str_lit_{len(str_const_pool)}")
+            gv.linkage = "internal"
+            gv.global_constant = True
+            gv.initializer = const
+            str_const_pool[text] = gv
+        return gv
 
     # Pre-declare user functions
     llvm_functions: dict[str, ir.Function] = {}
@@ -529,6 +597,16 @@ def compile_program(program: Program) -> CompiledProgram:
             val = ir.Constant(i1, 1 if node.value else 0)
             if is_tail:
                 builder.ret(val)
+            return val
+
+        if isinstance(node, StrLit):
+            val = builder.bitcast(intern_str_const(node.value), ir.PointerType())
+            if is_tail:
+                raise CodegenError(
+                    "a string cannot be a return value in native codegen v0.3 (read-only boundary)",
+                    node.line,
+                    node.col,
+                )
             return val
 
         if isinstance(node, Sym):
@@ -679,7 +757,40 @@ def compile_program(program: Program) -> CompiledProgram:
                     builder.ret(res)
                 return res
 
-            if head in ("<", "<=", ">", ">=", "==", "!="):
+            if head in ("==", "!="):
+                a = compile_expr(node.args[0], env, is_tail=False, builder=builder, ctx=ctx)
+                b = compile_expr(node.args[1], env, is_tail=False, builder=builder, ctx=ctx)
+                assert a is not None and b is not None
+                # v0.3: type-aware equality -- the inference pass guarantees
+                # homogeneous operands; the emit dispatches on the real LLVM
+                # type (integers via icmp, NUL-terminated strings via strcmp).
+                if a.type in (i64, i1):
+                    res = builder.icmp_signed(head, a, b)
+                else:
+                    if head == "==":
+                        res = builder.icmp_signed(
+                            "==", builder.call(strcmp_fn, [a, b]), ir.Constant(i32, 0)
+                        )
+                    else:
+                        res = builder.icmp_signed(
+                            "!=", builder.call(strcmp_fn, [a, b]), ir.Constant(i32, 0)
+                        )
+                if is_tail:
+                    builder.ret(res)
+                return res
+
+            if head == "prefix?":
+                a = compile_expr(node.args[0], env, is_tail=False, builder=builder, ctx=ctx)
+                b = compile_expr(node.args[1], env, is_tail=False, builder=builder, ctx=ctx)
+                assert a is not None and b is not None
+                prefix_len = builder.call(strlen_fn, [b])
+                cmp_res = builder.call(strncmp_fn, [a, b, prefix_len])
+                res = builder.icmp_signed("==", cmp_res, ir.Constant(i32, 0))
+                if is_tail:
+                    builder.ret(res)
+                return res
+
+            if head in ("<", "<=", ">", ">="):
                 a = compile_expr(node.args[0], env, is_tail=False, builder=builder, ctx=ctx)
                 b = compile_expr(node.args[1], env, is_tail=False, builder=builder, ctx=ctx)
                 assert a is not None and b is not None
@@ -699,7 +810,10 @@ def compile_program(program: Program) -> CompiledProgram:
             if head == "print":
                 a = compile_expr(node.args[0], env, is_tail=False, builder=builder, ctx=ctx)
                 assert a is not None
-                fmt_ptr = builder.bitcast(fmt_int_gv, ir.PointerType())
+                if a.type == ir.PointerType():
+                    fmt_ptr = builder.bitcast(fmt_str_gv, ir.PointerType())
+                else:
+                    fmt_ptr = builder.bitcast(fmt_int_gv, ir.PointerType())
                 builder.call(printf_fn, [fmt_ptr, a])
                 res = ir.Constant(i64, 0)
                 if is_tail:

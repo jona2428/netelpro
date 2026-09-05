@@ -18,11 +18,16 @@ Architecture & Contracts:
 2. The Required `(defn filter-rule ...)` Convention:
    Every valid rule filter source unit must define a top-level named function:
        (defn filter-rule (param1 param2 ...) body)
-   Parameters of `filter-rule` resolve statically to `Int` (i64) or `Bool` (i1) by
-   bidirectional type inference, driven by how each parameter is used: an unused or
-   Int-context parameter binds to `Int`; a parameter used in a boolean context
-   (`if`/`and`/`or`/`not` operands) binds to `Bool`. Mixed use (Bool demanded where
-   Int is required, or vice versa) is a compile error with exact coordinates.
+   Parameters of `filter-rule` resolve statically to `Int` (i64), `Bool` (i1) or
+   `Str` (i8* NUL-terminated) by bidirectional type inference, driven by how each
+   parameter is used: an unused or Int-context parameter binds to `Int`; a parameter
+   used in a boolean context (`if`/`and`/`or`/`not` operands) binds to `Bool`; a
+   parameter compared with string literals (`==`/`prefix?`) or printed binds to `Str`.
+   Mixed use (e.g. Bool demanded where Int is required, or a concrete heterogeneous
+   comparison) is a compile error with exact coordinates.
+   String params are READ-ONLY at the native boundary: they cross as `c_char_p`
+   (UTF-8 encoded in decide()), and the rule must not return a string (return type
+   must be i1 or i64 -- return-Str is prosecuted at compile time).
    If `filter-rule` is not defined in the source, compilation is rejected immediately
    with `RuleFilterError` carrying the precise line and column coordinates of the definition.
 
@@ -181,16 +186,25 @@ class RuleFilter:
                 )
 
             # Per-parameter type audit against the codegen-resolved signature.
-            # Params are Int (i64) or Bool (i1); anything else is a bridge bug
-            # and is prosecuted as one.
-            param_arg_types: list[int] = [arg.type.width for arg in llvm_fn.args]
-            for arg_width in param_arg_types:
-                if arg_width not in (64, 1):
+            # Params are Int (i64), Bool (i1) or Str (i8* NUL-terminated, read-
+            # only); anything else is a bridge bug and is prosecuted as one.
+            for arg in llvm_fn.args:
+                w = getattr(arg.type, "width", None)
+                if w is None:
+                    continue  # pointer param (Str): legal since v0.3
+                if w not in (64, 1):
                     raise RuleFilterError(
-                        f"parameter of 'filter-rule' resolved to unsupported type i{arg_width}",
+                        f"parameter of 'filter-rule' resolved to unsupported type i{w}",
                         line=self._defn_line,
                         col=self._defn_col,
                     )
+            if llvm_fn.function_type.return_type.width != 1 and llvm_fn.function_type.return_type.width != 64:
+                raise RuleFilterError(
+                    "'filter-rule' must return Bool (i1) or Int (i64) -- strings cannot cross "
+                    "the native boundary as return values (read-only boundary, v0.3)",
+                    line=self._defn_line,
+                    col=self._defn_col,
+                )
 
             self._compiled = compiled
             if llvm_fn.function_type.return_type == ir.IntType(1):
@@ -198,11 +212,17 @@ class RuleFilter:
             else:
                 self._restype = ctypes.c_int64
 
-            # Per-parameter ctypes prototype: i1 params cross the boundary as
-            # c_bool (ctypes reads only the low byte, per the ABI finding in
-            # the module docstring), i64 params as c_int64.
+            # Per-parameter ctypes prototype: i1 params cross as c_bool (ABI:
+            # ctypes reads the low byte), i64 as c_int64, i8* (Str, NUL-
+            # terminated read-only) as c_char_p. Python str args are encoded
+            # UTF-8 at call time in decide(); bytes pass through unchanged.
             self._argtypes: list[type[ctypes._SimpleCData]] = [
-                ctypes.c_bool if width == 1 else ctypes.c_int64 for width in param_arg_types
+                ctypes.c_bool
+                if (w := getattr(arg.type, "width", None)) == 1
+                else ctypes.c_int64
+                if w == 64
+                else ctypes.c_char_p
+                for arg in llvm_fn.args
             ]
         else:
             self._compiled = None
@@ -258,7 +278,11 @@ class RuleFilter:
             )
 
         c_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
-        raw_result = c_fn(*args)
+        call_args: list[Any] = [
+            a.encode("utf-8") if (isinstance(a, str) and at is ctypes.c_char_p) else a
+            for a, at in zip(args, self._argtypes, strict=True)
+        ]
+        raw_result = c_fn(*call_args)
         return bool(raw_result)
 
     def verify(
@@ -279,12 +303,21 @@ class RuleFilter:
             native_res = self.decide(*args_tuple)
 
             env = Environment()
-            # Interpreter-side serialization: Python bools must render as the
+            # Interpreter-side serialization: Python bools render as the
             # Netelpro literals `true`/`false` (str(True) would emit 'True',
-            # which is not a token of the language).
-            args_str = " ".join(
-                ("true" if a is True else "false" if a is False else str(a)) for a in args_tuple
-            )
+            # which is not a token of the language); Python strings render as
+            # quoted literals with the language's own escape rules.
+            def _render(a: Any) -> str:
+                if a is True:
+                    return "true"
+                if a is False:
+                    return "false"
+                if isinstance(a, str):
+                    escaped = a.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\t", "\\t")
+                    return f'"{escaped}"'
+                return str(a)
+
+            args_str = " ".join(_render(a) for a in args_tuple)
             call_form = f"(filter-rule {args_str})" if args_str else "(filter-rule)"
             interp_src = f"{self._source}\n{call_form}"
             interp_res = run_source(interp_src, env=env)

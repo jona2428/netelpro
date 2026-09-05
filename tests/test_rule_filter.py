@@ -4,6 +4,10 @@ compiled pure Netelpro functions.
 Boundary law (v0.1): all filter-rule params are Int (i64); Booleans cross
 the machine boundary as 0/1 flags. Differential verification vs the
 interpreter is mandatory for every compiled rule.
+
+v0.3: params may also be Str (i8* NUL-terminated, read-only, c_char_p UTF-8)
+and Bool (i1, c_bool). Return type must be i1 or i64: strings are inputs and
+comparisons, never products of native code.
 """
 import sys
 from pathlib import Path
@@ -22,6 +26,15 @@ RULE_SRC = """\
 (defn filter-rule (priority confidence approved)
   (or (and (>= priority 3) (< confidence 90))
       (== approved 1)))
+"""
+
+ZONE_POLICY_SRC = """\
+(defn filter-rule (path approved mode)
+  (if (or (== path ".env") (or (== path "routes.py") (== path "container.py")))
+      false
+      (if (or (prefix? path "src/") (or (prefix? path "tests/") (prefix? path "skills/")))
+          (and approved (== mode 1))
+          true)))
 """
 
 
@@ -173,4 +186,82 @@ class TestGateRuleExample:
         assert f.manifest() == []
         cases = [((3, 80, 0), True), ((2, 80, 0), False), ((3, 95, 0), False),
                  ((2, 95, 1), True), ((4, 10, 0), True), ((1, 99, 0), False)]
+        assert f.verify(cases) == []
+
+
+class TestStrParamsV03:
+    """v0.3: Str params cross the boundary read-only as c_char_p (UTF-8).
+
+    The zone policy of the house as compiled gate rule: native strcmp over
+    NUL-terminated UTF-8, differential-verified against the interpreter.
+    """
+
+    def test_str_param_rule_compiles_and_decides(self) -> None:
+        f = compile_filter(ZONE_POLICY_SRC)
+        assert f.decide(".env", True, 1) is False
+        assert f.decide("routes.py", True, 1) is False
+        assert f.decide("container.py", False, 0) is False
+        assert f.decide("src/Systems/x.py", True, 1) is True
+        assert f.decide("src/Systems/x.py", False, 1) is False
+        assert f.decide("src/Systems/x.py", True, 0) is False
+        assert f.decide("tests/test_gate.py", True, 1) is True
+        assert f.decide("skills/medio/skill.md", True, 1) is True
+        assert f.decide("downloads/report.md", False, 0) is True
+        assert f.decide("docs/SPEC.md", True, 1) is True
+
+    def test_str_param_verify_differential(self) -> None:
+        f = compile_filter(ZONE_POLICY_SRC)
+        cases = [
+            ((".env", True, 1), False),
+            (("routes.py", False, 0), False),
+            (("src/a.py", True, 1), True),
+            (("src/a.py", False, 1), False),
+            (("src/a.py", True, 0), False),
+            (("downloads/x.md", False, 0), True),
+            (("tests/t.py", True, 1), True),
+        ]
+        assert f.verify(cases) == []
+
+    def test_str_param_arity_and_signature(self) -> None:
+        f = compile_filter(ZONE_POLICY_SRC)
+        # Str, Bool, Int -> c_char_p, c_bool, c_int64
+        import ctypes
+
+        assert f._argtypes[0] is ctypes.c_char_p
+        assert f._argtypes[1] is ctypes.c_bool
+        assert f._argtypes[2] is ctypes.c_int64
+
+    def test_str_return_rejected_in_bridge(self) -> None:
+        # A rule whose filter-rule RETURNS a Str must be prosecuted: strings
+        # are inputs, never products (read-only boundary). A bare Str in
+        # return position dies at codegen with exact coordinates.
+        src = '(defn filter-rule (s) "x")'
+        with pytest.raises(RuleFilterError):
+            compile_filter(src)
+
+    def test_prefix_rule_native(self) -> None:
+        f = compile_filter('(defn filter-rule (p) (prefix? p "src/"))')
+        assert f.decide("src/a.py") is True
+        assert f.decide("docs/a.md") is False
+        assert f.verify([(("src/a.py",), True), (("docs/a.md",), False)]) == []
+
+    def test_unicode_path_native(self) -> None:
+        f = compile_filter('(defn filter-rule (p) (prefix? p "reportes/"))')
+        assert f.decide("reportes/año.txt") is True
+        assert f.verify([(("reportes/año.txt",), True)]) == []
+
+    def test_zone_policy_example_file(self) -> None:
+        example = Path(__file__).resolve().parents[1] / "examples" / "zone_policy.sl"
+        f = compile_filter(example.read_text(encoding="utf-8"))
+        assert f.manifest() == []
+        cases = [
+            ((".env", True, 1), False),
+            (("routes.py", True, 1), False),
+            (("container.py", False, 0), False),
+            (("src/x.py", True, 1), True),
+            (("src/x.py", False, 1), False),
+            (("tests/t.py", True, 1), True),
+            (("skills/s.md", True, 1), True),
+            (("downloads/r.md", False, 0), True),
+        ]
         assert f.verify(cases) == []

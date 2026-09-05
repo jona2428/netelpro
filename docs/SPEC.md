@@ -198,12 +198,15 @@ carrying exact source coordinates. No silent fallbacks, no dynamic reinterpretat
 |---|---|
 | `Int` | `i64` (LLVM signed 64-bit) |
 | `Bool` | `i1` (zext'd to `i64` only at `main` return) |
+| `Str` | `i8*` NUL-terminated UTF-8: literals intern as internal constant globals; params cross read-only (`c_char_p`) — strings are inputs and comparisons, never products (return-Str is a compile error) |
 | `+`, `-`, `*` | `i64` add/sub/mul (Int×Int→Int) |
 | `quot`, `rem` | `sdiv`/`srem` — truncation semantics VERIFIED to match the interpreter in all 4 sign combinations (differential tests) |
-| `<`, `<=`, `>`, `>=`, `==`, `!=` | `icmp signed` → `i1` |
+| `<`, `<=`, `>`, `>=` | `icmp signed` → `i1` |
+| `==`, `!=` | type-aware: `icmp` for i64/i1, `strcmp` (libc) for `i8*` → `i1` — operands are statically homogeneous |
+| `prefix?` | `strncmp(text, prefix, strlen(prefix)) == 0` (libc) → `i1` |
+| `print` | call to `printf` — `%lld` for Int, `%s` for Str (internal constant globals, selected by LLVM type) — requires `(grant io)` enforced at compile time |
 | `not` | `xor i1 1` |
 | `if`, `and`, `or`, `let` | SSA branches/phis; and/or short-circuit with merge blocks |
-| `print` | call to `printf("%lld\n")` — requires `(grant io)` enforced at compile time |
 | `defn` | native LLVM function (name-collision-safe: `main` becomes `__sl_user_main__`) |
 | self tail-call | **TCO back-edge**: params re-stored into alloca slots + branch to loop header — `sum-to 100000` and `count 500000` run in constant stack space |
 | non-tail call | direct native `call` (recursion compiles; depth bounded by the machine stack, as in the interpreter) |
@@ -211,13 +214,17 @@ carrying exact source coordinates. No silent fallbacks, no dynamic reinterpretat
 
 ### 13.2 Rejected at Codegen (Compile Errors, Exact Coordinates)
 
-`FloatLit`, `StrLit`, `NilLit`, `ListLit`, `Fn` (anonymous), `Sorry`, `/` (returns Float),
-all List/Str primitives (`cons head tail is-nil len nth str-cat str-len int->str str->int
-int->float`), `def` of a non-literal value, undefined symbols, and any type conflict
-found by the type-inference pass. **Type inference is bidirectional** (TypeVar
-unification): parameter types are inferred from call-sites, so `(defn f (n) (if n 1 2))`
-compiles alone (n: Bool) and the conflict fires at the incompatible call-site —
-the prosecutor reports it there, with coordinates.
+`FloatLit`, `NilLit`, `ListLit`, `Fn` (anonymous), `Sorry`, `/` (returns Float),
+List primitives (`cons head tail is-nil len nth`) and string PRODUCTION (`str-cat
+str-len int->str str->int int->float` — native code decides over strings, it does not
+build them), a bare `Str` in return position (read-only boundary), `def` of a non-literal
+value, undefined symbols, and any type conflict found by the type-inference pass —
+including heterogeneous `==` on concretely-typed operands (`Int vs Str`). **Type
+inference is bidirectional** (TypeVar unification): parameter types are inferred from
+use, so `(defn f (n) (if n 1 2))` compiles alone (n: Bool) and the conflict fires at the
+incompatible call-site — the prosecutor reports it there, with coordinates. A bare Str
+in return position is prosecuted ("cannot be a return value"): strings cross the
+boundary read-only.
 
 ### 13.3 Prosecution Stages (the honest map)
 
@@ -277,11 +284,15 @@ and compiles it to native code, and Python calls it directly.
 ### 14.1 Contract
 
 ```lisp
-; The rule must define `filter-rule`. All params are Int (i64). Booleans cross the
-; machine boundary as 0/1 flags -- no implicit coercion, ever.
-(defn filter-rule (priority confidence approved)
-  (or (and (>= priority 3) (< confidence 90))
-      (== approved 1)))
+; The rule must define `filter-rule`. Params resolve statically to Int (i64),
+; Bool (i1) or Str (i8* NUL-terminated, read-only). Strings cross via
+; c_char_p (UTF-8); the return must be i1/i64 -- strings are inputs, never products.
+(defn filter-rule (path approved mode)
+  (if (or (== path ".env") (or (== path "routes.py") (== path "container.py")))
+      false
+      (if (or (prefix? path "src/") (or (prefix? path "tests/") (prefix? path "skills/")))
+          (and approved (== mode 1))
+          true)))
 ```
 
 ### 14.2 Pipeline and prosecution layers
@@ -323,14 +334,20 @@ parity probe: decide(1001) = True   (1001 native recursion levels, TCO, no stack
 differential: verify() == [] on all cases; 304/304 suite green
 ```
 
-### 14.6 Boundary (v0.2)
+### 14.6 Boundary (v0.2 → v0.3)
 
-Params resolve per-param to `Int` (i64, `ctypes.c_int64`) or `Bool` (i1, `ctypes.c_bool`):
-an unused or Int-context param binds to Int; a param used as `if`/`and`/`or`/`not`
-operand binds to Bool (verified: TCO back-edge writes i1 into the i1 slot at 500k
-levels, native == interpreter). Mixed use is a compile error. Strings/Lists are not
-representable at the boundary (§13.2). Future: multi-rule modules, and host callback
-plumbing if a use case demands it.---
+Params resolve per-param to `Int` (i64, `ctypes.c_int64`), `Bool` (i1,
+`ctypes.c_bool`) or `Str` (i8*, `ctypes.c_char_p`, UTF-8) at the native boundary
+(v0.2 Bool, v0.3 Str): an unused or Int-context param binds to Int; a param used as
+`if`/`and`/`or`/`not` operand binds to Bool; a param compared to string literals
+(`==`/`prefix?`) or printed binds to Str (verified: TCO back-edge round-trips both
+the i1 slot at 500k levels and the pointer slot at 100k levels, native ==
+interpreter). Mixed use is a compile error with exact coordinates. Heterogeneous
+`==` on concretely-anchored operands (Int vs Str) is prosecuted directly with
+coordinates. Strings cross READ-ONLY: the rule may compare and print them, never
+return them (return-Str is a compile error). List production and string production
+(`str-cat`, `int->str`, ...) remain interpreter-only. Future: multi-rule modules,
+and host callback plumbing if a use case demands it.---
 
 ## 15. Consolidated State (v0.9, post-Phase 6)
 
@@ -355,11 +372,11 @@ The program runs only after surviving all four. There is no stage where dishones
 - Native backend (`compile_program` → MCJIT, i64/i1, TCO as structural loop) = verified implementation.
 - Contract: every compiled program's results must equal the interpreter's (`verify()` differential testing; §13.4, §14.4).
 
-### 15.3 Deliberate v0.1 limits (documented, not accidental)
+### 15.3 Deliberate limits (documented, not accidental)
 
-- Compiled subset: Int/Bool, `+ - * / quot rem`, comparisons, `not`, `if/and/or`, `let`, `def`, `defn`, calls, `print`. Recursion must be tail-recursive to compile (fiscal message points to the non-tail site).
+- Compiled subset: Int/Bool/Str (read-only), `+ - * / quot rem`, comparisons (incl. string `==`/`prefix?`), `not`, `if/and/or`, `let`, `def`, `defn`, calls, `print` (%lld/%s). String/list PRODUCTION (`str-cat`, `int->str`, `cons`, ...) remains interpreter-only: native code decides, it does not build data.
 - Heads are primitives/special forms or top-level `defn` only — no first-class functions in v0.1.
-- Params resolve per-param to Int (i64) or Bool (i1) at the native boundary (v0.2); unused params bind to Int by default.
+- Params resolve per-param to Int (i64), Bool (i1) or Str (i8*) at the native boundary (v0.2/v0.3); unused params bind to Int by default.
 - Capabilities are file-scoped grants (`{io}`); per-function effects deferred.
 - `sorry` compiles as a declared hole with runtime tripwire — the manifest is emitted at every compilation.
 
@@ -368,4 +385,4 @@ The program runs only after surviving all four. There is no stage where dishones
 - **Final language name**: Netelpro — decided 2026-09-05 (formerly Straylight, working title).
 - Naming of the remaining deferred features above (order and priority).
 
-*Every claim in this section is backed by the test suite (`tests/`, 304 tests) and the examples (`examples/`) at commit `a70d27c`.*
+*Every claim in this section is backed by the test suite (`tests/`, 356 tests) and the examples (`examples/`) at the v0.3.0 tree.*
