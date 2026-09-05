@@ -1015,7 +1015,6 @@ def _worker_verify(argv: list[str] | None = None) -> int:
         argv = sys.argv[1:]
     out_path = _validated_out_path(argv)
     raw_input = sys.stdin.read(MAX_LINE_BYTES)
-    raw_input = sys.stdin.read()
     if not raw_input.strip():
         res = {
             "ok": False,

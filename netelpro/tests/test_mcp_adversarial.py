@@ -378,6 +378,29 @@ def test_verify_101_cases_rejected(server):
     assert resp.get("error") is not None or _domain_errors(resp)
 
 
+def test_verify_happy_path_native_parity(server):
+    """Happy path: a real differential run must return ok=True with all cases
+    matching between native JIT and interpreter. Regression guard: the stdin
+    double-read bug made the worker always report 'empty input'."""
+    src = "(defn filter-rule (x) (> x 10))"
+    cases = [
+        {"args": [11], "expected": True},
+        {"args": [10], "expected": False},
+        {"args": [-5], "expected": False},
+    ]
+    resp = server.call(
+        "tools/call",
+        {"name": "netelpro_verify", "arguments": {"source": src, "cases": cases}},
+    )
+    assert resp.get("error") is None
+    body = resp["result"]["content"][0]["text"]
+    data = json.loads(body)
+    assert data["ok"] is True
+    assert data["mismatches"] == []
+    # Hole-free source => empty sorry manifest is the correct contract.
+    assert data["manifest"] == []
+
+
 def test_verify_string_args_with_quotes_newlines_escapes(server):
     """verify string args containing quotes/newlines/escapes must not crash."""
     cases = [
