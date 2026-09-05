@@ -25,6 +25,13 @@ def main(argv: list[str] | None = None) -> int:
     native = "--native" in argv
     argv = [a for a in argv if a != "--native"]
 
+    if "--mcp" in argv:
+        # MCP stdio server mode (line-delimited JSON-RPC 2.0, zero deps).
+        from netelpro.mcp_server import _run_stdio_server as run_stdio_server
+
+        run_stdio_server()
+        return 0
+
     if not argv or len(argv) != 1:
         print("Usage: python -m netelpro [--native] <file.sl>", file=sys.stderr)
         return 1

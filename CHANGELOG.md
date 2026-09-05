@@ -4,6 +4,55 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## v0.4.0 — MCP Server (2026-09-05)
+
+### Added
+- **MCP server** (`netelpro/mcp_server.py`): stdio JSON-RPC 2.0 server exposing the
+  compiler/evaluator/verifier to LLM clients — the language's first external
+  interface. Line-delimited JSON transport (no Content-Length framing),
+  `protocolVersion 2024-11-05`, zero external dependencies. Launched via
+  `python -m netelpro --mcp` (new CLI flag) or `python -m netelpro.mcp_server`.
+- Four tools: `netelpro_compile` (static parse/caps/holes audit, optional native
+  codegen check without execution), `netelpro_eval` (subprocess-isolated execution,
+  stdout capture, native opt-in), `netelpro_verify` (differential parity JIT vs
+  interpreter across up to 100 cases), `netelpro_spec` (static language knowledge:
+  forms, arities, capabilities, sorry-hole semantics). Errors keep the language
+  taxonomy (`parse/cap/hole/runtime/limit/codegen`) and ride MCP `isError` with
+  structured content, not protocol faults.
+- **Fail-closed limits**: `MAX_SOURCE_BYTES=65536`, `PARSE_DEPTH_BUDGET=64`
+  (bracket-nesting pre-check), `EVAL_TIMEOUT_S=3.0` (subprocess wall-clock kill →
+  phase `limit`), `MAX_CASES=100`, `RESULT_STRING_CAP=65536`, and a stdio frame cap
+  (`MAX_LINE_BYTES`) that rejects oversized lines **without buffering them** — a
+  hostile 20 MB single line is answered with `-32600` and the session survives.
+- **Subprocess isolation as containment**: `netelpro_eval`/`netelpro_verify` run in
+  child processes, so TCO infinite loops die at the 3 s wall clock, native JIT
+  deaths (non-tail-recursion stack overflow, div-by-zero `exit(1)`) are contained
+  in the child, and the server process never executes untrusted source itself.
+  Windows process-tree kill (`taskkill /T /F` + fallback), `--out` paths validated
+  under the OS temp dir, verify args type/size-validated (int/bool/str, 4096-char
+  string cap) before reaching the worker.
+- Adversarial corpus `netelpro/tests/test_mcp_adversarial.py` (21 cases, contract-
+  first, watchdogs so no case can hang CI): TCO loop → `limit`, exponential
+  `str-cat` bomb, 1000-deep nesting, oversize source, 101 verify cases, string args
+  with quotes/newlines/escapes, protocol edges (malformed JSON → `-32700`, unknown
+  method → `-32601`, `id: null`, wrong version), session statelessness.
+- `docs/MCP.md`: wire contract, launch, tool schemas, limits table, client
+  integration snippet, and the adversarial suite map.
+
+### Security
+- Independent threat model + audit (findings C1/C2/H1–H4/M2/M5/M6 fixed in this
+  release): unbounded `readline()` replaced by a chunk-capped line reader; worker
+  result paths confined to the temp dir; notification semantics corrected
+  (notifications never respond); native JIT result wrapped via `to_json_val` so it
+  is always JSON-serializable.
+
+### Notes
+- Grammar detail surfaced by the adversarial corpus: `defn` parameter lists use
+  parentheses `(defn f (x) ...)` — corpus fixed to match, no language change.
+- Repository CI runs pytest only (3.11–3.13 matrix); the MCP corpus runs inside it
+  via `pytest netelpro/tests/` and skips cleanly if `llvmlite` is absent (native
+  paths are opt-in).
+
 ## v0.3.0 — Strings at the Native Boundary (2026-09-05)
 
 ### Added
