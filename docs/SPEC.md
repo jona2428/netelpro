@@ -1,6 +1,6 @@
-# Straylight — Grammar Specification v0.1
+# Straylight — Language Specification
 
-Status: draft, Phase 0 deliverable. Single source of truth for arities: `spec/arity_table.json` (the spec and the table are kept in sync; the table is machine-consumed).
+Status: **v0.9 consolidated** (2026-09-05). Phases 0–6 implemented and verified: 304/304 tests green on this machine (interpreted + native backends, differential-tested). Single source of truth for arities: `spec/arity_table.json` (the spec and the table are kept in sync; the table is machine-consumed). Final language name pending decision (working title: Straylight).
 
 ## 1. Design thesis (why this grammar exists)
 
@@ -325,4 +325,42 @@ differential: verify() == [] on all cases; 304/304 suite green
 Params are Int-only by contract; a param whose use statically demands Bool is rejected
 at construction. Strings/Lists are not representable at the boundary (§13.2). Future:
 Bool params as first-class (i1 boundary type), multi-rule modules, and host callback
-plumbing if a use case demands it.
+plumbing if a use case demands it.---
+
+## 15. Consolidated State (v0.9, post-Phase 6)
+
+What the language **is** on this machine, all mechanically verified:
+
+### 15.1 The honesty stack (what kills what, where)
+
+A Straylight program passes four prosecution layers; each failure class dies at the earliest layer, with exact line/column:
+
+| Stage | Layer | Kills |
+|---|---|---|
+| 1 | Parser (fiscal) | Unknown heads, arity violations, duplicate top-level defs, nested `def`/`defn`/`grant`, non-first-class heads, broken literals |
+| 2 | Capabilities (`caps.py`) | Any capability use without a top-level `(grant ...)`, incl. buried in unexercised paths |
+| 3 | Holes (`holes.py`) | Emits the declared-hole manifest (`sorry` with line/col/reason); unknown symbols in unexercised code |
+| 4 | Codegen (`codegen.py`, `--native`) | Non-representable types at use (Float/Str/List/fn-as-value), Bool-demand violations at the boundary |
+
+The program runs only after surviving all four. There is no stage where dishonesty passes silently.
+
+### 15.2 Two backends, one semantics, mechanically compared
+
+- Interpreter (`evaluate`) = reference semantics.
+- Native backend (`compile_program` → MCJIT, i64/i1, TCO as structural loop) = verified implementation.
+- Contract: every compiled program's results must equal the interpreter's (`verify()` differential testing; §13.4, §14.4).
+
+### 15.3 Deliberate v0.1 limits (documented, not accidental)
+
+- Compiled subset: Int/Bool, `+ - * / quot rem`, comparisons, `not`, `if/and/or`, `let`, `def`, `defn`, calls, `print`. Recursion must be tail-recursive to compile (fiscal message points to the non-tail site).
+- Heads are primitives/special forms or top-level `defn` only — no first-class functions in v0.1.
+- Params are Int-only at the native boundary; Bool demanded by use is rejected (§14.6).
+- Capabilities are file-scoped grants (`{io}`); per-function effects deferred.
+- `sorry` compiles as a declared hole with runtime tripwire — the manifest is emitted at every compilation.
+
+### 15.4 What remains open for v1.0 (decision of Jona)
+
+- **Final language name** (working title: Straylight).
+- Naming of the remaining deferred features above (order and priority).
+
+*Every claim in this section is backed by the test suite (`tests/`, 304 tests) and the examples (`examples/`) at commit `a70d27c`.*

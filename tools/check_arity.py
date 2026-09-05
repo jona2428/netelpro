@@ -7,7 +7,7 @@ of user `defn`s. No name resolution, no types, no evaluation -- those are
 later phases. This is the embryo of the compiler-as-prosecutor: it proves
 that "count parentheses and operands against a table" fully determines
 whether a program is well-formed, which is the core design claim of
-Straylight's grammar (see docs/spec_gramatica_v0.1.md).
+Straylight's grammar (see docs/SPEC.md).
 
 Usage:
     python3 tools/check_arity.py FILE.sl [FILE2.sl ...] [--table PATH]
