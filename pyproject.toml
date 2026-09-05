@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netelpro"
+version = "0.1.0"
+description = "A programming language designed for LLMs — honest by construction: mechanical verification, explicit holes, no silent gaps."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["llvmlite>=0.49"]
+authors = [{ name = "Jonathan", email = "wolfman.agro@gmail.com" }]
+keywords = ["llm", "compiler", "llvm", "dsl", "verification", "honesty"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Compilers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Repository = "https://github.com/jona2428/netelpro"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["netelpro*"]
