@@ -1,0 +1,52 @@
+{
+  "version": "0.1",
+  "language": "straylight",
+  "note": "Single source of truth for fixed-arity prefixed grammar. Every special form and primitive declares its arity. arity: [min, max]; max=null means open arity closed by ')'. The fiscal (arity checker) consumes this table mechanically.",
+  "special_forms": {
+    "def":    {"arity": [2, 2],  "sig": "(def name expr)"},
+    "defn":   {"arity": [3, 3],  "sig": "(defn name (params...) body)"},
+    "let":    {"arity": [3, 3],  "sig": "(let name expr body)"},
+    "fn":     {"arity": [2, 2],  "sig": "(fn (params...) body)"},
+    "if":     {"arity": [3, 3],  "sig": "(if cond then else)"},
+    "and":    {"arity": [2, 2],  "sig": "(and a b)", "eval": "short-circuit"},
+    "or":     {"arity": [2, 2],  "sig": "(or a b)", "eval": "short-circuit"},
+    "sorry":  {"arity": [1, 1],  "sig": "(sorry \"reason\")", "phase": "grammar reserved now; enforced in Phase 4"},
+    "grant":  {"arity": [1, null], "sig": "(grant cap...)", "scope": "top-level only", "phase": "grammar reserved now; enforced in Phase 3"}
+  },
+  "primitives": {
+    "+":         {"arity": [2, 2],  "sig": "(+ a b)"},
+    "-":         {"arity": [2, 2],  "sig": "(- a b)"},
+    "*":         {"arity": [2, 2],  "sig": "(* a b)"},
+    "/":         {"arity": [2, 2],  "sig": "(/ a b)", "semantics": "Int/Int -> Float (always promotes); requires nonzero divisor"},
+    "quot":      {"arity": [2, 2],  "sig": "(quot a b)", "semantics": "integer division truncated toward zero"},
+    "rem":       {"arity": [2, 2],  "sig": "(rem a b)", "semantics": "remainder of quot"},
+    "==":        {"arity": [2, 2],  "sig": "(== a b)"},
+    "!=":        {"arity": [2, 2],  "sig": "(!= a b)"},
+    "<":         {"arity": [2, 2],  "sig": "(< a b)"},
+    "<=":        {"arity": [2, 2],  "sig": "(<= a b)"},
+    ">":         {"arity": [2, 2],  "sig": "(> a b)"},
+    ">=":        {"arity": [2, 2],  "sig": "(>= a b)"},
+    "not":       {"arity": [1, 1],  "sig": "(not a)"},
+    "list":      {"arity": [0, null], "sig": "(list a b c ...)", "note": "the ONLY open-arity form in v0.1; closed by ')' — count remains mechanical"},
+    "cons":      {"arity": [2, 2],  "sig": "(cons x xs)"},
+    "head":      {"arity": [1, 1],  "sig": "(head xs)"},
+    "tail":      {"arity": [1, 1],  "sig": "(tail xs)"},
+    "is-nil":    {"arity": [1, 1],  "sig": "(is-nil xs)"},
+    "len":       {"arity": [1, 1],  "sig": "(len xs)"},
+    "nth":       {"arity": [2, 2],  "sig": "(nth xs i)"},
+    "str-cat":   {"arity": [2, 2],  "sig": "(str-cat a b)"},
+    "str-len":   {"arity": [1, 1],  "sig": "(str-len s)"},
+    "int->str":  {"arity": [1, 1],  "sig": "(int->str n)"},
+    "str->int":  {"arity": [1, 1],  "sig": "(str->int s)"},
+    "int->float":{"arity": [1, 1],  "sig": "(int->float n)"},
+    "print":     {"arity": [1, 1],  "sig": "(print x)", "phase": "requires capability io from Phase 3"}
+  },
+  "literals": {
+    "int":   "-?[0-9]+",
+    "float": "-?[0-9]+\\.[0-9]+",
+    "bool":  "true | false",
+    "string": "\"...\" with escapes \\n \\t \\\\\" \\\\\\\\",
+    "nil":   "nil (the empty list)",
+    "symbol": "[A-Za-z_][A-Za-z0-9_?\\->]* or one of the operator heads listed above"
+  }
+}

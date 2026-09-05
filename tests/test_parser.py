@@ -1,0 +1,603 @@
+"""Comprehensive test suite for Straylight recursive-descent parser (Phase 1).
+
+Validates:
+- All 9 special forms parse into expected AST shapes (structural equality).
+- Primitive calls parse with correct arities into Call nodes.
+- 'list' open arity from 0 to N items into ListLit.
+- Arity violation messages contain 'expects' and assert exact line/col.
+- Unknown heads rejected.
+- Reserved head redefinition rejected for def and defn.
+- def/defn/let first argument must be a symbol.
+- defn/fn parameter group validation (parenthesized group, symbol-only, duplicate check).
+- sorry reason must be a string literal.
+- grant allowed only at top level with symbol operands.
+- Bare tokens outside forms at top level rejected.
+- Unclosed '(' and stray ')' report exact positions.
+- Multiple errors collected in a single file without early exit.
+- Nested forms (lets, ifs) produce expected tree structures.
+- User defn registry populated with parameter counts.
+- Calls to user-defined functions become Call nodes.
+- Complete clean parse of examples/basics.sl.
+"""
+from __future__ import annotations
+
+import pathlib
+import sys
+
+import pytest
+
+# Ensure project root is in sys.path
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from straylight.ast_nodes import (
+    And,
+    BoolLit,
+    Call,
+    Def,
+    Defn,
+    FloatLit,
+    Fn,
+    Grant,
+    If,
+    IntLit,
+    Let,
+    ListLit,
+    NilLit,
+    Or,
+    Program,
+    Sorry,
+    StrLit,
+    Sym,
+)
+from straylight.lexer import LexError, tokenize
+from straylight.parser import ParseError, ParseResult, Parser, parse
+
+
+# ---------------------------------------------------------------------------
+# Special forms AST shape tests (structural equality, positions excluded)
+# ---------------------------------------------------------------------------
+
+
+def test_special_form_def() -> None:
+    """'(def name expr)' parses into Def(Sym(name), value)."""
+    res = parse("(def limit 10)")
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == Def(Sym("limit"), IntLit(10))
+
+
+def test_special_form_defn() -> None:
+    """'(defn name (params...) body)' parses into Defn(Sym(name), [Sym...], body)."""
+    res = parse("(defn add (x y) (+ x y))")
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == Defn(
+        Sym("add"),
+        [Sym("x"), Sym("y")],
+        Call("+", [Sym("x"), Sym("y")]),
+    )
+
+
+def test_special_form_fn() -> None:
+    """'(fn (params...) body)' parses into Fn([Sym...], body)."""
+    res = parse("(fn (x) (+ x 1))")
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == Fn([Sym("x")], Call("+", [Sym("x"), IntLit(1)]))
+
+
+def test_special_form_let() -> None:
+    """'(let name expr body)' parses into Let(Sym(name), value, body)."""
+    res = parse("(let y 20 (+ y 1))")
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == Let(Sym("y"), IntLit(20), Call("+", [Sym("y"), IntLit(1)]))
+
+
+def test_special_form_if() -> None:
+    """'(if cond then else)' parses into If(cond, then, else_)."""
+    res = parse("(if true 1 2)")
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == If(BoolLit(True), IntLit(1), IntLit(2))
+
+
+def test_special_form_and() -> None:
+    """'(and a b)' parses into And(l, r)."""
+    res = parse("(and true false)")
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == And(BoolLit(True), BoolLit(False))
+
+
+def test_special_form_or() -> None:
+    """'(or a b)' parses into Or(l, r)."""
+    res = parse("(or false true)")
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == Or(BoolLit(False), BoolLit(True))
+
+
+def test_special_form_sorry() -> None:
+    """'(sorry \"reason\")' parses into Sorry(StrLit(reason))."""
+    res = parse('(sorry "proof pending")')
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == Sorry(StrLit("proof pending"))
+
+
+def test_special_form_grant() -> None:
+    """'(grant cap...)' parses into Grant([Sym...])."""
+    res = parse("(grant io net)")
+    assert res.ok
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == Grant([Sym("io"), Sym("net")])
+
+
+# ---------------------------------------------------------------------------
+# Primitive calls & list open-arity
+# ---------------------------------------------------------------------------
+
+
+def test_primitive_calls_correct_arity() -> None:
+    """All declared primitives with matching operand counts parse into Call nodes."""
+    primitives_code = """
+    (+ 1 2)
+    (- 10 5)
+    (* 2 3)
+    (/ 10 2)
+    (quot 7 2)
+    (rem 7 2)
+    (== 1 1)
+    (!= 1 2)
+    (< 1 2)
+    (<= 1 1)
+    (> 2 1)
+    (>= 2 2)
+    (not true)
+    (cons 1 nil)
+    (head (list 1))
+    (tail (list 1))
+    (is-nil nil)
+    (len (list 1 2))
+    (nth (list 1 2) 0)
+    (str-cat "a" "b")
+    (str-len "abc")
+    (int->str 42)
+    (str->int "42")
+    (int->float 10)
+    (print "hello")
+    """
+    res = parse(primitives_code)
+    assert res.ok
+    assert len(res.program.forms) == 25
+    assert all(isinstance(f, Call) for f in res.program.forms)
+
+
+def test_list_open_arity_zero_to_n() -> None:
+    """'list' is the only open-arity form in v0.1 and parses into ListLit."""
+    # 0 items
+    res0 = parse("(list)")
+    assert res0.ok
+    assert res0.program.forms == [ListLit([])]
+
+    # 1 item
+    res1 = parse("(list 42)")
+    assert res1.ok
+    assert res1.program.forms == [ListLit([IntLit(42)])]
+
+    # Multiple items of heterogeneous types
+    res5 = parse('(list 1 2.5 "str" true nil)')
+    assert res5.ok
+    assert res5.program.forms == [
+        ListLit([
+            IntLit(1),
+            FloatLit(2.5),
+            StrLit("str"),
+            BoolLit(True),
+            NilLit(),
+        ])
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Arity violation voice, coordinates, and error diagnostics
+# ---------------------------------------------------------------------------
+
+
+def test_arity_violation_arithmetic_reports_exact_coordinates() -> None:
+    """Binary operator '+' given 3 operands triggers prosecutorial arity error."""
+    res = parse("(+ 1 2 3)")
+    assert not res.ok
+    assert len(res.errors) == 1
+    err = res.errors[0]
+    assert "expects" in err.message
+    assert "'+' expects 2 operand(s), found 3" in err.message
+    assert err.line == 1
+    assert err.col == 2
+    assert str(err) == "line 1, col 2: '+' expects 2 operand(s), found 3"
+
+
+def test_arity_violation_if() -> None:
+    """Ternary 'if' given 2 operands triggers arity error with position."""
+    res = parse("  (if 1 2)")
+    assert not res.ok
+    assert len(res.errors) == 1
+    err = res.errors[0]
+    assert "expects" in err.message
+    assert "'if' expects 3 operand(s), found 2" in err.message
+    assert err.line == 1
+    assert err.col == 4
+
+
+def test_unknown_head_rejected() -> None:
+    """Head symbol not in arity table and not a user defn is rejected."""
+    res = parse("(unknown-head 1 2)")
+    assert not res.ok
+    assert any("unknown head 'unknown-head'" in e.message for e in res.errors)
+    assert res.errors[0].line == 1
+    assert res.errors[0].col == 2
+
+
+# ---------------------------------------------------------------------------
+# Structural constraints
+# ---------------------------------------------------------------------------
+
+
+def test_reserved_head_redefinition_def() -> None:
+    """Cannot redefine a reserved head using 'def'."""
+    res = parse("(def if 1)")
+    assert not res.ok
+    assert any("is a reserved head and cannot be redefined with 'def'" in e.message for e in res.errors)
+
+    res2 = parse("(def + 5)")
+    assert not res2.ok
+    assert any("is a reserved head and cannot be redefined with 'def'" in e.message for e in res2.errors)
+
+
+def test_reserved_head_redefinition_defn() -> None:
+    """Cannot redefine a reserved head using 'defn'."""
+    res = parse("(defn list (x) x)")
+    assert not res.ok
+    assert any("is a reserved head and cannot be redefined with 'defn'" in e.message for e in res.errors)
+
+    res2 = parse("(defn and (a b) a)")
+    assert not res2.ok
+    assert any("is a reserved head and cannot be redefined with 'defn'" in e.message for e in res2.errors)
+
+
+def test_def_non_symbol_first_arg_rejected() -> None:
+    """'def' requires a symbol name as first operand."""
+    res = parse("(def 42 10)")
+    assert not res.ok
+    assert any("'def' requires a symbol name, found INT" in e.message for e in res.errors)
+
+
+def test_defn_non_symbol_first_arg_rejected() -> None:
+    """'defn' requires a symbol name as first operand."""
+    res = parse("(defn 42 (x) x)")
+    assert not res.ok
+    assert any("'defn' requires a symbol name, found INT" in e.message for e in res.errors)
+
+
+def test_let_non_symbol_first_arg_rejected() -> None:
+    """'let' requires a symbol name as first operand."""
+    res = parse("(let (x) 10 x)")
+    assert not res.ok
+    assert any("'let' requires a symbol name, found nested form" in e.message for e in res.errors)
+
+
+def test_defn_param_list_not_a_group() -> None:
+    """'defn' parameter list must be parenthesized."""
+    res = parse("(defn f x x)")
+    assert not res.ok
+    assert any("'defn' parameter list must be a parenthesized group" in e.message for e in res.errors)
+
+
+def test_defn_params_must_be_symbols() -> None:
+    """All items in 'defn' parameter group must be symbols."""
+    res = parse("(defn f (x 1) x)")
+    assert not res.ok
+    assert any("parameters must be symbols, found INT" in e.message for e in res.errors)
+
+
+def test_fn_param_list_not_a_group() -> None:
+    """'fn' parameter list must be parenthesized."""
+    res = parse("(fn x x)")
+    assert not res.ok
+    assert any("'fn' parameter list must be a parenthesized group" in e.message for e in res.errors)
+
+
+def test_fn_params_must_be_symbols() -> None:
+    """All items in 'fn' parameter group must be symbols."""
+    res = parse('(fn (x "bad") x)')
+    assert not res.ok
+    assert any("parameters must be symbols, found STRING" in e.message for e in res.errors)
+
+
+def test_defn_and_fn_duplicate_params_enforced() -> None:
+    """Duplicate parameter names in defn or fn are strictly rejected in v0.1."""
+    res1 = parse("(defn f (x x) x)")
+    assert not res1.ok
+    assert any("duplicate parameter 'x'" in e.message for e in res1.errors)
+
+    res2 = parse("(fn (a b a) (+ a b))")
+    assert not res2.ok
+    assert any("duplicate parameter 'a'" in e.message for e in res2.errors)
+
+
+def test_sorry_non_string_rejected() -> None:
+    """'sorry' requires a string literal reason."""
+    res = parse("(sorry 42)")
+    assert not res.ok
+    assert any("'sorry' requires a string literal reason" in e.message for e in res.errors)
+
+    res2 = parse("(sorry (list 1))")
+    assert not res2.ok
+    assert any("'sorry' requires a string literal reason" in e.message for e in res2.errors)
+
+
+def test_grant_nested_rejected() -> None:
+    """'grant' is forbidden inside functions or subforms."""
+    res = parse("(defn f (x) (grant io))")
+    assert not res.ok
+    assert any("'grant' is only valid at top level, not nested" in e.message for e in res.errors)
+
+
+def test_grant_non_symbol_operand_rejected() -> None:
+    """Operands of 'grant' must all be symbols."""
+    res = parse("(grant 123)")
+    assert not res.ok
+    assert any("'grant' requires symbol operands, found INT" in e.message for e in res.errors)
+
+    res2 = parse('(grant "io")')
+    assert not res2.ok
+    assert any("'grant' requires symbol operands, found STRING" in e.message for e in res2.errors)
+
+
+def test_grant_zero_operands_violates_arity() -> None:
+    """'(grant)' with 0 operands violates declared arity [1, null]."""
+    res = parse("(grant)")
+    assert not res.ok
+    assert any("'grant' expects at least 1 operand(s), found 0" in e.message for e in res.errors)
+
+
+# ---------------------------------------------------------------------------
+# S-expression grouping & paren errors
+# ---------------------------------------------------------------------------
+
+
+def test_top_level_bare_token_rejected() -> None:
+    """Bare tokens at top level outside any form are rejected."""
+    res = parse("42")
+    assert not res.ok
+    assert any("token '42' outside any form (top level must be forms)" in e.message for e in res.errors)
+    assert res.errors[0].line == 1
+    assert res.errors[0].col == 1
+
+
+def test_unclosed_paren_reports_position() -> None:
+    """Unclosed '(' reports exact opening line and column."""
+    res = parse("(def x 1")
+    assert not res.ok
+    assert any("'(' opened here is never closed" in e.message for e in res.errors)
+    assert res.errors[0].line == 1
+    assert res.errors[0].col == 1
+
+
+def test_stray_paren_reports_position() -> None:
+    """Stray ')' with no matching '(' reports exact position."""
+    res = parse(")\n(def x 1)")
+    assert not res.ok
+    assert any("stray ')' with no matching '('" in e.message for e in res.errors)
+    assert res.errors[0].line == 1
+    assert res.errors[0].col == 1
+
+
+def test_empty_form_rejected() -> None:
+    """Empty form '()' is rejected."""
+    res = parse("()")
+    assert not res.ok
+    assert any("empty form '()' is not valid" in e.message for e in res.errors)
+
+
+def test_form_head_must_be_symbol() -> None:
+    """Form head must be a symbol, not a literal or nested form."""
+    res1 = parse("(1 2)")
+    assert not res1.ok
+    assert any("form head must be a symbol, found INT '1'" in e.message for e in res1.errors)
+
+    res2 = parse("((fn (x) x) 1)")
+    assert not res2.ok
+    assert any("form head must be a symbol, not a nested form" in e.message for e in res2.errors)
+
+
+# ---------------------------------------------------------------------------
+# Error accumulation & multi-error collection
+# ---------------------------------------------------------------------------
+
+
+def test_multiple_errors_collected_in_one_file() -> None:
+    """Parser accumulates all errors across the file without early exit."""
+    src = """
+    (+ 1 2 3)
+    (if 1 2)
+    (def 5 5)
+    (sorry 99)
+    """
+    res = parse(src)
+    assert not res.ok
+    assert len(res.errors) >= 4
+
+
+def test_lexer_fatal_error_aborts_with_parse_error() -> None:
+    """Lexer error (e.g. unterminated string) aborts parsing and converts to ParseError."""
+    res = parse('(def s "unterminated string)')
+    assert not res.ok
+    assert len(res.errors) == 1
+    assert "unterminated string literal" in res.errors[0].message
+    assert res.errors[0].line == 1
+    assert res.errors[0].col == 8
+
+
+# ---------------------------------------------------------------------------
+# User defn registry, forward references, and user function calls
+# ---------------------------------------------------------------------------
+
+
+def test_defn_registry_populated_with_param_counts() -> None:
+    """Top-level defns register their parameter counts in defn_registry."""
+    src = """
+    (defn zero () 0)
+    (defn unary (x) x)
+    (defn binary (x y) (+ x y))
+    """
+    res = parse(src)
+    assert res.ok
+    assert res.defn_registry == {"zero": 0, "unary": 1, "binary": 2}
+    assert res.defns == {"zero": 0, "unary": 1, "binary": 2}
+
+
+def test_calls_to_defn_become_call_nodes() -> None:
+    """Calls to user defns become Call nodes with exact head and args."""
+    src = """
+    (defn double (x) (+ x x))
+    (def answer (double 21))
+    """
+    res = parse(src)
+    assert res.ok
+    assert len(res.program.forms) == 2
+    assert res.program.forms[1] == Def(Sym("answer"), Call("double", [IntLit(21)]))
+
+
+def test_user_defn_call_arity_checked() -> None:
+    """Calls to user-defined functions enforce declared arity."""
+    src = """
+    (defn add2 (x y) (+ x y))
+    (add2 1)
+    (add2 1 2 3)
+    """
+    res = parse(src)
+    assert not res.ok
+    assert len(res.errors) == 2
+    assert any("'add2' expects 2 operand(s) (declared by defn), found 1" in e.message for e in res.errors)
+    assert any("'add2' expects 2 operand(s) (declared by defn), found 3" in e.message for e in res.errors)
+
+
+def test_forward_reference_to_defn_allowed() -> None:
+    """Calls to functions declared later in the file are verified upfront."""
+    src = """
+    (def a (g 1))
+    (defn g (x) x)
+    """
+    res = parse(src)
+    assert res.ok
+    assert res.defn_registry == {"g": 1}
+    assert res.program.forms[0] == Def(Sym("a"), Call("g", [IntLit(1)]))
+
+
+# ---------------------------------------------------------------------------
+# Nested forms & full program parsing (basics.sl)
+# ---------------------------------------------------------------------------
+
+
+def test_nested_lets_and_ifs_ast_shape() -> None:
+    """Nested let bindings and if branches produce expected hierarchical AST nodes."""
+    src = """
+    (let a 1
+      (let b 2
+        (if (== a b)
+            0
+            (+ a b))))
+    """
+    res = parse(src)
+    assert res.ok
+    expected = Let(
+        Sym("a"),
+        IntLit(1),
+        Let(
+            Sym("b"),
+            IntLit(2),
+            If(
+                Call("==", [Sym("a"), Sym("b")]),
+                IntLit(0),
+                Call("+", [Sym("a"), Sym("b")]),
+            ),
+        ),
+    )
+    assert len(res.program.forms) == 1
+    assert res.program.forms[0] == expected
+
+
+def test_basics_sl_parses_completely_clean() -> None:
+    """Canonical examples/basics.sl parses with zero errors and matches expected shape."""
+    basics_path = ROOT / "examples" / "basics.sl"
+    src = basics_path.read_text(encoding="utf-8")
+    res = parse(src)
+    assert res.ok
+    assert len(res.errors) == 0
+    # basics.sl defines 17 top-level forms: 14 def + 3 defn + 1 let + 1 sorry + 1 grant
+    assert len(res.program.forms) == 17
+    assert "clamp" in res.defn_registry
+    assert res.defn_registry["clamp"] == 1
+    assert "sum-to" in res.defn_registry
+    assert res.defn_registry["sum-to"] == 2
+    assert "fib" in res.defn_registry
+    assert res.defn_registry["fib"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Prosecutor regression tests (added after antigravity-reviewer audit):
+# honesty-model holes that the original suite missed.
+# ---------------------------------------------------------------------------
+
+
+def test_let_cannot_shadow_reserved_heads() -> None:
+    """(let if 5 ...) is rejected: let binds symbols, not reserved heads."""
+    res = parse("(let if 5 (+ if 1))")
+    assert not res.ok
+    assert any("reserved head" in e.message for e in res.errors)
+
+
+def test_let_cannot_shadow_primitives() -> None:
+    """(let + 10 ...) is rejected like def/defn."""
+    res = parse("(let + 10 (+ + 1))")
+    assert not res.ok
+    assert any("reserved head" in e.message for e in res.errors)
+
+
+def test_def_cannot_be_nested() -> None:
+    """(def a (def b 2)) is rejected: def is top-level only."""
+    res = parse("(def a (def b 2))")
+    assert not res.ok
+    assert any("only valid at top level" in e.message for e in res.errors)
+
+
+def test_defn_cannot_be_nested_in_expression() -> None:
+    """(+ 1 (defn f (x) x)) is rejected: defn is top-level only."""
+    res = parse("(+ 1 (defn f (x) x))")
+    assert not res.ok
+    assert any("only valid at top level" in e.message for e in res.errors)
+
+
+def test_duplicate_top_level_defn_reported() -> None:
+    """Duplicate defn is a prosecutorial error, not silent overwrite."""
+    src = "(defn add (x) (+ x 1))\n(defn add (x y) (+ x y))"
+    res = parse(src)
+    assert not res.ok
+    assert any("duplicate defn 'add'" in e.message for e in res.errors)
+    # Last declaration still wins the registry for mechanical determinism
+    assert res.defn_registry["add"] == 2
+
+
+def test_symbol_cannot_start_with_hyphen() -> None:
+    """-foo and -> are invalid tokens per spec; lone '-' remains the operator."""
+    with pytest.raises(LexError):
+        tokenize("-foo")
+    with pytest.raises(LexError):
+        tokenize("->")
+    # lone '-' is still a valid SYMBOL head
+    toks = tokenize("(- 5 2)")
+    assert any(t.kind == "SYMBOL" and t.value == "-" for t in toks)
