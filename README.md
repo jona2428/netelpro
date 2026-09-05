@@ -1,7 +1,10 @@
 # Netelpro
 
 **A programming language for LLMs — honest, semantic, universal.**
-*(formerly Straylight; final name decision pending — see [Status](#status))*
+
+[![CI](https://github.com/jona2428/netelpro/actions/workflows/ci.yml/badge.svg)](https://github.com/jona2428/netelpro/actions/workflows/ci.yml)
+
+*(formerly Straylight — Netelpro: **NE**uron **TEO** **L**anguage **PRO**gramming)*
 
 Netelpro is a programming language written by LLMs and audited by a compiler that behaves as a prosecutor. Its grammar is engineered so that an LLM can verify its own syntax mechanically: every form is `(head arg1 arg2 ...)` with a declared arity, so checking a form means counting the operands between the head and the closing parenthesis. Counting is a mechanical operation an LLM performs reliably; simulating a recursive-descent parser is not.
 
@@ -101,6 +104,6 @@ The Phase 6 use case, `examples/gate_rule.sl` — a Neuromancer gate rule as a c
 ## Status
 
 - **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md); machine-consumed arity table at `spec/arity_table.json`.
-- **Privacy:** private repository until the first alpha — public release is a decision of the repo owner.
-- **History:** 8 commits of verified history; every claim in the spec is backed by the test suite (`tests/`, 304 tests) and the examples (`examples/`).
+- **Release:** v0.1.0 tagged. In production: the Netelpro rule gate decides the Neuromancer agent's zone policy (compiled native rule, differential-tested).
+- **History:** every claim in the spec is backed by the test suite (`tests/`, 304 tests) and the examples (`examples/`).
 - **Deliberate v0.1 limits** (documented, not accidental): the compiled subset is `Int`/`Bool`; recursion must be tail-recursive to compile; no first-class functions; capabilities are file-scoped (`{io}`).
