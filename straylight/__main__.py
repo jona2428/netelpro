@@ -13,6 +13,7 @@ from straylight.evaluator import (
     is_nil,
 )
 from straylight.caps import check_capabilities, collect_grants
+from straylight.holes import check_holes
 from straylight.parser import parse
 
 
@@ -49,6 +50,19 @@ def main(argv: list[str] | None = None) -> int:
         for err in cap_errors:
             print(str(err), file=sys.stderr)
         return 1
+
+    # Phase 4: static hole prosecution — sorry manifest is emitted, never hidden.
+    hole_errors, hole_manifest = check_holes(parse_result.program)
+    if hole_errors:
+        for err in hole_errors:
+            print(str(err), file=sys.stderr)
+        return 1
+    if hole_manifest:
+        for hole in hole_manifest:
+            print(
+                f"hole: line {hole['line']}, col {hole['col']}: (sorry \"{hole['reason']}\")",
+                file=sys.stderr,
+            )
 
     try:
         val = evaluate(parse_result.program)

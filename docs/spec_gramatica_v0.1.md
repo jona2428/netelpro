@@ -9,7 +9,7 @@ Straylight is a programming language written **by** LLMs and **audited by** a co
 1. **Prefixed, fixed arity.** Every form is `(head arg1 arg2 ...)`. Every head has a declared arity. To check a form, the writer counts operands between the head and the closing parenthesis. Counting is a mechanical operation an LLM performs reliably; simulating a recursive-descent parser is not.
 2. **One exception, declared, still mechanical.** `list` is the only open-arity form. Its arity is closed by `)` itself, so counting still terminates the form. No other variadic head exists in v0.1.
 3. **Zero human ceremony.** No imports, no class boilerplate, no type annotations at use sites. Every token carries meaning.
-4. **Reserved grammar for the prosecutor.** `sorry` and `grant` are part of the grammar from v0.1 even though their enforcement lands in Phases 4 and 3. The syntax cannot be invented later; the honesty model must fit from day one.
+4. **Reserved grammar for the prosecutor.** `sorry` and `grant` are part of the grammar from v0.1; their static enforcement is established in Phase 3 (capabilities) and Phase 4 (holes). The syntax cannot be invented later; the honesty model must fit from day one.
 
 ## 2. Lexical grammar
 
@@ -77,7 +77,9 @@ Reasons:
 
 ## 8. Out of scope for v0.1
 
-Macros, modules/imports, records/maps, pattern matching, generics, effects, lazy evaluation, `do`. Each enters only when a phase requires it, and each must be expressible with fixed arity or an explicitly declared open-arity form.## 9. Phase 1 implementation notes (prosecutor tightened)
+Macros, modules/imports, records/maps, pattern matching, generics, effects, lazy evaluation, `do`. Each enters only when a phase requires it, and each must be expressible with fixed arity or an explicitly declared open-arity form.
+
+## 9. Phase 1 implementation notes (prosecutor tightened)
 
 Phase 1 delivered the full frontend: `straylight/lexer.py` (tokenizer), `straylight/ast_nodes.py` (frozen typed AST), `straylight/parser.py` (recursive-descent parser + mechanical arity validation). 94 tests green.
 
@@ -91,7 +93,9 @@ The parser is deliberately STRICTER than `tools/check_arity.py`. Documented dive
 
 Deferred to Phase 1.5 (reviewer findings, non-blocking): composite AST nodes use mutable `list` fields — unhashable, fine for current passes; will become tuples if/when AST sets are needed. `let` re-binding of a *user* defn name in an inner scope is currently accepted (lexical shadowing) — revisit when the evaluator lands (Phase 2).
 
-Design call of record: literal nodes are separate subclasses (IntLit/FloatLit/StrLit/BoolLit/NilLit) instead of a kind-tagged Lit — `bool` is a subclass of `int` in Python and a single Lit node would need runtime value inspection; separate classes keep every pass type-safe by construction.## 10. Phase 2 implementation notes (evaluator semantics — design decisions of record)
+Design call of record: literal nodes are separate subclasses (IntLit/FloatLit/StrLit/BoolLit/NilLit) instead of a kind-tagged Lit — `bool` is a subclass of `int` in Python and a single Lit node would need runtime value inspection; separate classes keep every pass type-safe by construction.
+
+## 10. Phase 2 implementation notes (evaluator semantics — design decisions of record)
 
 Phase 2 delivered the tree-walking evaluator (`straylight/evaluator.py`), CLI (`straylight/__main__.py`), and a 163-test suite (94 frontend + 69 evaluator). All green.
 
@@ -118,8 +122,65 @@ Phase 3 delivered static capability enforcement (`straylight/caps.py`), compiler
 
 Design decisions of record:
 1. **Capability set v0.1 = `{"io"}`**: The only capability-requiring primitive in v0.1 is `print` (requires `io`). Known capabilities and per-primitive requirements are declared in `spec/arity_table.json` (`known_capabilities` object + `capabilities` arrays on primitives) and derived at runtime by `straylight/caps.py` (`_derive_capabilities_from_table`). Declaring an unknown capability in a `(grant ...)` form is a compile error.
-2. **Enforcement is a SEPARATE static compiler pass (`straylight/caps.py`)**: Full recursive AST walk (`check_capabilities`), aggregating parser-style `CapError` diagnostics with exact line/col coordinates rather than failing fast. Integrated in `straylight/__main__.py` strictly AFTER `parse` and BEFORE `evaluate`: un-granted IO is a COMPILE error — the program never starts.
+2. **Enforcement is a SEPARATE static compiler pass (`straylight/caps.py`)**: Full recursive AST walk (`check_capabilities`), aggregating parser-style `CapError` diagnostics with exact line/col coordinates rather than failing fast. Integrated in `straylight/__main__.py` within the compilation pipeline (`parse -> caps check -> holes check -> evaluate`): strictly AFTER `parse` and BEFORE `holes check`: un-granted IO is a COMPILE error — the program never starts.
 3. **File-wide grants**: The granted set is the union of all top-level `(grant ...)` forms across the translation unit (`collect_grants`); no per-function effect tracking in v0.1 (upgrade path: per-function effect typing when first needed).
 4. **No-first-class-calls makes the analysis fully static**: `Call.head` is a plain string, so every capability-requiring site is known at compile time without evaluating anything.
 5. **Defense-in-depth**: The evaluator also carries the capability set (threaded through `eval_loop` and `_exec_primitive`), and `print` raises `StrayRuntimeError` if `io` is not granted — protects direct-API users who skip the static pass. The static pass remains THE enforcement.
-6. **`sorry` semantics untouched**: Reaching a `sorry` form continues to evaluate as a runtime hole (`StrayHoleError`); static hole verification is reserved for Phase 4 scope.
+6. **`sorry` semantics & static verification**: Reaching a `sorry` form continues to evaluate as a runtime hole (`StrayHoleError`); static hole verification is now enforced in Phase 4 (`straylight/holes.py`, Section 12), ensuring all callable heads resolve statically while explicit `(sorry "reason")` forms compile clean and are recorded in the compile holes manifest.
+
+## 12. Static Hole Prosecution (Phase 4)
+
+Phase 4 delivers static hole prosecution (`straylight/holes.py`), eliminating silent unimplemented stubs and unresolved call targets before evaluation begins. The compiler acts as a prosecutor: code cannot silently reference undefined identifiers or leave missing logic without explicit, machine-auditable declaration.
+
+### 12.1 The Law of Resolution (No Silent Holes)
+
+Every callable head in an invocation `(head arg1 arg2 ...)` must resolve to one of:
+1. A built-in primitive or special form declared in `spec/arity_table.json`.
+2. A top-level function definition (`defn`) — the ONLY user-defined legal head.
+
+Anything else is a **silent hole**, rejected at PARSE time by the parser fiscal with exact
+coordinates (not by `holes.py` — by parse itself):
+
+```
+line 4, col 16: unknown head 'missing-fn' (not in the arity table and not a declared defn)
+```
+
+Verified 2026-09-05 (parser probes): heads that are `def`-bound values, `fn`/`defn` parameters,
+or `let` bindings are ALSO rejected ("unknown head 'f'"). No first-class calls in v0.1 (§9.1) —
+the Phase 2 closure suite exercises closures only via `defn` bodies capturing the global
+environment, never as call heads.
+
+### 12.2 Explicit Holes: `(sorry "reason")`
+
+The special form `(sorry "reason")` is the **only legal way** to leave an expression or branch unimplemented in Straylight:
+- **Compile-time validity**: A `sorry` form compiles clean and satisfies all static checks.
+- **Holes manifest**: All explicit `sorry` holes are collected during static analysis into a manifest recording `(line, col, reason)`. When holes are present, the CLI emits this manifest to `stderr`, making incomplete implementations transparent and mechanically auditable by external tooling and LLM supervisors.
+- **Runtime semantics**: If execution reaches a `sorry` form at runtime, evaluation immediately halts and raises `StrayHoleError(reason, line, col)`.
+
+### 12.3 Scoping, Declarations, and Forward References
+
+1. **Two-pass declaration collection**: Top-level declaration collection strictly precedes expression inspection. Consequently, forward references and mutual recursion among top-level `defn` forms are fully legal and resolve cleanly regardless of declaration order in the source file.
+2. **Duplicate top-level declarations**: Duplicate top-level declarations (`def` or `defn` collisions) are rejected as compile-time errors. No top-level definition may silently overwrite or shadow another.
+3. **Lexical scoping**: Local `let` bindings and `fn` parameter lists shadow outer bindings within their lexical scope, adhering to standard lexical scoping rules.
+
+### 12.4 Limitation of Record (v0.1)
+
+Documented honestly, verified 2026-09-05: the limitation drafted earlier
+("(def x 5) then (x 1) passes the static check, fails at runtime") is FALSE —
+the parser fiscal rejects it at PARSE time ("unknown head 'x'"). Phase 1 was already
+harder than planned: the silent-hole law was de facto enforced from the start,
+with `holes.py` contributing the sorry manifest on top. What remains for future
+phases: first-class function heads (fn params / let bindings as callable heads —
+currently impossible by design, §9.1) and full type-level callability checking.
+
+### 12.5 Compiler Pipeline Order
+
+Static passes are arranged sequentially in `straylight/__main__.py` to guarantee deterministic, fail-fast verification before evaluation:
+
+$$\text{parse} \longrightarrow \text{caps check} \longrightarrow \text{holes check} \longrightarrow \text{evaluate}$$
+
+1. **`parse` (`straylight/parser.py`)**: Tokenization, AST construction, syntax verification, and mechanical arity validation against `spec/arity_table.json`. Fails on syntax or arity errors.
+2. **`caps check` (`straylight/caps.py`)**: Static capability verification. Ensures effectful primitives (e.g. `print` requiring `io`) have matching top-level `(grant ...)` declarations. Un-granted capabilities trigger compile-time `CapError`.
+3. **`holes check` (`straylight/holes.py`)**: Static hole prosecution. Verifies that all callable heads resolve to known primitives, top-level definitions, or lexical bindings; rejects duplicate top-level declarations; and extracts explicit `(sorry "reason")` holes into the compilation manifest emitted on `stderr`. Unresolved heads trigger compile-time `HoleError`.
+4. **`evaluate` (`straylight/evaluator.py`)**: Tree-walking evaluation with tail-call optimization and runtime defense-in-depth. Executed only if all preceding static passes succeed.
+
