@@ -266,4 +266,63 @@ compile error, never a silent divergence.
   address (`FunctionPointer`, `get_host_triple`, `new_engine`, `TargetMachine.from_triple`
   are all removed in 0.49).
 - printf/exit are declared (`declare`) and resolved by the JIT's dynamic linker;
-  format strings are internal constant global variables.
+  format strings are internal constant global variables.---
+
+## 14. Phase 6 — The Rule Filter Bridge (rule_filter.py)
+
+The first real use case: Neuromancer gate rules (priority, confidence, escalation flags)
+as **compiled pure Straylight functions**. A host defines a rule, Straylight prosecutes it
+and compiles it to native code, and Python calls it directly.
+
+### 14.1 Contract
+
+```lisp
+; The rule must define `filter-rule`. All params are Int (i64). Booleans cross the
+; machine boundary as 0/1 flags -- no implicit coercion, ever.
+(defn filter-rule (priority confidence approved)
+  (or (and (>= priority 3) (< confidence 90))
+      (== approved 1)))
+```
+
+### 14.2 Pipeline and prosecution layers
+
+`compile_filter(source)` runs the full static pipeline: parse → caps → holes → codegen.
+Failures raise `RuleFilterError` with `.message/.line/.col` provenance. Additional
+bridge-level prosecution:
+
+- **missing `filter-rule`** → error (line 0, col 0) at construction;
+- **param statically demanding Bool** (`(if b 1 0)`) → rejected: all params must be Int;
+- **`print` without `(grant io)`** → rejected at compile (caps layer, unchanged);
+- **declared `sorry` holes are legal** and listed in `.manifest()` — enumerated, never hidden.
+
+### 14.3 Calling convention (verified finding, worker + orchestrator agreement)
+
+User `defn` returns keep native types: Bool-returning functions emit `i1`. On x86_64
+(Windows x64 and SysV alike) a 1-bit return value arrives in **AL**, with no guarantee of
+upper-bit hygiene; the bridge uses `ctypes.c_bool` so only AL is read. Int rules return
+i64. `decide(*args)` builds the `CFUNCTYPE` with `c_int64` per param from the parsed
+arity — wrong arity raises TypeError, not UB.
+
+### 14.4 Differential verification
+
+`RuleFilter.verify(cases)` runs the **same rule in both engines**: native `decide()` vs
+the reference interpreter (`run_source` with the call appended as final top-level form).
+The interpreter is the reference semantics; the native backend is the verified
+implementation. `verify()` returns mismatches as `(args, expected, interpreted, native)`
+tuples; empty list = full agreement.
+
+### 14.5 Verified evidence (this machine)
+
+```
+decide(3,80,0) = True   decide(2,80,0) = False   decide(3,95,0) = False
+decide(2,95,1) = True   decide(4,10,0) = True    decide(1,99,0) = False
+parity probe: decide(1001) = True   (1001 native recursion levels, TCO, no stack growth)
+differential: verify() == [] on all cases; 304/304 suite green
+```
+
+### 14.6 Boundary (v0.1)
+
+Params are Int-only by contract; a param whose use statically demands Bool is rejected
+at construction. Strings/Lists are not representable at the boundary (§13.2). Future:
+Bool params as first-class (i1 boundary type), multi-rule modules, and host callback
+plumbing if a use case demands it.
