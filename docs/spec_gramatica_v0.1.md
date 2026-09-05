@@ -184,3 +184,86 @@ $$\text{parse} \longrightarrow \text{caps check} \longrightarrow \text{holes che
 3. **`holes check` (`straylight/holes.py`)**: Static hole prosecution. Verifies that all callable heads resolve to known primitives, top-level definitions, or lexical bindings; rejects duplicate top-level declarations; and extracts explicit `(sorry "reason")` holes into the compilation manifest emitted on `stderr`. Unresolved heads trigger compile-time `HoleError`.
 4. **`evaluate` (`straylight/evaluator.py`)**: Tree-walking evaluation with tail-call optimization and runtime defense-in-depth. Executed only if all preceding static passes succeed.
 
+
+## 13. Native Backend (Phase 5): LLVM via llvmlite
+
+Status: verified 2026-09-05 on Windows x86-64 (llvmlite 0.49.0). The native backend is a
+**strict subset compiler**: it accepts only programs whose values are representable in
+machine words and rejects everything else with prosecutorial `CodegenError` diagnostics
+carrying exact source coordinates. No silent fallbacks, no dynamic reinterpretation.
+
+### 13.1 Compiled Subset
+
+| Straylight | Native representation |
+|---|---|
+| `Int` | `i64` (LLVM signed 64-bit) |
+| `Bool` | `i1` (zext'd to `i64` only at `main` return) |
+| `+`, `-`, `*` | `i64` add/sub/mul (Int×Int→Int) |
+| `quot`, `rem` | `sdiv`/`srem` — truncation semantics VERIFIED to match the interpreter in all 4 sign combinations (differential tests) |
+| `<`, `<=`, `>`, `>=`, `==`, `!=` | `icmp signed` → `i1` |
+| `not` | `xor i1 1` |
+| `if`, `and`, `or`, `let` | SSA branches/phis; and/or short-circuit with merge blocks |
+| `print` | call to `printf("%lld\n")` — requires `(grant io)` enforced at compile time |
+| `defn` | native LLVM function (name-collision-safe: `main` becomes `__sl_user_main__`) |
+| self tail-call | **TCO back-edge**: params re-stored into alloca slots + branch to loop header — `sum-to 100000` and `count 500000` run in constant stack space |
+| non-tail call | direct native `call` (recursion compiles; depth bounded by the machine stack, as in the interpreter) |
+| division by zero | explicit zero check → prints `runtime error: division by zero` and `exit(1)` |
+
+### 13.2 Rejected at Codegen (Compile Errors, Exact Coordinates)
+
+`FloatLit`, `StrLit`, `NilLit`, `ListLit`, `Fn` (anonymous), `Sorry`, `/` (returns Float),
+all List/Str primitives (`cons head tail is-nil len nth str-cat str-len int->str str->int
+int->float`), `def` of a non-literal value, undefined symbols, and any type conflict
+found by the type-inference pass. **Type inference is bidirectional** (TypeVar
+unification): parameter types are inferred from call-sites, so `(defn f (n) (if n 1 2))`
+compiles alone (n: Bool) and the conflict fires at the incompatible call-site —
+the prosecutor reports it there, with coordinates.
+
+### 13.3 Prosecution Stages (the honest map)
+
+Errors surface at the EARLIEST stage that can see them — verified, not assumed:
+
+```
+parse  →  caps  →  holes  →  codegen  →  JIT run
+```
+
+- **parse**: first-class calls, primitive/defn arity mismatches, reserved-head redefinitions.
+- **caps**: un-granted `io` for `print` (both backends).
+- **holes**: sorry manifest; executing a hole raises `StrayHoleError` (interpreter) —
+  in the native backend a reached `sorry` is a compile error (a hole cannot produce a
+  native artifact; the manifest already warned).
+- **codegen**: everything in §13.2.
+
+### 13.4 Differential Testing Contract
+
+`tests/test_codegen.py` (80 tests) implements the language's thesis on itself: every
+compiled program is executed in BOTH engines and the results must agree exactly
+(`assert_agree`). The interpreter is the reference semantics; the native backend is
+the verified implementation. Coverage: arithmetic (incl. all sign combinations of
+quot/rem), comparisons, short-circuit logic, let-chains, def-literals, defn calls,
+forward refs, mutual recursion, fib(15), TCO at 100k/500k depth, print via real fd 1
+(subprocess), JIT artifact reuse, and every rejection of §13.2 with stage assertions.
+
+### 13.5 CLI
+
+```
+python -m straylight <file.sl>           # interpreter (default)
+python -m straylight --native <file.sl>  # LLVM native backend (same static passes)
+```
+
+`--native` runs parse → caps → holes → codegen → JIT. Static passes are IDENTICAL for
+both backends — only the execution engine differs. A program that runs interpreted
+but cannot compile natively is a documented v0.1 boundary (see §13.2), reported as a
+compile error, never a silent divergence.
+
+### 13.6 Implementation Notes (verified on this machine, llvmlite 0.49.0)
+
+- LLVM target registration is explicit: `initialize_native_target()` +
+  `initialize_native_asmprinter()` (the "automatic initialization" of 0.49 covers the
+  core only, NOT the backends).
+- JIT construction: `Target.from_default_triple().create_target_machine(opt=2)` →
+  `create_mcjit_compiler(module, tm)`; native calls via `ctypes.CFUNCTYPE` on the raw
+  address (`FunctionPointer`, `get_host_triple`, `new_engine`, `TargetMachine.from_triple`
+  are all removed in 0.49).
+- printf/exit are declared (`declare`) and resolved by the JIT's dynamic linker;
+  format strings are internal constant global variables.
