@@ -31,7 +31,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from straylight.ast_nodes import (
+from netelpro.ast_nodes import (
     And,
     BoolLit,
     Call,
@@ -51,8 +51,8 @@ from straylight.ast_nodes import (
     StrLit,
     Sym,
 )
-from straylight.lexer import LexError, tokenize
-from straylight.parser import ParseError, ParseResult, Parser, parse
+from netelpro.lexer import LexError, tokenize
+from netelpro.parser import ParseError, ParseResult, Parser, parse
 
 
 # ---------------------------------------------------------------------------

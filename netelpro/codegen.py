@@ -52,7 +52,7 @@ from typing import Any
 import llvmlite.binding as llb
 import llvmlite.ir as ir
 
-from straylight.ast_nodes import (
+from netelpro.ast_nodes import (
     And,
     BoolLit,
     Call,
@@ -73,7 +73,7 @@ from straylight.ast_nodes import (
     StrLit,
     Sym,
 )
-from straylight.evaluator import StrayError
+from netelpro.evaluator import StrayError
 
 
 class CodegenError(StrayError):
@@ -462,7 +462,7 @@ def compile_program(program: Program) -> CompiledProgram:
     # Pass 3: LLVM IR Generation
     # -----------------------------------------------------------------------
     _init_llvm()
-    mod = ir.Module(name="straylight_jit")
+    mod = ir.Module(name="netelpro_jit")
     i64 = ir.IntType(64)
     i32 = ir.IntType(32)
     i1 = ir.IntType(1)

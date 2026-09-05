@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 
-from straylight.ast_nodes import (
+from netelpro.ast_nodes import (
     And,
     BoolLit,
     Call,
@@ -40,7 +40,7 @@ from straylight.ast_nodes import (
     StrLit,
     Sym,
 )
-from straylight.evaluator import PRIMITIVES
+from netelpro.evaluator import PRIMITIVES
 
 
 @dataclass(frozen=True)

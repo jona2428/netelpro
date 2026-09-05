@@ -24,7 +24,7 @@ Architecture & Contracts:
    `RuleFilterError` carrying the precise line and column coordinates of the definition.
 
 3. Bool Calling Convention Findings at Machine Boundary:
-   Investigation of Straylight's LLVM backend (`straylight/codegen.py`):
+   Investigation of Straylight's LLVM backend (`netelpro/codegen.py`):
    - In `codegen.py`, top-level expressions inside `main()` widen boolean expressions
      to 64-bit signed integers via zero-extension (`mb.zext(last_val, i64)`).
    - In contrast, user function definitions (`defn`) preserve un-widened native types:
@@ -41,7 +41,7 @@ Architecture & Contracts:
 4. Differential Verification Model:
    To ensure native LLVM code generator fidelity against the specification, `verify(cases)`
    executes differential testing against the reference tree-walking interpreter
-   (`straylight.evaluator.run_source`). For each test vector `(args, expected)`, the call form
+   (`netelpro.evaluator.run_source`). For each test vector `(args, expected)`, the call form
    `(filter-rule arg1 arg2 ...)` is appended to the source text and evaluated in a freshly
    initialized, isolated `Environment`. Any discrepancy between the native execution,
    the interpreted result, or the expected boolean is captured as an audit record
@@ -54,12 +54,12 @@ from typing import Any, Sequence
 
 import llvmlite.ir as ir
 
-from straylight.ast_nodes import And, Call, Defn, If, Let, Node, Or, Sym
-from straylight.caps import check_capabilities, collect_grants
-from straylight.codegen import CodegenError, CompiledProgram, compile_program
-from straylight.evaluator import Environment, StrayError, run_source
-from straylight.holes import check_holes
-from straylight.parser import parse
+from netelpro.ast_nodes import And, Call, Defn, If, Let, Node, Or, Sym
+from netelpro.caps import check_capabilities, collect_grants
+from netelpro.codegen import CodegenError, CompiledProgram, compile_program
+from netelpro.evaluator import Environment, StrayError, run_source
+from netelpro.holes import check_holes
+from netelpro.parser import parse
 
 
 class RuleFilterError(Exception):

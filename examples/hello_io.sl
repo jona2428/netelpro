@@ -1,2 +1,2 @@
 (grant io)
-(print "hello, straylight")
+(print "hello, netelpro")

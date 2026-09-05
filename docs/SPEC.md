@@ -30,7 +30,7 @@ Whitespace separates tokens; `(` and `)` self-delimit.
 
 All control flow and binding are special forms with fixed arity:
 
-```straylight
+```netelpro
 (def x 10)                      ; constant binding
 (defn add (x y) (+ x y))        ; named function: (defn name (params...) body) — body is exactly one expression
 (fn (x) (+ x 1))                ; anonymous function
@@ -54,7 +54,7 @@ Types: `Int`, `Float`, `Str`, `Bool`, `List<T>`. That is all.
 
 ## 5. Prosecutor reservations
 
-```straylight
+```netelpro
 (sorry "reason as a string literal")     ; yields a value of whatever type context demands;
                                          ; Phase 4: silent holes = compile error, reason mandatory
 (grant io)                               ; top-level only; declares file-wide capabilities;
@@ -81,7 +81,7 @@ Macros, modules/imports, records/maps, pattern matching, generics, effects, lazy
 
 ## 9. Phase 1 implementation notes (prosecutor tightened)
 
-Phase 1 delivered the full frontend: `straylight/lexer.py` (tokenizer), `straylight/ast_nodes.py` (frozen typed AST), `straylight/parser.py` (recursive-descent parser + mechanical arity validation). 94 tests green.
+Phase 1 delivered the full frontend: `netelpro/lexer.py` (tokenizer), `netelpro/ast_nodes.py` (frozen typed AST), `netelpro/parser.py` (recursive-descent parser + mechanical arity validation). 94 tests green.
 
 The parser is deliberately STRICTER than `tools/check_arity.py`. Documented divergences (parser enforces, Phase 0 fiscal does not):
 
@@ -97,7 +97,7 @@ Design call of record: literal nodes are separate subclasses (IntLit/FloatLit/St
 
 ## 10. Phase 2 implementation notes (evaluator semantics — design decisions of record)
 
-Phase 2 delivered the tree-walking evaluator (`straylight/evaluator.py`), CLI (`straylight/__main__.py`), and a 163-test suite (94 frontend + 69 evaluator). All green.
+Phase 2 delivered the tree-walking evaluator (`netelpro/evaluator.py`), CLI (`netelpro/__main__.py`), and a 163-test suite (94 frontend + 69 evaluator). All green.
 
 Value model of record:
 - Int -> host int, Float -> host float, Str -> host str, Bool -> host bool, List -> `StrayList` (frozen, tuple-backed). `nil` is the empty StrayList. NO raw Python list/tuple ever acts as a list value.
@@ -118,19 +118,19 @@ No-first-class-calls note: v0.1 has no first-class function calls; closures exis
 
 ## 11. Phase 3 implementation notes (capabilities as types)
 
-Phase 3 delivered static capability enforcement (`straylight/caps.py`), compiler CLI integration (`straylight/__main__.py`), and runtime defense-in-depth (`straylight/evaluator.py`).
+Phase 3 delivered static capability enforcement (`netelpro/caps.py`), compiler CLI integration (`netelpro/__main__.py`), and runtime defense-in-depth (`netelpro/evaluator.py`).
 
 Design decisions of record:
-1. **Capability set v0.1 = `{"io"}`**: The only capability-requiring primitive in v0.1 is `print` (requires `io`). Known capabilities and per-primitive requirements are declared in `spec/arity_table.json` (`known_capabilities` object + `capabilities` arrays on primitives) and derived at runtime by `straylight/caps.py` (`_derive_capabilities_from_table`). Declaring an unknown capability in a `(grant ...)` form is a compile error.
-2. **Enforcement is a SEPARATE static compiler pass (`straylight/caps.py`)**: Full recursive AST walk (`check_capabilities`), aggregating parser-style `CapError` diagnostics with exact line/col coordinates rather than failing fast. Integrated in `straylight/__main__.py` within the compilation pipeline (`parse -> caps check -> holes check -> evaluate`): strictly AFTER `parse` and BEFORE `holes check`: un-granted IO is a COMPILE error — the program never starts.
+1. **Capability set v0.1 = `{"io"}`**: The only capability-requiring primitive in v0.1 is `print` (requires `io`). Known capabilities and per-primitive requirements are declared in `spec/arity_table.json` (`known_capabilities` object + `capabilities` arrays on primitives) and derived at runtime by `netelpro/caps.py` (`_derive_capabilities_from_table`). Declaring an unknown capability in a `(grant ...)` form is a compile error.
+2. **Enforcement is a SEPARATE static compiler pass (`netelpro/caps.py`)**: Full recursive AST walk (`check_capabilities`), aggregating parser-style `CapError` diagnostics with exact line/col coordinates rather than failing fast. Integrated in `netelpro/__main__.py` within the compilation pipeline (`parse -> caps check -> holes check -> evaluate`): strictly AFTER `parse` and BEFORE `holes check`: un-granted IO is a COMPILE error — the program never starts.
 3. **File-wide grants**: The granted set is the union of all top-level `(grant ...)` forms across the translation unit (`collect_grants`); no per-function effect tracking in v0.1 (upgrade path: per-function effect typing when first needed).
 4. **No-first-class-calls makes the analysis fully static**: `Call.head` is a plain string, so every capability-requiring site is known at compile time without evaluating anything.
 5. **Defense-in-depth**: The evaluator also carries the capability set (threaded through `eval_loop` and `_exec_primitive`), and `print` raises `StrayRuntimeError` if `io` is not granted — protects direct-API users who skip the static pass. The static pass remains THE enforcement.
-6. **`sorry` semantics & static verification**: Reaching a `sorry` form continues to evaluate as a runtime hole (`StrayHoleError`); static hole verification is now enforced in Phase 4 (`straylight/holes.py`, Section 12), ensuring all callable heads resolve statically while explicit `(sorry "reason")` forms compile clean and are recorded in the compile holes manifest.
+6. **`sorry` semantics & static verification**: Reaching a `sorry` form continues to evaluate as a runtime hole (`StrayHoleError`); static hole verification is now enforced in Phase 4 (`netelpro/holes.py`, Section 12), ensuring all callable heads resolve statically while explicit `(sorry "reason")` forms compile clean and are recorded in the compile holes manifest.
 
 ## 12. Static Hole Prosecution (Phase 4)
 
-Phase 4 delivers static hole prosecution (`straylight/holes.py`), eliminating silent unimplemented stubs and unresolved call targets before evaluation begins. The compiler acts as a prosecutor: code cannot silently reference undefined identifiers or leave missing logic without explicit, machine-auditable declaration.
+Phase 4 delivers static hole prosecution (`netelpro/holes.py`), eliminating silent unimplemented stubs and unresolved call targets before evaluation begins. The compiler acts as a prosecutor: code cannot silently reference undefined identifiers or leave missing logic without explicit, machine-auditable declaration.
 
 ### 12.1 The Law of Resolution (No Silent Holes)
 
@@ -175,14 +175,14 @@ currently impossible by design, §9.1) and full type-level callability checking.
 
 ### 12.5 Compiler Pipeline Order
 
-Static passes are arranged sequentially in `straylight/__main__.py` to guarantee deterministic, fail-fast verification before evaluation:
+Static passes are arranged sequentially in `netelpro/__main__.py` to guarantee deterministic, fail-fast verification before evaluation:
 
 $$\text{parse} \longrightarrow \text{caps check} \longrightarrow \text{holes check} \longrightarrow \text{evaluate}$$
 
-1. **`parse` (`straylight/parser.py`)**: Tokenization, AST construction, syntax verification, and mechanical arity validation against `spec/arity_table.json`. Fails on syntax or arity errors.
-2. **`caps check` (`straylight/caps.py`)**: Static capability verification. Ensures effectful primitives (e.g. `print` requiring `io`) have matching top-level `(grant ...)` declarations. Un-granted capabilities trigger compile-time `CapError`.
-3. **`holes check` (`straylight/holes.py`)**: Static hole prosecution. Verifies that all callable heads resolve to known primitives, top-level definitions, or lexical bindings; rejects duplicate top-level declarations; and extracts explicit `(sorry "reason")` holes into the compilation manifest emitted on `stderr`. Unresolved heads trigger compile-time `HoleError`.
-4. **`evaluate` (`straylight/evaluator.py`)**: Tree-walking evaluation with tail-call optimization and runtime defense-in-depth. Executed only if all preceding static passes succeed.
+1. **`parse` (`netelpro/parser.py`)**: Tokenization, AST construction, syntax verification, and mechanical arity validation against `spec/arity_table.json`. Fails on syntax or arity errors.
+2. **`caps check` (`netelpro/caps.py`)**: Static capability verification. Ensures effectful primitives (e.g. `print` requiring `io`) have matching top-level `(grant ...)` declarations. Un-granted capabilities trigger compile-time `CapError`.
+3. **`holes check` (`netelpro/holes.py`)**: Static hole prosecution. Verifies that all callable heads resolve to known primitives, top-level definitions, or lexical bindings; rejects duplicate top-level declarations; and extracts explicit `(sorry "reason")` holes into the compilation manifest emitted on `stderr`. Unresolved heads trigger compile-time `HoleError`.
+4. **`evaluate` (`netelpro/evaluator.py`)**: Tree-walking evaluation with tail-call optimization and runtime defense-in-depth. Executed only if all preceding static passes succeed.
 
 
 ## 13. Native Backend (Phase 5): LLVM via llvmlite
@@ -247,8 +247,8 @@ forward refs, mutual recursion, fib(15), TCO at 100k/500k depth, print via real 
 ### 13.5 CLI
 
 ```
-python -m straylight <file.sl>           # interpreter (default)
-python -m straylight --native <file.sl>  # LLVM native backend (same static passes)
+python -m netelpro <file.sl>           # interpreter (default)
+python -m netelpro --native <file.sl>  # LLVM native backend (same static passes)
 ```
 
 `--native` runs parse → caps → holes → codegen → JIT. Static passes are IDENTICAL for

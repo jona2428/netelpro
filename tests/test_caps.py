@@ -15,21 +15,21 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import straylight
-from straylight import (
+import netelpro
+from netelpro import (
     run_source,
     StrayError,
     StrayRuntimeError,
     is_nil,
 )
-from straylight.caps import (
+from netelpro.caps import (
     check_capabilities,
     collect_grants,
     CapError,
     KNOWN_CAPABILITIES,
 )
-from straylight.parser import parse
-from straylight.__main__ import main
+from netelpro.parser import parse
+from netelpro.__main__ import main
 
 
 class TestStaticCapabilityCheck:
@@ -148,7 +148,7 @@ class TestGrantGrammarRegressions:
 
 
 class TestCliEndToEnd:
-    """CLI end-to-end integration tests via straylight.__main__.main(argv)."""
+    """CLI end-to-end integration tests via netelpro.__main__.main(argv)."""
 
     def test_cli_end_to_end_enforcement(
         self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]

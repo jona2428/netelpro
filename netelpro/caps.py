@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 import json
 
-from straylight.ast_nodes import (
+from netelpro.ast_nodes import (
     And,
     Call,
     Def,

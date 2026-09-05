@@ -1,6 +1,6 @@
 {
   "version": "0.1",
-  "language": "straylight",
+  "language": "netelpro",
   "note": "Single source of truth for fixed-arity prefixed grammar. Every special form and primitive declares its arity. arity: [min, max]; max=null means open arity closed by ')'. The fiscal (arity checker) consumes this table mechanically.",
   "special_forms": {
     "def":    {"arity": [2, 2],  "sig": "(def name expr)"},

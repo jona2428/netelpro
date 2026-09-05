@@ -15,9 +15,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import straylight
+import netelpro
 
-from straylight import (
+from netelpro import (
     run_source,
     StrayError,
     StrayRuntimeError,

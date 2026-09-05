@@ -1,11 +1,11 @@
-"""Straylight CLI entrypoint -- python -m straylight <file.sl>."""
+"""Straylight CLI entrypoint -- python -m netelpro <file.sl>."""
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-from straylight.caps import check_capabilities, collect_grants
-from straylight.evaluator import (
+from netelpro.caps import check_capabilities, collect_grants
+from netelpro.evaluator import (
     StrayError,
     StrayHoleError,
     StrayRuntimeError,
@@ -13,8 +13,8 @@ from straylight.evaluator import (
     format_value,
     is_nil,
 )
-from straylight.holes import check_holes
-from straylight.parser import parse
+from netelpro.holes import check_holes
+from netelpro.parser import parse
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = [a for a in argv if a != "--native"]
 
     if not argv or len(argv) != 1:
-        print("Usage: python -m straylight [--native] <file.sl>", file=sys.stderr)
+        print("Usage: python -m netelpro [--native] <file.sl>", file=sys.stderr)
         return 1
 
     file_path = Path(argv[0])
@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if native:
             # Phase 5: LLVM native backend — compile to i64/i1 machine code and run via JIT.
-            from straylight.codegen import compile_and_run
+            from netelpro.codegen import compile_and_run
 
             val = compile_and_run(parse_result.program)
             if val != 0:

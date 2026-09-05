@@ -6,7 +6,7 @@ and typed, frozen AST construction with exact source coordinates.
 """
 from __future__ import annotations
 
-from straylight.ast_nodes import (
+from netelpro.ast_nodes import (
     And,
     BoolLit,
     Call,
@@ -29,7 +29,7 @@ from straylight.ast_nodes import (
     Sym,
     Symbol,
 )
-from straylight.lexer import (
+from netelpro.lexer import (
     LexError,
     Lexer,
     LexerError,
@@ -37,13 +37,13 @@ from straylight.lexer import (
     Token,
     tokenize,
 )
-from straylight.parser import (
+from netelpro.parser import (
     ParseError,
     ParseResult,
     Parser,
     parse,
 )
-from straylight.evaluator import (
+from netelpro.evaluator import (
     StrayError,
     StrayHoleError,
     StrayList,

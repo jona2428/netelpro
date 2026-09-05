@@ -24,9 +24,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from straylight.parser import parse
-from straylight.holes import check_holes, collect_declarations, HoleError
-from straylight.evaluator import (
+from netelpro.parser import parse
+from netelpro.holes import check_holes, collect_declarations, HoleError
+from netelpro.evaluator import (
     StrayHoleError,
     StrayRuntimeError,
     run_source,

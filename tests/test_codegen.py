@@ -21,9 +21,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from straylight.codegen import CodegenError, compile_and_run, compile_program
-from straylight.evaluator import evaluate
-from straylight.parser import parse
+from netelpro.codegen import CodegenError, compile_and_run, compile_program
+from netelpro.evaluator import evaluate
+from netelpro.parser import parse
 
 
 def _parse_ok(src: str):
@@ -320,7 +320,7 @@ class TestNativePrint:
 
     CHILD = (
         "import sys; sys.path.insert(0, r'{root}'); "
-        "from straylight.parser import parse; from straylight.codegen import compile_and_run; "
+        "from netelpro.parser import parse; from netelpro.codegen import compile_and_run; "
         "pr = parse(sys.argv[1]); r = compile_and_run(pr.program); sys.exit(0 if r == 0 else 1)"
     )
 
@@ -366,7 +366,7 @@ class TestCLINativeFlag:
 
     CLI = (
         "import sys; sys.path.insert(0, r'{root}'); "
-        "from straylight.__main__ import main; "
+        "from netelpro.__main__ import main; "
         "sys.exit(main(['--native', r'{sl}']) if r'{sl}' else 1)"
     )
 
@@ -379,7 +379,7 @@ class TestCLINativeFlag:
         """Native printf writes to the REAL fd 1 — verify via subprocess, not capsys."""
         sl = self._write_sl(tmp_path, "ok_native.sl", "(grant io)\n(print 42)")
         child = subprocess.run(
-            [sys.executable, "-m", "straylight", "--native", sl],
+            [sys.executable, "-m", "netelpro", "--native", sl],
             capture_output=True,
             text=True,
             timeout=120,
@@ -389,7 +389,7 @@ class TestCLINativeFlag:
         assert "42\n" in child.stdout, f"stdout={child.stdout!r}"
 
     def test_native_flag_returns_value(self, tmp_path, capsys) -> None:
-        from straylight.__main__ import main
+        from netelpro.__main__ import main
 
         sl = self._write_sl(tmp_path, "val.sl", "(defn fib (n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))\n(fib 15)")
         rc = main(["--native", sl])
@@ -398,7 +398,7 @@ class TestCLINativeFlag:
         assert "=> 610" in captured.out
 
     def test_native_flag_respects_caps_before_codegen(self, tmp_path, capsys) -> None:
-        from straylight.__main__ import main
+        from netelpro.__main__ import main
 
         sl = self._write_sl(tmp_path, "nogrant.sl", "(defn f () (print 1))")
         rc = main(["--native", sl])
@@ -407,7 +407,7 @@ class TestCLINativeFlag:
         assert "capability 'io' required by 'print'" in captured.err
 
     def test_native_flag_codegen_error_is_prosecutorial(self, tmp_path, capsys) -> None:
-        from straylight.__main__ import main
+        from netelpro.__main__ import main
 
         sl = self._write_sl(tmp_path, "float.sl", "(defn f () 3.14)")
         rc = main(["--native", sl])

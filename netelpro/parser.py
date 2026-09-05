@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
 
-from straylight.ast_nodes import (
+from netelpro.ast_nodes import (
     And,
     BoolLit,
     Call,
@@ -50,7 +50,7 @@ from straylight.ast_nodes import (
     StrLit,
     Sym,
 )
-from straylight.lexer import LexError, Lexer, Tok, tokenize
+from netelpro.lexer import LexError, Lexer, Tok, tokenize
 
 TABLE_PATH = Path(__file__).resolve().parent.parent / "spec" / "arity_table.json"
 

@@ -28,7 +28,7 @@ from typing import Any, Iterable, Optional, Sequence
 import re
 import sys
 
-from straylight.ast_nodes import (
+from netelpro.ast_nodes import (
     And,
     BoolLit,
     Call,
@@ -49,7 +49,7 @@ from straylight.ast_nodes import (
     StrLit,
     Sym,
 )
-from straylight.parser import parse, ParseResult
+from netelpro.parser import parse, ParseResult
 
 
 # ---------------------------------------------------------------------------

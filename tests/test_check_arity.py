@@ -19,7 +19,7 @@ def errors(src: str) -> list[str]:
 
 
 VALID = """
-; straylight v0.1 -- structurally valid program
+; netelpro v0.1 -- structurally valid program
 (def limit 10)
 (defn clamp (x) (if (< x 0) 0 (if (> x limit) limit x)))
 (defn sum-to (n acc) (if (== n 0) acc (sum-to (- n 1) (+ acc n))))
