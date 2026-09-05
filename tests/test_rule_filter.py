@@ -44,12 +44,22 @@ class TestCompileAndManifest:
         assert "'filter-rule'" in str(ei.value)
         assert ei.value.line == 0 and ei.value.col == 0
 
-    def test_non_int_param_rejected(self):
-        # A param whose use statically demands Bool is rejected; a param
-        # with no demand is inferred Int (bidirectional inference).
+    def test_bool_param_compiles_and_decides(self):
+        # v0.2: a param whose use statically demands Bool is LEGAL — it
+        # compiles to an i1 boundary param. (if b 1 0) -> Bool param, Int return.
+        f = compile_filter("(defn filter-rule (b) (if b 1 0))")
+        assert f.decide(True) is True
+        assert f.decide(False) is False
+        # Differential agreement on both engines (bools serialized as true/false).
+        assert f.verify([((True,), True), ((False,), False)]) == []
+
+    def test_mixed_use_param_conflict_rejected(self):
+        # The prosecutor still kills ambiguity: the SAME param demanded Bool
+        # (and) and Int (+) is a compile error with exact coordinates.
         with pytest.raises(RuleFilterError) as ei:
-            compile_filter("(defn filter-rule (b) (if b 1 0))")
-        assert "must be Int" in str(ei.value)
+            compile_filter("(defn filter-rule (flag) (and flag (+ flag 1)))")
+        assert "type mismatch" in str(ei.value)
+        assert ei.value.line >= 1 and ei.value.col >= 1
 
     def test_parse_error_carries_position(self):
         with pytest.raises(RuleFilterError) as ei:
@@ -151,7 +161,7 @@ class TestFactory:
 
     def test_error_str_includes_position(self):
         with pytest.raises(RuleFilterError) as ei:
-            compile_filter("(defn filter-rule (b) (if b 1 0))")
+            compile_filter("(defn filter-rule (flag) (and flag (+ flag 1)))")
         s = str(ei.value)
         assert "line" in s and "col" in s
 

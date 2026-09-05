@@ -1,6 +1,6 @@
 # Netelpro — Language Specification
 
-Status: **v0.9 consolidated** (2026-09-05). Phases 0–6 implemented and verified: 304/304 tests green on this machine (interpreted + native backends, differential-tested). Single source of truth for arities: `spec/arity_table.json` (the spec and the table are kept in sync; the table is machine-consumed). Name: **Netelpro** (NEuron Teo Language PROgramming; formerly Straylight) — decided 2026-09-05.
+Status: **v0.9 consolidated** (2026-09-05). Phases 0–6 implemented and verified: 322/322 tests green on this machine (interpreted + native backends, differential-tested; v0.2 adds Bool params at the native boundary). Single source of truth for arities: `spec/arity_table.json` (the spec and the table are kept in sync; the table is machine-consumed). Name: **Netelpro** (NEuron Teo Language PROgramming; formerly Straylight) — decided 2026-09-05.
 
 ## 1. Design thesis (why this grammar exists)
 
@@ -291,7 +291,10 @@ Failures raise `RuleFilterError` with `.message/.line/.col` provenance. Addition
 bridge-level prosecution:
 
 - **missing `filter-rule`** → error (line 0, col 0) at construction;
-- **param statically demanding Bool** (`(if b 1 0)`) → rejected: all params must be Int;
+- **param statically demanding Bool** → LEGAL since v0.2: the param compiles to an `i1`
+  boundary param and crosses via `ctypes.c_bool` (only the low byte is read, per §14.3);
+- **mixed use of one param** (Bool demanded in one site, Int in another) → rejected:
+  `type mismatch` with exact coordinates (bidirectional inference conflict);
 - **`print` without `(grant io)`** → rejected at compile (caps layer, unchanged);
 - **declared `sorry` holes are legal** and listed in `.manifest()` — enumerated, never hidden.
 
@@ -320,11 +323,13 @@ parity probe: decide(1001) = True   (1001 native recursion levels, TCO, no stack
 differential: verify() == [] on all cases; 304/304 suite green
 ```
 
-### 14.6 Boundary (v0.1)
+### 14.6 Boundary (v0.2)
 
-Params are Int-only by contract; a param whose use statically demands Bool is rejected
-at construction. Strings/Lists are not representable at the boundary (§13.2). Future:
-Bool params as first-class (i1 boundary type), multi-rule modules, and host callback
+Params resolve per-param to `Int` (i64, `ctypes.c_int64`) or `Bool` (i1, `ctypes.c_bool`):
+an unused or Int-context param binds to Int; a param used as `if`/`and`/`or`/`not`
+operand binds to Bool (verified: TCO back-edge writes i1 into the i1 slot at 500k
+levels, native == interpreter). Mixed use is a compile error. Strings/Lists are not
+representable at the boundary (§13.2). Future: multi-rule modules, and host callback
 plumbing if a use case demands it.---
 
 ## 15. Consolidated State (v0.9, post-Phase 6)
@@ -354,7 +359,7 @@ The program runs only after surviving all four. There is no stage where dishones
 
 - Compiled subset: Int/Bool, `+ - * / quot rem`, comparisons, `not`, `if/and/or`, `let`, `def`, `defn`, calls, `print`. Recursion must be tail-recursive to compile (fiscal message points to the non-tail site).
 - Heads are primitives/special forms or top-level `defn` only — no first-class functions in v0.1.
-- Params are Int-only at the native boundary; Bool demanded by use is rejected (§14.6).
+- Params resolve per-param to Int (i64) or Bool (i1) at the native boundary (v0.2); unused params bind to Int by default.
 - Capabilities are file-scoped grants (`{io}`); per-function effects deferred.
 - `sorry` compiles as a declared hole with runtime tripwire — the manifest is emitted at every compilation.
 

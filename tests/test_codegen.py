@@ -67,8 +67,60 @@ def assert_rejected(src: str, fragment: str, stage: str = "codegen") -> None:
     assert fragment in str(excinfo.value)
 
 
-class TestDifferentialArithmetic:
-    """Native i64 arithmetic must agree with the interpreter exactly."""
+class TestDifferentialBoolParams:
+    """v0.2: Bool params (i1) at the native boundary — differential vs interpreter.
+
+    The bridge contract now accepts rules whose params statically demand Bool
+    (used as if/and/or/not operands). Unused / Int-context params stay Int.
+    """
+
+    @pytest.mark.parametrize(
+        "src, expected",
+        [
+            ("(defn f (b) (if b 1 0))\n(f true)", 1),
+            ("(defn f (b) (if b 1 0))\n(f false)", 0),
+            ("(defn f (b) (not b))\n(f true)", 0),
+            ("(defn f (b) (not b))\n(f false)", 1),
+            ("(defn f (b) (and b true))\n(f true)", 1),
+            ("(defn f (b) (and b true))\n(f false)", 0),
+            ("(defn f (b) (or b false))\n(f false)", 0),
+            ("(defn f (b) (or b false))\n(f true)", 1),
+            ("(defn f (flag n) (and flag (== n 1)))\n(if (f true 1) 10 20)", 10),
+            ("(defn f (flag n) (and flag (== n 1)))\n(if (f false 1) 10 20)", 20),
+            ("(defn f (flag n) (and flag (== n 1)))\n(if (f true 2) 10 20)", 20),
+            ("(defn f (b1 b2) (or (and b1 b2) false))\n(if (f true true) 5 9)", 5),
+            ("(defn f (b1 b2) (or (and b1 b2) false))\n(if (f true false) 5 9)", 9),
+            ("(defn f (b1 b2) (or (and b1 b2) false))\n(if (f false true) 5 9)", 9),
+        ],
+    )
+    def test_bool_param_agrees(self, src: str, expected: int) -> None:
+        assert_agree(src)
+        assert isinstance(expected, int)  # keep the expected column honest
+
+    def test_bool_param_tco_native(self) -> None:
+        # Self tail-call with a Bool param: back-edge writes i1 into the i1 slot.
+        # 500k levels in constant stack, native == interpreter.
+        src = (
+            "(defn loop-bool (n flag)\n"
+            "  (if (<= n 0)\n"
+            "      (and flag true)\n"
+            "      (loop-bool (- n 1) flag)))\n"
+            "(loop-bool 500000 true)"
+        )
+        assert_agree(src)
+
+    def test_bool_param_conflict_rejected_with_coords(self) -> None:
+        # Same param demanded Bool (and) and Int (+): prosecution with coords.
+        assert_rejected(
+            "(defn f (flag) (and flag (+ flag 1)))\n(f true)",
+            "type mismatch",
+            stage="codegen",
+        )
+
+    def test_unused_param_resolves_int(self) -> None:
+        # Unused params bind to Int (documented default).
+        src = "(defn f (unused-param) true)\n(if (f 0) 3 4)"
+        assert_agree(src)
 
     @pytest.mark.parametrize(
         "src",

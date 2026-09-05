@@ -21,6 +21,11 @@ Four verified layers. Each failure class dies at the earliest layer, with exact 
 | 3 | **Sorry manifest** | static pass | Silent holes are impossible: the only legal unimplemented branch is `(sorry "reason")`, and every declared hole is listed with `line:col` + reason on stderr at every compilation |
 | 4 | **LLVM native backend** | codegen | Non-representable types at use (`Float`/`Str`/`List`/fn-as-value) and Bool-demand violations at the machine boundary; `llvmlite 0.49`, `i64`/`i1`, structural TCO |
 
+Gate rules (the Phase 6 bridge) take `Int` (i64) **and `Bool` (i1) params** since v0.2:
+a param used as an `if`/`and`/`or`/`not` operand crosses the boundary as a native 1-bit
+flag via `ctypes.c_bool`; mixed use of the same param is a compile error with exact
+coordinates.
+
 The prosecutor's voice is a product feature. Real output from `examples/broken_arity.sl`:
 
 ```text
@@ -85,7 +90,7 @@ Every program runs on **both engines**, by contract:
 - **Python interpreter** — the reference semantics.
 - **LLVM native backend** — the verified implementation.
 
-The native backend is a strict subset compiler: it accepts only programs whose values are representable in machine words and rejects everything else with a prosecutorial compile error — never a silent fallback, never a silent divergence. The test suite runs every program through both engines and compares: **304 tests passing, zero mismatches**. The same principle is exposed programmatically by the Phase 6 bridge: `RuleFilter.verify(cases)` returns any `(args, expected, interpreted, native)` mismatches; an empty list means full agreement.
+The native backend is a strict subset compiler: it accepts only programs whose values are representable in machine words and rejects everything else with a prosecutorial compile error — never a silent fallback, never a silent divergence. The test suite runs every program through both engines and compares: **322 tests passing, zero mismatches**. The same principle is exposed programmatically by the Phase 6 bridge: `RuleFilter.verify(cases)` returns any `(args, expected, interpreted, native)` mismatches; an empty list means full agreement.
 
 ## Phase history
 
@@ -109,7 +114,7 @@ The Phase 6 use case, `examples/gate_rule.sl` — a Neuromancer gate rule as a c
 
 ## Status
 
-- **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md); machine-consumed arity table at `spec/arity_table.json`.
-- **Release:** v0.1.0 tagged. In production: the Netelpro rule gate decides the Neuromancer agent's zone policy (compiled native rule, differential-tested).
+- **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md) (v0.2: Bool params at the boundary); machine-consumed arity table at `spec/arity_table.json`.
+- **Release:** v0.2.0 (Bool params at the native boundary). In production: the Netelpro rule gate decides the Neuromancer agent's zone policy (compiled native rule, differential-tested).
 - **History:** every claim in the spec is backed by the test suite (`tests/`, 304 tests) and the examples (`examples/`).
-- **Deliberate v0.1 limits** (documented, not accidental): the compiled subset is `Int`/`Bool`; recursion must be tail-recursive to compile; no first-class functions; capabilities are file-scoped (`{io}`).
+- **Deliberate v0.2 limits** (documented, not accidental): the compiled subset is `Int`/`Bool`; recursion must be tail-recursive to compile; no first-class functions; capabilities are file-scoped (`{io}`); boundary params are `Int` (i64) / `Bool` (i1) per-param, no `Str`/`List` at the machine boundary.

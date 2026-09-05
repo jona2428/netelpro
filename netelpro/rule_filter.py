@@ -18,10 +18,13 @@ Architecture & Contracts:
 2. The Required `(defn filter-rule ...)` Convention:
    Every valid rule filter source unit must define a top-level named function:
        (defn filter-rule (param1 param2 ...) body)
-   All parameters of `filter-rule` must resolve to native 64-bit signed integers (`Int`).
-   If `filter-rule` is not defined in the source, or if any of its parameters resolve
-   to non-integer types (such as `Bool`), compilation is rejected immediately with
-   `RuleFilterError` carrying the precise line and column coordinates of the definition.
+   Parameters of `filter-rule` resolve statically to `Int` (i64) or `Bool` (i1) by
+   bidirectional type inference, driven by how each parameter is used: an unused or
+   Int-context parameter binds to `Int`; a parameter used in a boolean context
+   (`if`/`and`/`or`/`not` operands) binds to `Bool`. Mixed use (Bool demanded where
+   Int is required, or vice versa) is a compile error with exact coordinates.
+   If `filter-rule` is not defined in the source, compilation is rejected immediately
+   with `RuleFilterError` carrying the precise line and column coordinates of the definition.
 
 3. Bool Calling Convention Findings at Machine Boundary:
    Investigation of Netelpro's LLVM backend (`netelpro/codegen.py`):
@@ -54,7 +57,7 @@ from typing import Any, Sequence
 
 import llvmlite.ir as ir
 
-from netelpro.ast_nodes import And, Call, Defn, If, Let, Node, Or, Sym
+from netelpro.ast_nodes import Defn, Sym
 from netelpro.caps import check_capabilities, collect_grants
 from netelpro.codegen import CodegenError, CompiledProgram, compile_program
 from netelpro.evaluator import Environment, StrayError, run_source
@@ -78,33 +81,6 @@ class RuleFilterError(Exception):
         return f"line {self.line}, col {self.col}: {self.message}"
 
 
-def _has_non_int_param(defn: Defn) -> bool:
-    """Audit AST for parameter usages that statically demand a Bool type."""
-    param_names = {p.name if isinstance(p, Sym) else str(p) for p in defn.params}
-
-    def walk(node: Node) -> bool:
-        if isinstance(node, If):
-            if isinstance(node.cond, Sym) and node.cond.name in param_names:
-                return True
-            return walk(node.cond) or walk(node.then) or walk(node.else_)
-        if isinstance(node, (And, Or)):
-            if (isinstance(node.l, Sym) and node.l.name in param_names) or (
-                isinstance(node.r, Sym) and node.r.name in param_names
-            ):
-                return True
-            return walk(node.l) or walk(node.r)
-        if isinstance(node, Call):
-            if node.head == "not":
-                if node.args and isinstance(node.args[0], Sym) and node.args[0].name in param_names:
-                    return True
-            return any(walk(arg) for arg in node.args)
-        if isinstance(node, Let):
-            return walk(node.value) or walk(node.body)
-        return False
-
-    return walk(defn.body)
-
-
 class RuleFilter:
     """Compiled native Netelpro gate rule bridge for host execution."""
 
@@ -115,12 +91,13 @@ class RuleFilter:
         1. Parse source text and validate AST structure (rejecting parse errors).
         2. Verify capability grants (rejecting unauthorized effects).
         3. Collect holes manifest (declared sorries are legal and listed, not rejected).
-        4. Validate that `filter-rule` is defined and all parameters are `Int`.
+        4. Validate that `filter-rule` is defined and its parameters resolve cleanly
+           to native types (Int i64 / Bool i1).
         5. Compile to native machine code via LLVM codegen (if no declared sorries).
 
         Raises:
             RuleFilterError: If parsing, capability checking, hole auditing, or
-                codegen fails, or if `filter-rule` is missing or has non-Int params.
+                codegen fails, or if `filter-rule` is missing.
         """
         self._source: str = source
         self.source: str = source
@@ -172,13 +149,6 @@ class RuleFilter:
             p.name if isinstance(p, Sym) else str(p) for p in filter_defn.params
         ]
 
-        if _has_non_int_param(filter_defn):
-            raise RuleFilterError(
-                "all parameters of 'filter-rule' must be Int",
-                line=self._defn_line,
-                col=self._defn_col,
-            )
-
         # 5. Native compilation
         self._compiled: CompiledProgram | None = None
         if not manifest_entries:
@@ -210,21 +180,34 @@ class RuleFilter:
                     col=self._defn_col,
                 )
 
-            if any(arg.type != ir.IntType(64) for arg in llvm_fn.args):
-                raise RuleFilterError(
-                    "all parameters of 'filter-rule' must be Int",
-                    line=self._defn_line,
-                    col=self._defn_col,
-                )
+            # Per-parameter type audit against the codegen-resolved signature.
+            # Params are Int (i64) or Bool (i1); anything else is a bridge bug
+            # and is prosecuted as one.
+            param_arg_types: list[int] = [arg.type.width for arg in llvm_fn.args]
+            for arg_width in param_arg_types:
+                if arg_width not in (64, 1):
+                    raise RuleFilterError(
+                        f"parameter of 'filter-rule' resolved to unsupported type i{arg_width}",
+                        line=self._defn_line,
+                        col=self._defn_col,
+                    )
 
             self._compiled = compiled
             if llvm_fn.function_type.return_type == ir.IntType(1):
                 self._restype = ctypes.c_bool
             else:
                 self._restype = ctypes.c_int64
+
+            # Per-parameter ctypes prototype: i1 params cross the boundary as
+            # c_bool (ctypes reads only the low byte, per the ABI finding in
+            # the module docstring), i64 params as c_int64.
+            self._argtypes: list[type[ctypes._SimpleCData]] = [
+                ctypes.c_bool if width == 1 else ctypes.c_int64 for width in param_arg_types
+            ]
         else:
             self._compiled = None
             self._restype = ctypes.c_bool
+            self._argtypes: list[type[ctypes._SimpleCData]] = [ctypes.c_int64] * self._arity
 
     def manifest(self) -> list[str]:
         """Return the declared sorry holes as human-readable diagnostic strings.
@@ -234,11 +217,13 @@ class RuleFilter:
         """
         return list(self._manifest)
 
-    def decide(self, *args: int) -> bool:
+    def decide(self, *args: int | bool) -> bool:
         """Call the compiled defn named `filter-rule` natively and return a boolean decision.
 
         Args:
-            *args: Positional integer arguments matching the arity of `filter-rule`.
+            *args: Positional arguments matching the arity of `filter-rule` --
+                `int` for Int params, `bool` for Bool params (per-param ctypes
+                prototype is built from the compiled LLVM signature).
 
         Returns:
             Boolean outcome of the gate rule decision.
@@ -272,8 +257,7 @@ class RuleFilter:
                 col=self._defn_col,
             )
 
-        arg_types = [ctypes.c_int64] * self._arity
-        c_fn = ctypes.CFUNCTYPE(self._restype, *arg_types)(addr)
+        c_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
         raw_result = c_fn(*args)
         return bool(raw_result)
 
@@ -295,7 +279,12 @@ class RuleFilter:
             native_res = self.decide(*args_tuple)
 
             env = Environment()
-            args_str = " ".join(str(a) for a in args_tuple)
+            # Interpreter-side serialization: Python bools must render as the
+            # Netelpro literals `true`/`false` (str(True) would emit 'True',
+            # which is not a token of the language).
+            args_str = " ".join(
+                ("true" if a is True else "false" if a is False else str(a)) for a in args_tuple
+            )
             call_form = f"(filter-rule {args_str})" if args_str else "(filter-rule)"
             interp_src = f"{self._source}\n{call_form}"
             interp_res = run_source(interp_src, env=env)

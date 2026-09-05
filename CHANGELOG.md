@@ -4,6 +4,35 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## v0.2.0 — Bool Params at the Native Boundary (2026-09-05)
+
+### Added
+- **Bool params (i1) in `filter-rule`**: gate rules can now take Python `bool` arguments
+  directly. A param used as an `if`/`and`/`or`/`not` operand compiles to an `i1` LLVM
+  param and crosses the boundary via `ctypes.c_bool`; unused / Int-context params stay
+  `c_int64`. Per-parameter prototypes are built from the compiled LLVM signature.
+- Differential test class `TestDifferentialBoolParams` (17 cases): truth tables,
+  multi-param mixes, TCO back-edge with an `i1` slot at 500k levels (native == interpreter),
+  unused-param default (Int), and mixed-use conflict prosecution with exact coordinates.
+
+### Changed
+- `rule_filter.py`: the Int-only heuristics (`_has_non_int_param`, all-i64 audit,
+  uniform `c_int64` prototype) were replaced by an audit of the **codegen-resolved**
+  parameter types. The AST walk for "Bool-demanding" params is gone: the compiler's own
+  inference is now the single source of truth (less duplication, fewer places to lie).
+- `verify()` serializes Python bools as Netelpro literals `true`/`false` on the
+  interpreter side (previously `str(True)` → `'True'`, not a token of the language —
+  unreachable while params were Int-only, now load-bearing).
+
+### Prosecution (unchanged in spirit, sharpened in scope)
+- Mixed use of the same param (Bool demanded in one site, Int in another) remains a
+  compile error with exact coordinates (`type mismatch`).
+- The old test `test_non_int_param_rejected` was updated to the v0.2 contract:
+  `(if b 1 0)` is now a legal Bool param; the conflict case takes its place.
+
+### Tests
+- Suite: 322/322 green (304 prior + 18 new). Rule-filter bridge: 19 tests.
+
 ## 110d644 — Rebrand to Netelpro (2026-09-05)
 
 ### Changed
