@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Straylight hand-written lexer (Phase 1).
+"""Comprehensive test suite for Netelpro hand-written lexer (Phase 1).
 
 Validates tokenization determinism, exact 1-based line and column tracking,
 lexical classification, string escape handling, and error conditions.

@@ -1,4 +1,4 @@
-; Straylight v0.1 -- structurally valid demo (audited by tools/check_arity.py)
+; Netelpro v0.1 -- structurally valid demo (audited by tools/check_arity.py)
 
 (def limit 10)
 

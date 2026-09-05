@@ -1,7 +1,7 @@
-"""Straylight native code generator and JIT engine -- Phase 4 LLVM native backend.
+"""Netelpro native code generator and JIT engine -- Phase 4 LLVM native backend.
 
 The prosecutor thesis:
-Straylight programs are compiled directly to native machine code via LLVM without
+Netelpro programs are compiled directly to native machine code via LLVM without
 hidden coercions, silent fallbacks, or dynamic type ambiguities. Every rejection
 at codegen is an honest prosecutorial declaration enforced before JIT execution.
 
@@ -226,7 +226,7 @@ class FunctionContext:
 
 
 class CompiledProgram:
-    """A JIT-compiled Straylight native program backed by an LLVM execution engine."""
+    """A JIT-compiled Netelpro native program backed by an LLVM execution engine."""
 
     def __init__(
         self,
@@ -256,7 +256,7 @@ def _llvm_name_for(stray_name: str) -> str:
 
 
 def compile_program(program: Program) -> CompiledProgram:
-    """Statically validates and compiles a Straylight Program AST to native code using LLVM.
+    """Statically validates and compiles a Netelpro Program AST to native code using LLVM.
 
     Raises CodegenError on any unrepresented form, type conflict, undefined reference,
     or arity mismatch before invoking the native JIT engine.
@@ -795,5 +795,5 @@ def compile_program(program: Program) -> CompiledProgram:
 
 
 def compile_and_run(program: Program) -> int:
-    """Convenience helper to compile and run a Straylight program AST."""
+    """Convenience helper to compile and run a Netelpro program AST."""
     return compile_program(program).run()

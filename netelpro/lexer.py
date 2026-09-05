@@ -1,7 +1,7 @@
-"""Straylight lexer -- Phase 1 hand-written tokenizer.
+"""Netelpro lexer -- Phase 1 hand-written tokenizer.
 
 The prosecutor thesis:
-Straylight is designed for LLMs to generate and mechanically verify syntax
+Netelpro is designed for LLMs to generate and mechanically verify syntax
 by counting parentheses and operands against a fixed-arity table. For this
 contract to hold, tokenization must be completely deterministic, transparent,
 and report exact 1-based line and column coordinates for every token.
@@ -87,7 +87,7 @@ def classify(text: str, line: int, col: int) -> str:
 
 
 class Lexer:
-    """Hand-written stateful scanner for Straylight source text."""
+    """Hand-written stateful scanner for Netelpro source text."""
 
     def __init__(self, src: str) -> None:
         self.src = src

@@ -1,4 +1,4 @@
-"""Pytest bootstrap configuration for Straylight.
+"""Pytest bootstrap configuration for Netelpro.
 
 Inserts the netelpro package parent directory (project root) into sys.path
 so pytest works seamlessly from the project root or subdirectories with zero install.

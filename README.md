@@ -34,6 +34,12 @@ line 9, col 1: 'sorry' requires a string literal reason
 
 ## Quick start
 
+```bash
+git clone https://github.com/jona2428/netelpro.git
+cd netelpro
+pip install -e ".[dev]"    # llvmlite 0.49 included; `dev` extra adds pytest
+```
+
 Requires Python 3. The interpreter needs nothing beyond CPython; the native backend needs `llvmlite 0.49`.
 
 ```bash
@@ -44,7 +50,7 @@ python -m netelpro --native file.sl  # compiled native — LLVM JIT, same static
 `examples/fib.sl`:
 
 ```netelpro
-; Straylight v0.1 -- Fibonacci demonstration
+; Netelpro v0.1 -- Fibonacci demonstration
 
 (defn fib (n)
   (if (< n 2)

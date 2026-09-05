@@ -1,4 +1,4 @@
-"""Straylight evaluator -- Phase 2 tree-walking interpreter with TCO.
+"""Netelpro evaluator -- Phase 2 tree-walking interpreter with TCO.
 
 Semantic contract:
 1. Value model:
@@ -58,7 +58,7 @@ from netelpro.parser import parse, ParseResult
 
 
 class StrayError(Exception):
-    """Base exception for all Straylight compiler and runtime errors."""
+    """Base exception for all Netelpro compiler and runtime errors."""
 
     def __init__(self, message: str = "", errors: Optional[list[Any]] = None) -> None:
         self.message = message
@@ -92,7 +92,7 @@ class StrayHoleError(StrayError):
 
 
 class StrayList:
-    """Frozen tuple-backed list representation for Straylight values."""
+    """Frozen tuple-backed list representation for Netelpro values."""
 
     __slots__ = ("_items",)
     _items: tuple[Any, ...]
@@ -167,7 +167,7 @@ def is_nil(v: Any) -> bool:
 
 
 def format_value(val: Any) -> str:
-    """Format Straylight value for human-readable output."""
+    """Format Netelpro value for human-readable output."""
     if type(val) is bool:
         return "true" if val else "false"
     if isinstance(val, StrayList):
@@ -186,7 +186,7 @@ def format_value(val: Any) -> str:
 
 
 class Environment:
-    """Lexical environment for Straylight scoping."""
+    """Lexical environment for Netelpro scoping."""
 
     def __init__(
         self,
@@ -746,7 +746,7 @@ def evaluate(program: Program, env: Optional[Environment] = None, capabilities: 
 
 
 def run_source(src: str, env: Optional[Environment] = None) -> Any:
-    """Parse and evaluate Straylight source text.
+    """Parse and evaluate Netelpro source text.
 
     Raises StrayError carrying all parse diagnostic messages if parsing fails.
     Otherwise returns the value of the last evaluated expression form.

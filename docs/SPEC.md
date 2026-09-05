@@ -1,10 +1,10 @@
-# Straylight — Language Specification
+# Netelpro — Language Specification
 
-Status: **v0.9 consolidated** (2026-09-05). Phases 0–6 implemented and verified: 304/304 tests green on this machine (interpreted + native backends, differential-tested). Single source of truth for arities: `spec/arity_table.json` (the spec and the table are kept in sync; the table is machine-consumed). Final language name pending decision (working title: Straylight).
+Status: **v0.9 consolidated** (2026-09-05). Phases 0–6 implemented and verified: 304/304 tests green on this machine (interpreted + native backends, differential-tested). Single source of truth for arities: `spec/arity_table.json` (the spec and the table are kept in sync; the table is machine-consumed). Name: **Netelpro** (NEuron Teo Language PROgramming; formerly Straylight) — decided 2026-09-05.
 
 ## 1. Design thesis (why this grammar exists)
 
-Straylight is a programming language written **by** LLMs and **audited by** a compiler-as-prosecutor. The grammar is engineered so that an LLM can verify its own syntax **mechanically, without simulating a parser**:
+Netelpro is a programming language written **by** LLMs and **audited by** a compiler-as-prosecutor. The grammar is engineered so that an LLM can verify its own syntax **mechanically, without simulating a parser**:
 
 1. **Prefixed, fixed arity.** Every form is `(head arg1 arg2 ...)`. Every head has a declared arity. To check a form, the writer counts operands between the head and the closing parenthesis. Counting is a mechanical operation an LLM performs reliably; simulating a recursive-descent parser is not.
 2. **One exception, declared, still mechanical.** `list` is the only open-arity form. Its arity is closed by `)` itself, so counting still terminates the form. No other variadic head exists in v0.1.
@@ -152,7 +152,7 @@ environment, never as call heads.
 
 ### 12.2 Explicit Holes: `(sorry "reason")`
 
-The special form `(sorry "reason")` is the **only legal way** to leave an expression or branch unimplemented in Straylight:
+The special form `(sorry "reason")` is the **only legal way** to leave an expression or branch unimplemented in Netelpro:
 - **Compile-time validity**: A `sorry` form compiles clean and satisfies all static checks.
 - **Holes manifest**: All explicit `sorry` holes are collected during static analysis into a manifest recording `(line, col, reason)`. When holes are present, the CLI emits this manifest to `stderr`, making incomplete implementations transparent and mechanically auditable by external tooling and LLM supervisors.
 - **Runtime semantics**: If execution reaches a `sorry` form at runtime, evaluation immediately halts and raises `StrayHoleError(reason, line, col)`.
@@ -194,7 +194,7 @@ carrying exact source coordinates. No silent fallbacks, no dynamic reinterpretat
 
 ### 13.1 Compiled Subset
 
-| Straylight | Native representation |
+| Netelpro | Native representation |
 |---|---|
 | `Int` | `i64` (LLVM signed 64-bit) |
 | `Bool` | `i1` (zext'd to `i64` only at `main` return) |
@@ -271,7 +271,7 @@ compile error, never a silent divergence.
 ## 14. Phase 6 — The Rule Filter Bridge (rule_filter.py)
 
 The first real use case: Neuromancer gate rules (priority, confidence, escalation flags)
-as **compiled pure Straylight functions**. A host defines a rule, Straylight prosecutes it
+as **compiled pure Netelpro functions**. A host defines a rule, Netelpro prosecutes it
 and compiles it to native code, and Python calls it directly.
 
 ### 14.1 Contract
@@ -333,7 +333,7 @@ What the language **is** on this machine, all mechanically verified:
 
 ### 15.1 The honesty stack (what kills what, where)
 
-A Straylight program passes four prosecution layers; each failure class dies at the earliest layer, with exact line/column:
+A Netelpro program passes four prosecution layers; each failure class dies at the earliest layer, with exact line/column:
 
 | Stage | Layer | Kills |
 |---|---|---|
@@ -360,7 +360,7 @@ The program runs only after surviving all four. There is no stage where dishones
 
 ### 15.4 What remains open for v1.0 (decision of Jona)
 
-- **Final language name** (working title: Straylight).
+- **Final language name**: Netelpro — decided 2026-09-05 (formerly Straylight, working title).
 - Naming of the remaining deferred features above (order and priority).
 
 *Every claim in this section is backed by the test suite (`tests/`, 304 tests) and the examples (`examples/`) at commit `a70d27c`.*

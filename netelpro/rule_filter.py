@@ -1,15 +1,15 @@
-"""Straylight rule filter -- Host bridge for compiled pure gate rules.
+"""Netelpro rule filter -- Host bridge for compiled pure gate rules.
 
 The prosecutor thesis applied to host security and gatekeeping:
 In Neuromancer and host environments, access control and decision gates are
-modeled as pure Straylight functions. The host requires deterministic, zero-overhead
+modeled as pure Netelpro functions. The host requires deterministic, zero-overhead
 evaluation of decision rules compiled directly to native machine code via LLVM,
 with prosecutorial static auditing and differential verification against the
 reference interpreter.
 
 Architecture & Contracts:
 1. Purpose & Neuromancer Gate Rules:
-   Hosts define gate rules as pure Straylight source units. The bridge compiles
+   Hosts define gate rules as pure Netelpro source units. The bridge compiles
    the source natively into an LLVM JIT execution engine (`CompiledProgram`),
    enforcing that rules are static, capability-audited, and syntactically clean
    before execution. Python callers invoke rules with native execution speed
@@ -24,7 +24,7 @@ Architecture & Contracts:
    `RuleFilterError` carrying the precise line and column coordinates of the definition.
 
 3. Bool Calling Convention Findings at Machine Boundary:
-   Investigation of Straylight's LLVM backend (`netelpro/codegen.py`):
+   Investigation of Netelpro's LLVM backend (`netelpro/codegen.py`):
    - In `codegen.py`, top-level expressions inside `main()` widen boolean expressions
      to 64-bit signed integers via zero-extension (`mb.zext(last_val, i64)`).
    - In contrast, user function definitions (`defn`) preserve un-widened native types:
@@ -106,10 +106,10 @@ def _has_non_int_param(defn: Defn) -> bool:
 
 
 class RuleFilter:
-    """Compiled native Straylight gate rule bridge for host execution."""
+    """Compiled native Netelpro gate rule bridge for host execution."""
 
     def __init__(self, source: str) -> None:
-        """Compile a Straylight gate rule source immediately to native machine code.
+        """Compile a Netelpro gate rule source immediately to native machine code.
 
         Executes the prosecutorial pipeline:
         1. Parse source text and validate AST structure (rejecting parse errors).
@@ -307,10 +307,10 @@ class RuleFilter:
 
 
 def compile_filter(source: str) -> RuleFilter:
-    """Convenience factory to parse, validate, and compile a Straylight gate rule.
+    """Convenience factory to parse, validate, and compile a Netelpro gate rule.
 
     Args:
-        source: Straylight source text containing `(defn filter-rule ...)`.
+        source: Netelpro source text containing `(defn filter-rule ...)`.
 
     Returns:
         A compiled `RuleFilter` ready for host evaluation.

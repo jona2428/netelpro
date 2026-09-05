@@ -1,4 +1,4 @@
-"""Straylight language package -- Phase 1 compiler frontend.
+"""Netelpro language package -- Phase 1 compiler frontend.
 
 The compiler-as-prosecutor:
 Deterministic lexical analysis, mechanical arity verification against spec/arity_table.json,

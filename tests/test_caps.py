@@ -1,4 +1,4 @@
-"""Phase 3 test suite for Straylight capabilities-as-types.
+"""Phase 3 test suite for Netelpro capabilities-as-types.
 
 Validates static capability enforcement (prosecutor philosophy), grant collection,
 prosecutorial diagnostics with exact source coordinates, CLI enforcement,

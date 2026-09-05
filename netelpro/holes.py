@@ -1,4 +1,4 @@
-"""Straylight typed holes & static definedness enforcement — Phase 4 prosecutor.
+"""Netelpro typed holes & static definedness enforcement — Phase 4 prosecutor.
 
 Compiler-as-prosecutor, Phase 4 (verified against the parser fiscal 2026-09-05):
 1. THE PARSER is the primary silent-hole prosecutor: any call head that is not a

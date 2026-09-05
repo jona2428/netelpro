@@ -1,7 +1,7 @@
-"""Straylight capabilities as types -- Phase 3 static capability enforcement.
+"""Netelpro capabilities as types -- Phase 3 static capability enforcement.
 
 The prosecutor thesis applied to effects:
-Straylight treats capabilities as a static effect system rather than dynamic permissions.
+Netelpro treats capabilities as a static effect system rather than dynamic permissions.
 In v0.1:
 1. The capability set is {"io"}. The only primitive requiring a capability is 'print' (requires "io").
 2. Enforcement is a SEPARATE static compiler pass -- NOT runtime.

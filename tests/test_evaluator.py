@@ -1,4 +1,4 @@
-"""Phase 2 test suite for the Straylight tree-walking evaluator.
+"""Phase 2 test suite for the Netelpro tree-walking evaluator.
 
 Validates semantic contracts including value model, strict booleans,
 arithmetic rules, comparisons, lexical closures, tail call optimization (TCO),

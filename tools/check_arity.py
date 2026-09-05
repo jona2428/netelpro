@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Straylight fiscal -- Phase 0 mechanical verifier.
+"""Netelpro fiscal -- Phase 0 mechanical verifier.
 
 Checks a program's *structure* only: paren balance with exact positions,
 operand counts per form against the fixed-arity table, and declared arities
@@ -7,7 +7,7 @@ of user `defn`s. No name resolution, no types, no evaluation -- those are
 later phases. This is the embryo of the compiler-as-prosecutor: it proves
 that "count parentheses and operands against a table" fully determines
 whether a program is well-formed, which is the core design claim of
-Straylight's grammar (see docs/SPEC.md).
+Netelpro's grammar (see docs/SPEC.md).
 
 Usage:
     python3 tools/check_arity.py FILE.sl [FILE2.sl ...] [--table PATH]
@@ -313,7 +313,7 @@ def check_source(src: str, table_path: str | Path = TABLE_PATH) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="Straylight fiscal: mechanical arity checker (Phase 0)")
+    ap = argparse.ArgumentParser(description="Netelpro fiscal: mechanical arity checker (Phase 0)")
     ap.add_argument("files", nargs="+", help=".sl files to check")
     ap.add_argument("--table", default=str(TABLE_PATH), help="path to arity_table.json")
     args = ap.parse_args(argv)

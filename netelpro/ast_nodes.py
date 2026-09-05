@@ -1,4 +1,4 @@
-"""Straylight AST nodes -- Phase 1 typed abstract syntax tree.
+"""Netelpro AST nodes -- Phase 1 typed abstract syntax tree.
 
 The prosecutor thesis:
 Every AST node carries exact source coordinates (line, col) from the token stream
@@ -7,7 +7,7 @@ or code generation) can report prosecutorial diagnostics with exact source
 provenance.
 
 Why literal nodes are separate subclasses (IntLit, FloatLit, StrLit, BoolLit, NilLit):
-Straylight v0.1 has a strictly typed data model (Int, Float, Str, Bool, List<T>).
+Netelpro v0.1 has a strictly typed data model (Int, Float, Str, Bool, List<T>).
 In Python, 'bool' is a subclass of 'int' (isinstance(True, int) is True), which
 creates insidious type-coercion bugs in compiler passes that inspect native values.
 By modeling each literal as a distinct, dedicated AST subclass, AST passes and pattern
@@ -22,7 +22,7 @@ from typing import Sequence
 
 @dataclass(frozen=True)
 class Node:
-    """Base class for all Straylight AST nodes.
+    """Base class for all Netelpro AST nodes.
 
     Carries 1-based (line, col) coordinates. Coordinates are excluded from
     structural equality comparison so AST assertions in tests and transformations

@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Straylight recursive-descent parser (Phase 1).
+"""Comprehensive test suite for Netelpro recursive-descent parser (Phase 1).
 
 Validates:
 - All 9 special forms parse into expected AST shapes (structural equality).

@@ -1,5 +1,5 @@
 """Tests for the rule_filter bridge (Phase 6): Neuromancer gate rules as
-compiled pure Straylight functions.
+compiled pure Netelpro functions.
 
 Boundary law (v0.1): all filter-rule params are Int (i64); Booleans cross
 the machine boundary as 0/1 flags. Differential verification vs the

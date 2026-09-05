@@ -1,4 +1,4 @@
-"""Straylight CLI entrypoint -- python -m netelpro <file.sl>."""
+"""Netelpro CLI entrypoint -- python -m netelpro <file.sl>."""
 from __future__ import annotations
 
 import sys
@@ -18,7 +18,7 @@ from netelpro.parser import parse
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Main CLI entrypoint for evaluating Straylight programs."""
+    """Main CLI entrypoint for evaluating Netelpro programs."""
     if argv is None:
         argv = sys.argv[1:]
 

@@ -1,7 +1,7 @@
-"""Straylight parser -- Phase 1 recursive-descent parser and AST constructor.
+"""Netelpro parser -- Phase 1 recursive-descent parser and AST constructor.
 
 The prosecutor thesis:
-Straylight programs are validated mechanically against a single source of truth:
+Netelpro programs are validated mechanically against a single source of truth:
 spec/arity_table.json. Every form (special forms, primitives, and user defns)
 declares a fixed arity (with 'list' as the sole open-arity exception).
 
@@ -81,7 +81,7 @@ class ParseError:
 
 @dataclass
 class ParseResult:
-    """The outcome of parsing a Straylight translation unit.
+    """The outcome of parsing a Netelpro translation unit.
 
     Carries the reconstructed AST (Program) and any accumulated prosecutorial errors.
     Exposes defn_registry mapping user function names to declared parameter counts.
@@ -231,7 +231,7 @@ def check_special(
     depth: int,
     reserved: set[str],
 ) -> None:
-    """Enforce structural invariants for Straylight special forms."""
+    """Enforce structural invariants for Netelpro special forms."""
     if name in ("def", "defn") and depth != 1:
         errors.append(
             ParseError(
@@ -569,7 +569,7 @@ def build_node(item: Tok | Form) -> Node | None:
 
 
 class Parser:
-    """Prosecutorial recursive-descent parser for Straylight source text."""
+    """Prosecutorial recursive-descent parser for Netelpro source text."""
 
     def __init__(self, table_path: str | Path | None = None) -> None:
         self.table_path = Path(table_path) if table_path else TABLE_PATH
@@ -616,5 +616,5 @@ class Parser:
 
 
 def parse(src_or_toks: str | Sequence[Tok], table_path: str | Path | None = None) -> ParseResult:
-    """Convenience functional interface for parsing Straylight programs."""
+    """Convenience functional interface for parsing Netelpro programs."""
     return Parser(table_path=table_path).parse(src_or_toks)
