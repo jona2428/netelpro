@@ -145,6 +145,10 @@ verified_text = guard.enforce(agent_response, tool_results=results)
 * **Language Specification:** [`docs/SPEC.md`](docs/SPEC.md).
 * **MCP Interface:** [`docs/MCP.md`](docs/MCP.md).
 
+## Pretrained Models & Hugging Face
+
+* **Hugging Face Model:** [🤗 JonaECG/netelpro-qwen2.5-1.5b-honest](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-honest) — Download ready-to-run GGUF weights (`netelpro-qwen2.5-1.5b-q4_k_m.gguf`) with the Modelfile for Ollama and LM Studio.
+
 ## Train Your Own Model (Google Colab Free GPU)
 
 Align a 1.5B model (`Qwen/Qwen2.5-1.5B-Instruct`) to eliminate Verification Theater using DPO on Google Colab's free T4 GPU (~20 mins):
