@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netelpro"
-version = "0.6.0"
+version = "0.7.0"
 description = "A programming language designed for LLMs — honest by construction: mechanical verification, explicit holes, no silent gaps."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,3 +29,12 @@ dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
 include = ["netelpro*"]
+
+[tool.mypy]
+python_version = "3.11"
+
+[[tool.mypy.overrides]]
+module = "llvmlite.*"
+ignore_missing_imports = true
+
+

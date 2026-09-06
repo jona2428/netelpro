@@ -4,6 +4,14 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## v0.7.0 — Verification Theater Benchmark & Honesty Guard (2026-09-06)
+
+### Added
+- **Formal Whitepaper** (`docs/WHITEPAPER.md`): *Netelpro: Compiler-Enforced Epistemic Honesty for Autonomous LLM Agents*, formalizing cognitive counting grammar, honesty stack, and RLVR grounding.
+- **Universal SDK** (`netelpro/guard.py`): `HonestyGuard` interface for Python agent frameworks (LangChain, CrewAI, AutoGen, Ollama) evaluating claims against machine tool evidence in microsecond LLVM native execution.
+- **Verification Theater Benchmark (VTB)** (`benchmarks/`): 30 realistic test cases across FileSystem, SystemState, and CodeExecution evaluating false assertion acceptance rate (FAAR: 0.0% on Netelpro vs 100% baseline).
+- **Unit test suite expansion** (`netelpro/tests/test_guard.py`): 4 tests validating rejection of false claims, approval of verified turns, and honest silences.
+
 ## v0.6.0 — Per-Function Effect Typing (2026-09-05, commit 2489dfd)
 
 ### Added

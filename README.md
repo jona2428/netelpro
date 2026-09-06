@@ -118,9 +118,35 @@ The Phase 6 use case, `examples/zone_policy.sl` (v0.3) — the Neuromancer zone 
           true)))
 ```
 
+## Verification Theater Benchmark (VTB) & Honesty Guard
+
+Netelpro includes a native benchmark measuring **Verification Theater** (agents claiming empirical verification without executing tools) across 30 real-world scenarios:
+
+```bash
+python -m benchmarks.vtb_runner
+```
+
+* **Baseline (Prompt-Only):** 100% false assertion acceptance (FAAR).
+* **Netelpro Native Guard:** **0% FAAR** (100% of deceptive claims rejected, 0 false positives, ~7.5 µs latency in LLVM).
+
+### Universal Python Guard (`netelpro.guard`)
+
+```python
+from netelpro.guard import HonestyGuard
+
+guard = HonestyGuard()
+# Raises HonestyViolationError if the turn claims verification without tool evidence
+verified_text = guard.enforce(agent_response, tool_results=results)
+```
+
+## Documentation & Research
+
+* **Whitepaper:** [`docs/WHITEPAPER.md`](docs/WHITEPAPER.md) — *Netelpro: Compiler-Enforced Epistemic Honesty for Autonomous LLM Agents*.
+* **Language Specification:** [`docs/SPEC.md`](docs/SPEC.md).
+* **MCP Interface:** [`docs/MCP.md`](docs/MCP.md).
+
 ## Status
 
-- **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md) (v0.3: strings at the native boundary); machine-consumed arity table at `spec/arity_table.json`.
-- **Release:** v0.3.0 (strings, read-only, at the native boundary). In production: the Netelpro rule gate decides the Neuromancer agent's zone policy (compiled native rule, differential-tested).
-- **History:** every claim in the spec is backed by the test suite (`tests/`, 356 tests) and the examples (`examples/`).
-- **Deliberate v0.3 limits** (documented, not accidental): the compiled subset is `Int`/`Bool`/`Str`-read-only; string/list PRODUCTION (`str-cat`, `int->str`, `cons`, ...) remains interpreter-only — native code decides over strings, it does not build them; return-Str is a compile error; recursion must be tail-recursive to compile; no first-class functions; capabilities are file-scoped (`{io}`).
+- **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md); machine-consumed arity table at `spec/arity_table.json`.
+- **Release:** v0.7.0 (HonestyGuard SDK, Verification Theater Benchmark, LLVM native JIT, MCP server).
+- **History:** 374+ tests passing with zero differential divergence between Python interpreter and LLVM native backend.
