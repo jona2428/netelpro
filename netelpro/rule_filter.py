@@ -58,7 +58,8 @@ Architecture & Contracts:
 from __future__ import annotations
 
 import ctypes
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import llvmlite.ir as ir
 
@@ -68,6 +69,7 @@ from netelpro.codegen import CodegenError, CompiledProgram, compile_program
 from netelpro.evaluator import Environment, StrayError, run_source
 from netelpro.holes import check_holes
 from netelpro.parser import parse
+from netelpro.str_native import StrNativeError, read_arena_string
 
 
 class RuleFilterError(Exception):
@@ -89,7 +91,7 @@ class RuleFilterError(Exception):
 class RuleFilter:
     """Compiled native Netelpro gate rule bridge for host execution."""
 
-    def __init__(self, source: str) -> None:
+    def __init__(self, source: str, defn_name: str = "filter-rule") -> None:
         """Compile a Netelpro gate rule source immediately to native machine code.
 
         Executes the prosecutorial pipeline:
@@ -136,22 +138,28 @@ class RuleFilter:
         self._sorry_entries = manifest_entries
 
         # 4. Filter-rule definition audit
-        filter_defn: Defn | None = None
+        entry_defn: Defn | None = None
         for form in program.forms:
             if isinstance(form, Defn):
                 name = form.name.name if isinstance(form.name, Sym) else str(form.name)
-                if name == "filter-rule":
-                    filter_defn = form
+                if name == defn_name:
+                    entry_defn = form
                     break
 
-        if filter_defn is None:
-            raise RuleFilterError("function 'filter-rule' is not defined in source", line=0, col=0)
+        if entry_defn is None:
+            raise RuleFilterError(
+                f"function '{defn_name}' is not defined in source",
+                line=0,
+                col=0,
+            )
 
-        self._defn_line: int = filter_defn.line
-        self._defn_col: int = filter_defn.col
-        self._arity: int = len(filter_defn.params)
+        self._defn_name: str = defn_name
+        self._defn_line: int = entry_defn.line
+        self._defn_col: int = entry_defn.col
+        self._arity: int = len(entry_defn.params)
+        self._entry_defn: Defn = entry_defn
         self._param_names: list[str] = [
-            p.name if isinstance(p, Sym) else str(p) for p in filter_defn.params
+            p.name if isinstance(p, Sym) else str(p) for p in entry_defn.params
         ]
 
         # 5. Native compilation
@@ -174,13 +182,13 @@ class RuleFilter:
             # Audit LLVM parameter types and determine return calling convention
             llvm_fn: ir.Function | None = None
             for fn in compiled.module.functions:
-                if fn.name == "filter-rule":
+                if fn.name == defn_name:
                     llvm_fn = fn
                     break
 
             if llvm_fn is None:
                 raise RuleFilterError(
-                    "compiled function 'filter-rule' not found in native module",
+                    f"compiled function '{defn_name}' not found in native module",
                     line=self._defn_line,
                     col=self._defn_col,
                 )
@@ -194,11 +202,14 @@ class RuleFilter:
                     continue  # pointer param (Str): legal since v0.3
                 if w not in (64, 1):
                     raise RuleFilterError(
-                        f"parameter of 'filter-rule' resolved to unsupported type i{w}",
+                        f"parameter of '{defn_name}' resolved to unsupported type i{w}",
                         line=self._defn_line,
                         col=self._defn_col,
                     )
-            if llvm_fn.function_type.return_type.width != 1 and llvm_fn.function_type.return_type.width != 64:
+            if defn_name == "filter-rule" and (
+                llvm_fn.function_type.return_type.width != 1
+                and llvm_fn.function_type.return_type.width != 64
+            ):
                 raise RuleFilterError(
                     "'filter-rule' must return Bool (i1) or Int (i64) -- strings cannot cross "
                     "the native boundary as return values (read-only boundary, v0.3)",
@@ -207,7 +218,10 @@ class RuleFilter:
                 )
 
             self._compiled = compiled
-            if llvm_fn.function_type.return_type == ir.IntType(1):
+            if llvm_fn.function_type.return_type == ir.PointerType():
+                # v0.5 builder: Str products cross as c_char_p.
+                self._restype = ctypes.c_char_p
+            elif llvm_fn.function_type.return_type == ir.IntType(1):
                 self._restype = ctypes.c_bool
             else:
                 self._restype = ctypes.c_int64
@@ -338,6 +352,124 @@ def compile_filter(source: str) -> RuleFilter:
         A compiled `RuleFilter` ready for host evaluation.
     """
     return RuleFilter(source)
+
+
+class RuleBuilder(RuleFilter):
+    """Compiled native Netelpro builder bridge: string products at the boundary.
+
+    v0.5 capability, exclusive to `(defn build-rule ...)` -- the only defn whose
+    return type may be Str (i8* into a per-call-reset 64KB arena). Gate rules
+    (`filter-rule`) remain prohibited from returning strings: they decide, they
+    never produce.
+
+    Raises:
+        RuleFilterError: On any prosecutorial failure (parse, caps, holes,
+            codegen), on arena overflow (NULL product), or if `build-rule` is
+            missing from the source.
+    """
+
+    def __init__(self, source: str) -> None:
+        """Compile a builder program immediately to native machine code.
+
+        Verifies that the source defines `build-rule` and that its return
+        type resolved to Str; a builder without a string product is a
+        prosecutorial error (the capability has a purpose or it does not exist).
+        """
+        RuleFilter.__init__(self, source, defn_name="build-rule")
+        builder_defn = self._entry_defn
+        # The builder's compiled return type must be a pointer (Str product).
+        # A builder returning Int/Bool is a semantic misuse: prosecute it.
+        llvm_fn = None
+        if self._compiled is not None:
+            for fn in self._compiled.module.functions:
+                if fn.name == "build-rule":
+                    llvm_fn = fn
+                    break
+        if llvm_fn is None or llvm_fn.function_type.return_type != ir.PointerType():
+            raise RuleFilterError(
+                "'build-rule' must return Str (it exists to produce rule text)",
+                line=builder_defn.line,
+                col=builder_defn.col,
+            )
+
+    def build(self, *args: int | bool | str) -> str:
+        """Call the compiled `build-rule` natively and return its string product.
+
+        The product is read up to NUL from the returned i8* (per-call arena),
+        decoded as UTF-8, and returned as a Python str. A NULL product (arena
+        overflow) is prosecuted as a bridge error mentioning both 'arena' and
+        'overflow'.
+        """
+        if self._compiled is None:
+            raise RuleFilterError(
+                "cannot build: rule contains declared sorry hole(s): " + ", ".join(self._manifest)
+            )
+        if len(args) != self._arity:
+            raise RuleFilterError(
+                f"'build-rule' expects {self._arity} argument(s), got {len(args)}",
+                line=self._defn_line,
+                col=self._defn_col,
+            )
+        addr = self._compiled.engine.get_function_address("build-rule")
+        if not addr:
+            raise RuleFilterError(
+                "failed to resolve machine address for 'build-rule'",
+                line=self._defn_line,
+                col=self._defn_col,
+            )
+        c_fn = ctypes.CFUNCTYPE(ctypes.c_char_p, *self._argtypes)(addr)
+        call_args: list[Any] = [
+            a.encode("utf-8") if isinstance(a, str) else a for a in args
+        ]
+        raw = c_fn(*call_args)
+        try:
+            return read_arena_string(raw)
+        except StrNativeError as e:
+            raise RuleFilterError(
+                f"arena overflow: {e.message}",
+                line=self._defn_line,
+                col=self._defn_col,
+            ) from e
+
+    def verify_build(
+        self, cases: Sequence[tuple[Any, str]]
+    ) -> list[tuple[Any, str, Any, str]]:
+        """Differential testing: native builder vs reference interpreter.
+
+        Args:
+            cases: Sequence of `(args_tuple, expected_str)` vectors.
+
+        Returns:
+            Mismatches as `(args, expected, interpreter_result, native_result)`
+            tuples; empty list means full parity across all cases.
+        """
+        mismatches: list[tuple[Any, str, Any, str]] = []
+        for args_case, expected in cases:
+            args_tuple = tuple(args_case) if isinstance(args_case, (tuple, list)) else (args_case,)
+
+            native_res = self.build(*args_tuple)
+
+            def _render(a: Any) -> str:
+                if a is True:
+                    return "true"
+                if a is False:
+                    return "false"
+                if isinstance(a, str):
+                    escaped = (
+                        a.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\t", "\\t")
+                    )
+                    return f'"{escaped}"'
+                return str(a)
+
+            args_str = " ".join(_render(a) for a in args_tuple)
+            call_form = f"(build-rule {args_str})" if args_str else "(build-rule)"
+            interp_src = f"{self._source}\n{call_form}"
+            interp_res = run_source(interp_src, env=Environment())
+
+            if (native_res != interp_res) or (native_res != expected):
+                mismatches.append((args_case, expected, interp_res, native_res))
+
+        return mismatches
 
 
 __all__ = [

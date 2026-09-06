@@ -261,10 +261,14 @@ class TestProsecutorRejections:
         assert_rejected("(defn f () 3.14)", "Float literals are not supported", stage="codegen")
 
     def test_string_literal_rejected_at_codegen(self) -> None:
-        # v0.3: string literals are legal as intermediate values (== / prefix?
-        # / print), but a bare Str in return position is still prosecuted:
-        # strings are read-only at the native boundary (no ownership model).
-        assert_rejected('(defn f () "hola")', "cannot be a return value", stage="codegen")
+        # v0.5: production is legal for builder helpers (composition) — the
+        # product is discarded at main's i64 ABI (no escape route). The bare
+        # helper COMPILES (no prosecution); reading its product requires the
+        # build-rule bridge (differential via RuleBuilder, tested in corpus).
+        pr = parse('(defn f () "hola")\n(f)')
+        assert pr.ok
+        program = compile_program(pr.program)  # no CodegenError raised
+        assert program.run() == 0  # main's i64 ABI discards the product
 
     def test_nil_literal_rejected_at_codegen(self) -> None:
         assert_rejected("(defn f () nil)", "Nil literals are not supported", stage="codegen")
@@ -285,7 +289,7 @@ class TestProsecutorRejections:
 
     @pytest.mark.parametrize(
         "head",
-        ["cons", "nth", "str-cat"],
+        ["cons", "nth"],
     )
     def test_non_compilable_primitives_rejected_at_codegen(self, head: str) -> None:
         assert_rejected(
@@ -293,6 +297,15 @@ class TestProsecutorRejections:
             f"primitive '{head}' is not supported",
             stage="codegen",
         )
+
+    def test_str_cat_compiles_differentially_v05(self) -> None:
+        # v0.5: str-cat is a native primitive. The product crosses the
+        # boundary ONLY via build-rule (main keeps its i64 ABI), so the
+        # differential compares through `==` (bool widened to i64).
+        assert_agree('(defn f (x) (== (str-cat x "b") "ab"))\n(f "a")')
+
+    def test_int_to_str_compiles_differentially_v05(self) -> None:
+        assert_agree('(defn f (n) (== (int->str n) "42"))\n(f 42)')
 
     def test_division_rejected_at_codegen(self) -> None:
         assert_rejected("(defn f (x) (/ x x))", "'/' is not supported in native codegen v0.1", stage="codegen")
@@ -560,7 +573,10 @@ class TestDifferentialStrings:
         assert_agree(src)
 
     def test_return_str_rejected(self) -> None:
-        assert_rejected('(defn f () "hola")', "cannot be a return value", stage="codegen")
+        # v0.5: the ONE remaining Str-return prosecution is the gate rule
+        # itself: filter-rule decides, it never produces. A builder helper
+        # with the same body compiles fine (verified in the builder corpus).
+        assert_rejected('(defn filter-rule () "hola")', "gate rules decide, they never produce", stage="codegen")
 
     def test_heterogeneous_eq_rejected(self) -> None:
         assert_rejected(
@@ -583,8 +599,10 @@ class TestDifferentialStrings:
         # Top-level comparisons yield i1 and are widened to i64 by main()'s
         # return contract (existing law) -- strings never flow as values, so
         # no pointer ever reaches a return register.
-        assert_agree('(== "a" "b")') == 0
-        assert_agree('(== "a" "a")') == 1
+        assert assert_agree('(== "a" "b")') == 0
+        assert assert_agree('(== "a" "a")') == 1
 
-    def test_str_cat_still_interpreter_only(self) -> None:
-        assert_rejected('(defn f (s) (str-cat s "x"))', "not supported", stage="codegen")
+    def test_str_cat_native_differential_v05(self) -> None:
+        # v0.5: str-cat produces arena-backed strings natively. Differential:
+        # interpreter == native for the product (compared via == / print-free).
+        assert_agree('(defn f (s) (== (str-cat s "x") "ax"))\n(f "a")')

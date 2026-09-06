@@ -74,6 +74,7 @@ from netelpro.ast_nodes import (
     Sym,
 )
 from netelpro.evaluator import StrayError
+from netelpro.str_native import emit_arena_reset, emit_int_to_str, emit_str_cat
 
 
 class CodegenError(StrayError):
@@ -148,12 +149,16 @@ NON_COMPILABLE_PRIMITIVES: set[str] = {
     "is-nil",
     "len",
     "nth",
-    "str-cat",
     "str-len",
-    "int->str",
     "str->int",
     "int->float",
 }
+
+# v0.5: string-production primitives — first products at the native boundary.
+# The arena allocator (netelpro/str_native.py) gives every string a per-call
+# lifetime: allocated at emission time into the static 64KB arena, freed all
+# at once when the next call resets the bump pointer. No free(), no leaks.
+COMPILABLE_STR_PRIMS: set[str] = {"str-cat", "int->str"}
 
 COMPILABLE_PRIMITIVES: set[str] = {
     "+",
@@ -183,6 +188,8 @@ RESERVED_HEADS: set[str] = {
     "grant",
     *NON_COMPILABLE_PRIMITIVES,
     *COMPILABLE_PRIMITIVES,
+    # v0.5: string-production primitives are compilable AND reserved.
+    *COMPILABLE_STR_PRIMS,
 }
 
 
@@ -461,6 +468,24 @@ def compile_program(program: Program) -> CompiledProgram:
                 # selects the format string by LLVM type inspection.
                 return TYPE_NIL
 
+            if head in COMPILABLE_STR_PRIMS:
+                # v0.5 arities: str-cat is binary; int->str is unary.
+                expected = 2 if head == "str-cat" else 1
+                if len(node.args) != expected:
+                    raise CodegenError(
+                        f"'{head}' expects exactly {expected} argument(s), got {len(node.args)}",
+                        node.line,
+                        node.col,
+                    )
+                a0_t = typecheck(node.args[0], lex_env, current_defn)
+                if head == "str-cat":
+                    _unify(a0_t, TYPE_STR, node.args[0].line, node.args[0].col, "'str-cat' first operand")
+                    a1_t = typecheck(node.args[1], lex_env, current_defn)
+                    _unify(a1_t, TYPE_STR, node.args[1].line, node.args[1].col, "'str-cat' second operand")
+                else:
+                    _unify(a0_t, TYPE_INT, node.args[0].line, node.args[0].col, "'int->str' operand")
+                return TYPE_STR
+
             if head in defns:
                 target_defn = defns[head]
                 expected_arity = len(target_defn.param_names)
@@ -496,6 +521,19 @@ def compile_program(program: Program) -> CompiledProgram:
     for d_info in defns.values():
         d_info.param_types = [p.resolve() for p in d_info.param_vars]
         d_info.ret_type = d_info.ret_var.resolve()
+        # v0.5 capability boundary (single point of prosecution, AFTER type
+        # resolution): the GATE RULE may NEVER return a string product --
+        # deciding and producing are separated at compile time. Builder
+        # helpers MAY produce (composition for build-rule is legitimate);
+        # the product crosses the bridge exclusively via `build-rule` (or
+        # is discarded at main's i64 ABI -- no escape route exists).
+        if d_info.ret_type == TYPE_STR and d_info.name == "filter-rule":
+            raise CodegenError(
+                "'filter-rule' returns Str: gate rules decide, they never produce "
+                "(string production is the builder's capability, v0.5)",
+                d_info.node.line,
+                d_info.node.col,
+            )
 
     # -----------------------------------------------------------------------
     # Pass 3: LLVM IR Generation
@@ -602,11 +640,18 @@ def compile_program(program: Program) -> CompiledProgram:
         if isinstance(node, StrLit):
             val = builder.bitcast(intern_str_const(node.value), ir.PointerType())
             if is_tail:
-                raise CodegenError(
-                    "a string cannot be a return value in native codegen v0.3 (read-only boundary)",
-                    node.line,
-                    node.col,
-                )
+                # v0.5: the capability boundary. ONLY a builder (`build-rule`)
+                # may return a string product: its i8* crosses the bridge as
+                # the rule text. Every other tail return of Str is prosecuted
+                # exactly as in v0.3 -- gate rules decide, they never produce.
+                if ctx is not None and ctx.fn_name == "filter-rule":
+                    raise CodegenError(
+                        "'filter-rule' returns Str: gate rules decide, they never produce (v0.5)",
+                        node.line,
+                        node.col,
+                    )
+                builder.ret(val)
+                return None
             return val
 
         if isinstance(node, Sym):
@@ -820,6 +865,23 @@ def compile_program(program: Program) -> CompiledProgram:
                     builder.ret(res)
                 return res
 
+            if head == "str-cat":
+                a = compile_expr(node.args[0], env, is_tail=False, builder=builder, ctx=ctx)
+                b = compile_expr(node.args[1], env, is_tail=False, builder=builder, ctx=ctx)
+                assert a is not None and b is not None
+                res = emit_str_cat(builder, a, b, mod)
+                if is_tail:
+                    builder.ret(res)
+                return res
+
+            if head == "int->str":
+                n_val = compile_expr(node.args[0], env, is_tail=False, builder=builder, ctx=ctx)
+                assert n_val is not None
+                res = emit_int_to_str(builder, n_val, mod)
+                if is_tail:
+                    builder.ret(res)
+                return res
+
             if head in llvm_functions:
                 if is_tail and ctx is not None and head == ctx.fn_name:
                     # SELF-TAIL CALL: TCO loop back-edge
@@ -846,6 +908,11 @@ def compile_program(program: Program) -> CompiledProgram:
         llvm_fn = llvm_functions[d_info.name]
         entry_bb = llvm_fn.append_basic_block("entry")
         b = ir.IRBuilder(entry_bb)
+
+        # v0.5 arena protocol: a builder's arena lifetime is per-call. The
+        # bump pointer resets at entry, so every build() starts from offset 0.
+        if d_info.name == "build-rule":
+            emit_arena_reset(b)
 
         assert d_info.param_types is not None
         param_slots: dict[str, ir.AllocaInstr] = {}
@@ -890,6 +957,11 @@ def compile_program(program: Program) -> CompiledProgram:
                 mb.ret(ir.Constant(i64, 0))
             elif last_val.type == i1:
                 mb.ret(mb.zext(last_val, i64))
+            elif last_val.type == ir.PointerType():
+                # v0.5: string products at top level are evaluated for their
+                # effects (print), but main keeps its i64 ABI -- products
+                # cross the boundary exclusively through `build-rule`.
+                mb.ret(ir.Constant(i64, 0))
             else:
                 mb.ret(last_val)
 
