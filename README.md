@@ -145,8 +145,16 @@ verified_text = guard.enforce(agent_response, tool_results=results)
 * **Language Specification:** [`docs/SPEC.md`](docs/SPEC.md).
 * **MCP Interface:** [`docs/MCP.md`](docs/MCP.md).
 
+## Train Your Own Model (Google Colab Free GPU)
+
+Align a 1.5B model (`Qwen/Qwen2.5-1.5B-Instruct`) to eliminate Verification Theater using DPO on Google Colab's free T4 GPU (~20 mins):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_colab.ipynb)
+
+See [`training/README.md`](training/README.md) for full instructions and GGUF export.
+
 ## Status
 
 - **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md); machine-consumed arity table at `spec/arity_table.json`.
-- **Release:** v0.7.0 (HonestyGuard SDK, Verification Theater Benchmark, LLVM native JIT, MCP server).
+- **Release:** v0.7.0 (HonestyGuard SDK, Verification Theater Benchmark, DPO Colab Trainer, LLVM native JIT, MCP server).
 - **History:** 374+ tests passing with zero differential divergence between Python interpreter and LLVM native backend.
