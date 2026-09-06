@@ -481,11 +481,11 @@ def tool_compile(source: str, backend: str = "interpreter") -> dict[str, Any]:
     """Execute static validation only: parse, caps, holes, and optional codegen check."""
     byte_errs = check_source_bytes(source)
     if byte_errs:
-        return {"ok": False, "errors": byte_errs, "hole_manifest": [], "grants": []}
+        return {"ok": False, "errors": byte_errs, "hole_manifest": [], "grants": [], "effects": {}}
 
     depth_errs = check_nesting_depth(source)
     if depth_errs:
-        return {"ok": False, "errors": depth_errs, "hole_manifest": [], "grants": []}
+        return {"ok": False, "errors": depth_errs, "hole_manifest": [], "grants": [], "effects": {}}
 
     parse_res = parse(source)
     if not parse_res.ok:
@@ -493,13 +493,24 @@ def tool_compile(source: str, backend: str = "interpreter") -> dict[str, Any]:
             {"phase": "parse", "line": e.line, "col": e.col, "message": e.message}
             for e in parse_res.errors
         ]
-        return {"ok": False, "errors": errs, "hole_manifest": [], "grants": []}
+        return {"ok": False, "errors": errs, "hole_manifest": [], "grants": [], "effects": {}}
 
     program = parse_res.program
     granted = collect_grants(program)
     grants = sorted(list(granted))
 
     errors: list[dict[str, Any]] = []
+
+    # Per-function effect typing (v0.6): expose inferred effect sets so an LLM
+    # consumer can mechanically verify gate-rule purity before trusting a rule.
+    effects: dict[str, Any] = {}
+    try:
+        from netelpro.effects import infer_effects
+
+        effect_sets = infer_effects(program)
+        effects = {name: sorted(list(effs)) for name, effs in effect_sets.items()}
+    except Exception as e:
+        errors.append({"phase": "effect", "line": 0, "col": 0, "message": str(e)})
 
     cap_errors = check_capabilities(program, granted)
     if cap_errors:
@@ -525,6 +536,7 @@ def tool_compile(source: str, backend: str = "interpreter") -> dict[str, Any]:
             "errors": errors,
             "hole_manifest": hole_manifest,
             "grants": grants,
+            "effects": effects,
         }
 
     if backend == "native":
@@ -545,6 +557,7 @@ def tool_compile(source: str, backend: str = "interpreter") -> dict[str, Any]:
                 ],
                 "hole_manifest": hole_manifest,
                 "grants": grants,
+                "effects": effects,
             }
 
         try:
@@ -562,6 +575,7 @@ def tool_compile(source: str, backend: str = "interpreter") -> dict[str, Any]:
                 ],
                 "hole_manifest": hole_manifest,
                 "grants": grants,
+                "effects": effects,
             }
         except StrayError as e:
             line = getattr(e, "line", 0)
@@ -572,6 +586,7 @@ def tool_compile(source: str, backend: str = "interpreter") -> dict[str, Any]:
                 "errors": [{"phase": "codegen", "line": line, "col": col, "message": msg}],
                 "hole_manifest": hole_manifest,
                 "grants": grants,
+                "effects": effects,
             }
         except Exception as e:
             return {
@@ -579,6 +594,7 @@ def tool_compile(source: str, backend: str = "interpreter") -> dict[str, Any]:
                 "errors": [{"phase": "codegen", "line": 0, "col": 0, "message": str(e)}],
                 "hole_manifest": hole_manifest,
                 "grants": grants,
+                "effects": effects,
             }
 
     return {
@@ -586,6 +602,7 @@ def tool_compile(source: str, backend: str = "interpreter") -> dict[str, Any]:
         "errors": [],
         "hole_manifest": hole_manifest,
         "grants": grants,
+        "effects": effects,
     }
 
 

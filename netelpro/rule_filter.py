@@ -66,6 +66,7 @@ import llvmlite.ir as ir
 from netelpro.ast_nodes import Defn, Sym
 from netelpro.caps import check_capabilities, collect_grants
 from netelpro.codegen import CodegenError, CompiledProgram, compile_program
+from netelpro.effects import check_gate_purity
 from netelpro.evaluator import Environment, StrayError, run_source
 from netelpro.holes import check_holes
 from netelpro.parser import parse
@@ -124,6 +125,16 @@ class RuleFilter:
         if cap_errors:
             first_cap = cap_errors[0]
             raise RuleFilterError(first_cap.message, line=first_cap.line, col=first_cap.col)
+
+        # 2b. Gate-rule purity (per-function effect typing, v0.6):
+        # the DECISION entry ('filter-rule') must have an empty effect set —
+        # a gate rule is a pure decision, machine-checkable. String-producing
+        # builders ('build-rule') are exempt by design: producers, not judges.
+        if defn_name == "filter-rule":
+            purity_errors = check_gate_purity(program, defn_name)
+            if purity_errors:
+                first_purity = purity_errors[0]
+                raise RuleFilterError(first_purity.message, line=first_purity.line, col=first_purity.col)
 
         # 3. Static hole auditing (collecting manifest; declared sorries are legal)
         hole_errors, manifest_entries = check_holes(program)
