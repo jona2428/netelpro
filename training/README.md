@@ -4,9 +4,12 @@ Entrena tu propio modelo de lenguaje de **1.5B parámetros** (`Qwen/Qwen2.5-1.5B
 
 ---
 
-## ⚡ Enlace Rápido
-Puedes abrir el notebook directamente en Google Colab con este enlace:
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_colab.ipynb)
+## ⚡ Enlaces Rápidos (Abrir en Google Colab con 1 Clic)
+
+| Modelo Base | Arquitectura | Badge Colab | Descripción |
+| :--- | :--- | :--- | :--- |
+| **Qwen 2.5 1.5B Instruct** | Transformer (Alibaba) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_colab.ipynb) | Modelo transformer ultra compacto, exporta directo a GGUF. |
+| **Liquid AI LFM 2.5 1.2B** | Red Neuronal Líquida (MIT) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_lfm_colab.ipynb) | Arquitectura líquida bio-inspirada, < 1 GB VRAM, respuesta en tiempo real. |
 
 ---
 

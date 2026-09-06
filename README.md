@@ -151,9 +151,10 @@ verified_text = guard.enforce(agent_response, tool_results=results)
 
 ## Train Your Own Model (Google Colab Free GPU)
 
-Align a 1.5B model (`Qwen/Qwen2.5-1.5B-Instruct`) to eliminate Verification Theater using DPO on Google Colab's free T4 GPU (~20 mins):
+Align small edge models to eliminate Verification Theater using DPO on Google Colab's free T4 GPU (~15-20 mins):
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_colab.ipynb)
+* **Qwen 2.5 1.5B (Transformer):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_colab.ipynb)
+* **Liquid AI LFM 2.5 1.2B (Liquid State-Space):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_lfm_colab.ipynb)
 
 See [`training/README.md`](training/README.md) for full instructions and GGUF export.
 
