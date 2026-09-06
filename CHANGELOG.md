@@ -4,6 +4,36 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## v0.6.0 — Per-Function Effect Typing (2026-09-05, commit 2489dfd)
+
+### Added
+- **Effect inference** (`netelpro/effects.py`): static per-function effect sets via
+  monotonic fixpoint over the closed call graph (no first-class calls ⇒ fully static).
+  Effects = transitive closure of capability requirements (derived from the same
+  `spec/arity_table.json` source of truth as `caps.py`). Direct and mutual recursion
+  converge; non-convergence raises `EffectError`.
+- **Gate purity law**: `check_gate_purity()` enforces that the decision entry
+  (`filter-rule`) has an **empty effect set** — gate rules are pure decisions,
+  machine-checkable by any LLM consumer. Impurity reports the exact **call chain**
+  (`filter-rule -> helper -> sink -> print`) with source coordinates: the chain is
+  the LLM's repair map.
+- **Bridge enforcement** (`rule_filter.py`): `RuleFilter.__init__` runs purity as
+  step 2b — an impure `filter-rule` is a compile error. `RuleBuilder`
+  (`build-rule`) is exempt by design: producers are not judges.
+- **MCP exposure** (`mcp_server.py`): `netelpro_compile` returns `effects` per defn
+  in every response (success or failure) — an LLM can now read the effect set of a
+  rule it is auditing without re-deriving it.
+
+### Design notes
+- Dead impure code does **not** pollute a pure entry's effect set: effects flow
+  through calls, not through unreachable definitions (verified E2E: pure rule with
+  a dead `(print ...)` helper compiles; a rule that *calls* the helper is rejected).
+- Semantics decided by Teo under the no-questions mandate; adversarial review by
+  antigravity-reasoning caught 3 blind spots pre-integration (Fn/def codegen
+  restrictions, RuleBuilder entry name, top-level calls); antigravity-code built
+  the self-contained module + 13 tests; Teo integrated, extended E2E (4 cases), and
+  fixed a lint auto-fix regression in the BFS chain (tuple semantics corrupted).
+
 ## v0.4.0 — MCP Server (2026-09-05)
 
 ### Added
