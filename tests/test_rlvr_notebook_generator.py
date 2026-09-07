@@ -63,6 +63,16 @@ def test_notebook_exports_gguf_at_the_end():
     assert "save_pretrained_gguf" in src
 
 
+def test_raft_loop_conditions_sft_on_prompt_via_formatting_func():
+    """El SFT tiene que condicionar al prompt de la tarea, no entrenar solo
+    sobre el texto crudo de la completion (bug de fix round 1: con
+    trl<0.15.0, dataset_text_field solo usa esa UNA columna, así que el
+    modelo nunca vería el prompt durante el fine-tune)."""
+    src = _all_code_source(build_raft_notebook())
+    assert 'dataset_text_field="completion"' not in src
+    assert "formatting_func=format_sft_example" in src
+
+
 def test_generator_writes_valid_ipynb_file(tmp_path):
     from training.create_raft_notebook import main as generator_main
 
