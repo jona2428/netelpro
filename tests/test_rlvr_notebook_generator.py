@@ -49,6 +49,15 @@ def test_notebook_references_verify_program_and_split():
     assert "split_train_ood" in src
 
 
+def test_notebook_checks_gpu_before_unsloth():
+    src = _all_code_source(build_raft_notebook())
+    gpu_idx = src.find("torch.cuda.is_available()")
+    unsloth_idx = src.find("from unsloth")
+    assert gpu_idx != -1, "falta guard de GPU"
+    assert unsloth_idx != -1
+    assert gpu_idx < unsloth_idx, "el guard de GPU debe correr antes del import de unsloth"
+
+
 def test_notebook_measures_baseline_before_raft_rounds():
     src = _all_code_source(build_raft_notebook())
     baseline_idx = src.find("baseline")

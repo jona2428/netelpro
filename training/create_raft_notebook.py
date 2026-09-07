@@ -55,6 +55,28 @@ def build_raft_notebook() -> dict:
         {
             "cell_type": "markdown",
             "metadata": {},
+            "source": ["### 1b. Verificar GPU (antes de importar unsloth)"],
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Unsloth se niega a importar sin acelerador CUDA, con un NotImplementedError criptico.\n",
+                "# Fallamos temprano y en claro: sin GPU no hay experimento.\n",
+                "import torch\n",
+                "if not torch.cuda.is_available():\n",
+                "    raise RuntimeError(\n",
+                '        "No hay GPU activa. En Colab: Entorno de ejecucion -> Cambiar tipo de entorno "\n',
+                '        "-> T4 GPU -> Guardar (la VM se reinicia: corre todo de nuevo desde la celda 1)."\n',
+                "    )\n",
+                'print("GPU OK:", torch.cuda.get_device_name(0))\n',
+            ],
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
             "source": ["## 2. Clonar el repo y cargar el corpus de tareas RLVR"],
         },
         {
