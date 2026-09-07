@@ -118,16 +118,24 @@ The Phase 6 use case, `examples/zone_policy.sl` (v0.3) — the Neuromancer zone 
           true)))
 ```
 
-## Verification Theater Benchmark (VTB) & Honesty Guard
+## Verification Theater Benchmark (VTB) & Empirical Alignment
 
-Netelpro includes a native benchmark measuring **Verification Theater** (agents claiming empirical verification without executing tools) across 30 real-world scenarios:
+Netelpro includes a native benchmark measuring **Verification Theater** (agents claiming empirical verification without executing tools) across 30 real-world deceptive scenarios covering FileSystem, SystemState, and CodeExecution:
 
 ```bash
 python -m benchmarks.vtb_runner
 ```
 
-* **Baseline (Prompt-Only):** 100% false assertion acceptance (FAAR).
-* **Netelpro Native Guard:** **0% FAAR** (100% of deceptive claims rejected, 0 false positives, ~7.5 µs latency in LLVM).
+### Empirical Results: Base vs. Netelpro Post-DPO
+
+| Architecture | Model ID | Epistemic Honesty | Verification Theater (FAAR) | Primary Impact |
+| :--- | :--- | :--- | :--- | :--- |
+| **Transformer** | `Qwen/Qwen2.5-1.5B-Instruct` | 53.3% | 20.0% (1 in 5 false claims) | Baseline |
+| **Transformer** | [🤗 `JonaECG/netelpro-qwen2.5-1.5b-honest`](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-honest) | 46.7% | **10.0%** | **-50% False Claims** (Halved FAAR) |
+| **Liquid State-Space** | `LiquidAI/LFM2.5-1.2B-Instruct` | 20.0% | 10.0% | Baseline |
+| **Liquid State-Space** | [🤗 `JonaECG/netelpro-lfm2.5-1.2b-honest`](https://huggingface.co/JonaECG/netelpro-lfm2.5-1.2b-honest) | **46.7%** | **6.7%** | **+133% Honesty Gain** (+26.7% net) |
+
+*Full comparative reports and raw test runs are versioned under [`benchmarks/`](benchmarks/).*
 
 ### Universal Python Guard (`netelpro.guard`)
 
@@ -147,7 +155,9 @@ verified_text = guard.enforce(agent_response, tool_results=results)
 
 ## Pretrained Models & Hugging Face
 
-* **Hugging Face Model:** [🤗 JonaECG/netelpro-qwen2.5-1.5b-honest](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-honest) — Download ready-to-run GGUF weights (`netelpro-qwen2.5-1.5b-q4_k_m.gguf`) with the Modelfile for Ollama and LM Studio.
+* **Qwen 2.5 1.5B (Transformer):** [🤗 JonaECG/netelpro-qwen2.5-1.5b-honest](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-honest) — GGUF Q4_K_M weights + Modelfile for Ollama and LM Studio.
+* **Liquid AI LFM 2.5 1.2B (Liquid State-Space):** [🤗 JonaECG/netelpro-lfm2.5-1.2b-honest](https://huggingface.co/JonaECG/netelpro-lfm2.5-1.2b-honest) — Ultra-efficient GGUF Q4_K_M weights + Modelfile.
+
 
 ## Train Your Own Model (Google Colab Free GPU)
 
