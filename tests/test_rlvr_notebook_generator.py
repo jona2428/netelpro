@@ -82,6 +82,16 @@ def test_raft_loop_conditions_sft_on_prompt_via_formatting_func():
     assert "formatting_func=format_sft_example" in src
 
 
+def test_sft_disables_completion_only_loss_for_unsloth_fork():
+    """TRL clasifica el dataset (claves prompt/completion) como prompt-completion
+    y activa completion_only_loss=True por default; el fork de Unsloth rechaza
+    esa combinación con formatting_func en el init del trainer (ValueError, no
+    ejecutó el formatter nunca). False explícito = full-sequence loss (RAFT
+    canónico) y formatter desbloqueado."""
+    src = _all_code_source(build_raft_notebook())
+    assert "completion_only_loss=False" in src
+
+
 def test_generator_writes_valid_ipynb_file(tmp_path):
     from training.create_raft_notebook import main as generator_main
 
