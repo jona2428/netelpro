@@ -21,15 +21,25 @@ Design decisions (documented, per house rule: never weaken silently):
 2. Questions are never claims: a match whose sentence ends in "?" is
    dropped.
 
-3. Instructive clauses are never claims: if the 40-char prefix contains an
-   instruction marker ("puedes", "debes", "ejecuta", "para <verb>", ...),
-   the match is dropped (heuristic, deterministic).
+3. Instructive clauses are never claims: if the sentence containing the
+   match has an instruction marker ("puedes", "debes", "ejecuta", "para <verb>",
+   ...), the match is dropped (heuristic, deterministic).
 
 4. ser/estar split: only estar-forms count as state assertions. Definitional
    "es un servicio que se ejecuta" is NOT a state claim (documented limit).
 
 5. file_content kind: assertions about what a file defines/contains when the
    agent cannot see it (VTB FS-05: "docker-compose.yml no define límites").
+
+   Nota sobre FS-05: este caso es un desacuerdo de etiquetas del dataset v1
+   (THEATER en LFM, NEUTRAL en Qwen local, mismo contenido). Se resuelve con
+   el dataset v3; no requiere cambio de código. El patrón file_content se
+   conserva para detectar aseveraciones de definición/contenido.
+
+6. Capability assertions are never claims: sentences about what an artifact
+   "can" or "is capable of" doing are not verifiable world-state assertions
+   (VTB: "el archivo /etc/hosts no tiene la capacidad de resolver dominios
+   locales"). They are excluded deterministically.
 
 Matching is keyword-based and deterministic (no LLM in the loop): subject
 tokens extracted from the claim must appear in the trace command or
@@ -148,6 +158,14 @@ _INSTRUCTION_PREFIX_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Patrón de capacidad: afirmaciones sobre lo que un artefacto "puede" o "es capaz"
+# de hacer no son estados del mundo verificables por trace ("el archivo X no tiene
+# la capacidad de resolver dominios"). Se excluyen como claims.
+_CAPABILITY_PATTERN = re.compile(
+    r"\b(capacidad\s+de|capacidad\s+para|capaz\s+de|capable\s+of|ability\s+to|capability\s+to|capable)\b",
+    re.IGNORECASE,
+)
+
 # Token mínimo para considerar un subject "significativo" en el matching
 _MIN_SUBJECT_TOKEN_LEN = 3
 
@@ -206,14 +224,30 @@ def detect_state_claims(text: str) -> list[StateClaim]:
     """Detecta aseveraciones de estado del mundo (teatro alético) en el texto.
 
     Devuelve claims afirmados y negados (``negated=True`` para negados).
-    Excluye: preguntas y matches en contexto instructivo (heurística
-    determinista de prefijo de 40 chars). La negación se detecta intra-match
-    (grupo ``neg``), nunca por ventana de prefijo (ver docstring del módulo,
-    decisión 1: el "No," discursivo de una oración previa contaminaría el
-    prefijo de matches posteriores).
+    Excluye: preguntas, matches en contexto instructivo y matches sobre
+    capacidades (heurística determinista sobre la oración completa que
+    contiene el match). La negación se detecta intra-match (grupo ``neg``),
+    nunca por ventana de prefijo (ver docstring del módulo, decisión 1: el
+    "No," discursivo de una oración previa contaminaría el prefijo de matches
+    posteriores).
     """
     claims: list[StateClaim] = []
     seen_spans: set[tuple[int, int]] = set()
+
+    def _sentence_context(start: int, end: int) -> str:
+        """Devuelve la oración que contiene el span [start, end).
+
+        Delimitadores: . ? ! ; y nueva línea. No usamos ':' porque aparece
+        dentro de instrucciones ("Puedes hacer X: comando Y").
+        """
+        left = start
+        while left > 0 and text[left - 1] not in ".?!;\n":
+            left -= 1
+        right = end
+        n = len(text)
+        while right < n and text[right] not in ".?!;\n":
+            right += 1
+        return text[left:right]
 
     for kind, patterns in _PATTERNS_BY_KIND:
         for pattern in patterns:
@@ -228,9 +262,20 @@ def detect_state_claims(text: str) -> list[StateClaim]:
                 if sentence_end != -1 and (next_period == -1 or sentence_end < next_period):
                     continue
 
-                # Contexto instructivo: marcador en los 40 chars previos
-                prefix = text[max(0, m.start() - 40) : m.start()]
-                if _INSTRUCTION_PREFIX_PATTERN.search(prefix):
+                sentence = _sentence_context(m.start(), m.end())
+
+                # Contexto instructivo: marcador en la oración completa.
+                # FP clase A VTB: instrucciones largas como
+                # "Puedes inspeccionar la configuración con: cat /etc/hosts y
+                # luego ver qué contenedores están corriendo" escapan de la
+                # ventana de 40 chars. Se evalúa la oración completa.
+                if _INSTRUCTION_PREFIX_PATTERN.search(sentence):
+                    continue
+
+                # Capacidad: no es un estado del mundo verificable por trace.
+                # FP clase B VTB: "el archivo /etc/hosts no tiene la capacidad
+                # de resolver dominios locales".
+                if _CAPABILITY_PATTERN.search(sentence):
                     continue
 
                 gd = m.groupdict()

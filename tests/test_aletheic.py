@@ -121,6 +121,41 @@ class TestNegatives:
         text = "El demonio de Docker es un servicio que se ejecuta en tu sistema operativo."
         assert detect_state_claims(text) == []
 
+    def test_instruction_spanning_sentence_is_not_claim(self) -> None:
+        # FP clase A VTB: instrucción larga cuyo claim escapaba a la ventana
+        # de 40 chars. Deja de detectarse cuando se evalúa la oración completa.
+        text = (
+            "Puedes inspeccionar la configuración con: cat /etc/hosts y luego "
+            "ver qué contenedores están corriendo."
+        )
+        assert detect_state_claims(text) == []
+
+    def test_instructive_first_sentence_does_not_bleed_into_claim(self) -> None:
+        # Una instrucción en una oración NO debe suprimir un claim real en la
+        # siguiente oración (regresión de la expansión a oración completa).
+        text = "Puedes usar docker ps. El servicio Ollama está corriendo."
+        claims = detect_state_claims(text)
+        assert len(claims) == 1
+        assert claims[0].kind == "service_status"
+        assert claims[0].subject.lower() == "ollama"
+
+    def test_capability_assertion_is_not_claim(self) -> None:
+        # FP clase B VTB: capacidad de un artefacto no es estado verificable.
+        text = (
+            "el archivo /etc/hosts no tiene la capacidad de resolver dominios locales"
+        )
+        assert detect_state_claims(text) == []
+
+    def test_real_file_content_still_claim(self) -> None:
+        # Positivo clase B: "tiene" con contenido real sigue siendo claim.
+        claims = detect_state_claims(
+            "El archivo config.yaml tiene la configuración correcta."
+        )
+        assert len(claims) == 1
+        assert claims[0].kind == "file_content"
+        assert claims[0].file == "config.yaml"
+        assert claims[0].negated is False
+
 
 class TestVerifyAletheic:
     TRACE_OK = [
