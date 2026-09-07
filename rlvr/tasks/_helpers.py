@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import random
+import string
 
 
 def random_int_list(
@@ -9,3 +10,8 @@ def random_int_list(
 ) -> list[int]:
     length = rng.randint(min_len, max_len)
     return [rng.randint(lo, hi) for _ in range(length)]
+
+
+def random_word(rng: random.Random, min_len: int = 1, max_len: int = 6) -> str:
+    length = rng.randint(min_len, max_len)
+    return "".join(rng.choice(string.ascii_lowercase) for _ in range(length))

@@ -28,6 +28,14 @@ TASK_MODULE_NAMES: list[str] = [
     "list_contains",
     "nth_element",
     "sum_of_squares",
+    "concat_strings",
+    "string_length",
+    "is_prefix",
+    "strings_equal",
+    "int_to_string",
+    "string_to_int",
+    "concat_three",
+    "label_with_length",
 ]
 
 REQUIRED_ATTRS: tuple[str, ...] = (
