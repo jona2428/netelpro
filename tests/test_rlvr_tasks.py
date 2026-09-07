@@ -77,11 +77,11 @@ def test_task_ids_are_unique():
     assert len(ids) == len(set(ids)), "TASK_ID duplicado en el corpus"
 
 
-def test_double_value_reference_and_gen_inputs():
-    from rlvr.tasks import double_value
-
-    inputs = double_value.gen_inputs(10, seed=0)
-    assert len(inputs) == 10
+@pytest.mark.parametrize("task_name", TASK_MODULE_NAMES)
+def test_task_gen_inputs_are_consistent_with_reference(task_name):
+    module = load_task(task_name)
+    inputs = module.gen_inputs(8, seed=1)
+    assert len(inputs) == 8
     for args in inputs:
         assert isinstance(args, tuple)
-        double_value.reference(*args)  # no debe lanzar
+        module.reference(*args)  # no debe lanzar

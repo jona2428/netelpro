@@ -12,6 +12,13 @@ from types import ModuleType
 
 TASK_MODULE_NAMES: list[str] = [
     "double_value",
+    "factorial",
+    "sum_range",
+    "gcd_pair",
+    "power_int",
+    "sum_of_digits",
+    "count_divisors",
+    "is_prime_flag",
 ]
 
 REQUIRED_ATTRS: tuple[str, ...] = (
