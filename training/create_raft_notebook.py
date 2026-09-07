@@ -76,7 +76,7 @@ def build_raft_notebook() -> dict:
                 "all_tasks = load_all_tasks()\n",
                 "train_ids, ood_ids = split_train_ood(list(all_tasks.keys()), ood_fraction=0.2)\n",
                 "from rlvr.tasks import OOD_TASK_IDS\n",
-                'assert ood_ids == list(OOD_TASK_IDS), "held-out explicito: split debe calzar con OOD_TASK_IDS"\n',
+                'assert sorted(ood_ids) == sorted(OOD_TASK_IDS), "held-out explicito: split debe calzar con OOD_TASK_IDS"\n',
                 'print(f"Corpus: {len(all_tasks)} tareas -- {len(train_ids)} train, {len(ood_ids)} OOD (held-out)")\n',
             ],
         },
