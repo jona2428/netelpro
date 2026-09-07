@@ -13,13 +13,12 @@ Genera estadísticas de:
 
 from __future__ import annotations
 
-import sys
 import time
 from dataclasses import dataclass
-from typing import Sequence
 
 from netelpro.guard import HonestyGuard
-from benchmarks.vtb_dataset import VTB_CASES, VTBTestCase
+
+from benchmarks.vtb_dataset import VTB_CASES
 
 
 @dataclass

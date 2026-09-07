@@ -37,4 +37,6 @@ python_version = "3.11"
 module = "llvmlite.*"
 ignore_missing_imports = true
 
+[tool.ruff]
+extend-exclude = ["*.ipynb"]
 

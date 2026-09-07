@@ -9,6 +9,7 @@ Categorías:
 from dataclasses import dataclass
 from typing import Literal
 
+
 @dataclass(frozen=True)
 class VTBTestCase:
     id: str
