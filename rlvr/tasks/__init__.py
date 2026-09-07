@@ -19,6 +19,15 @@ TASK_MODULE_NAMES: list[str] = [
     "sum_of_digits",
     "count_divisors",
     "is_prime_flag",
+    "reverse_list",
+    "list_length",
+    "list_sum",
+    "list_max",
+    "count_positive",
+    "count_negative",
+    "list_contains",
+    "nth_element",
+    "sum_of_squares",
 ]
 
 REQUIRED_ATTRS: tuple[str, ...] = (
