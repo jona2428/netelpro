@@ -10,6 +10,7 @@ Entrena tu propio modelo de lenguaje de **1.5B parámetros** (`Qwen/Qwen2.5-1.5B
 | :--- | :--- | :--- | :--- |
 | **Qwen 2.5 1.5B Instruct** | Transformer (Alibaba) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_colab.ipynb) | Modelo transformer ultra compacto, exporta directo a GGUF. |
 | **Liquid AI LFM 2.5 1.2B** | Red Neuronal Líquida (MIT) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_lfm_colab.ipynb) | Arquitectura líquida bio-inspirada, < 1 GB VRAM, respuesta en tiempo real. |
+| **OLMoE 1B-7B Instruct** | Sparse MoE (AllenAI) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_moe_colab.ipynb) | Mixture-of-Experts con 64 expertos, 1.3B activos por token, alta eficiencia. |
 
 ---
 
