@@ -6,7 +6,6 @@ TASK_ID, DESCRIPTION_ES, SIGNATURE, FN_NAME, reference(*args), gen_inputs(n, see
 """
 from __future__ import annotations
 
-import hashlib
 import importlib
 from types import ModuleType
 
@@ -48,6 +47,35 @@ REQUIRED_ATTRS: tuple[str, ...] = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Held-out (OOD) fijo por decisión de diseño (review final 2026-09-07, fix I1).
+#
+# La spec promete ~20% del corpus como held-out. El hash-split original dio
+# 2/25 (8%) -- granularity de 50% por tarea hacía la evaluación §7
+# estadísticamente hueca. En vez de crecer el corpus, el split se declara
+# EXPLÍCITO: 5 tareas (20%), balanceadas por familia para que el held-out
+# mida las tres familias del corpus:
+#   - arithmetic: power_int (recursión multiplicativa, no confundible con
+#     los few-shots fib/sum-to que viven en TRAIN)
+#   - list: nth_element (indexing, distinto del reverse del test-verifier)
+#   - string: string_to_int (parseo inverso de int_to_string, TRAIN)
+#   - arithmetic: gcd_pair (Euclides, la forma de recursión más "clásica")
+#   - list: list_sum (fold manual -- el patrón de composición más común)
+#
+# Regla de mantenimiento: OOD_TASK_IDS es un CONTRATO, no una sugerencia.
+# Añadir tareas al corpus NO las agrega al OOD; cambiar esta lista es una
+# decisión de diseño (cambiar el set de evaluación invalida comparaciones
+# históricas).
+# ---------------------------------------------------------------------------
+OOD_TASK_IDS: tuple[str, ...] = (
+    "power_int",
+    "nth_element",
+    "string_to_int",
+    "gcd_pair",
+    "list_sum",
+)
+
+
 def load_task(name: str) -> ModuleType:
     """Importa un módulo de tarea por nombre y valida que cumpla el contrato."""
     module = importlib.import_module(f"rlvr.tasks.{name}")
@@ -65,29 +93,27 @@ def load_all_tasks() -> dict[str, ModuleType]:
 def split_train_ood(
     task_ids: list[str], ood_fraction: float = 0.2
 ) -> tuple[list[str], list[str]]:
-    """Split determinístico por hash de TASK_ID -- no aleatorio en cada corrida.
+    """Split determinístico train/OOD: held-out EXPLÍCITO por contrato.
 
-    Un mismo TASK_ID siempre cae del mismo lado, sin importar el orden de la
-    lista de entrada ni cuántas veces se llame.
+    El OOD es OOD_TASK_IDS (fijo por diseño, ~20% del corpus, balanceado por
+    familia). Cualquier id presente en task_ids pero NO en OOD_TASK_IDS va
+    a train -- la lista explícita es un SUBSET del corpus, no un dominio
+    cerrado: ids sintéticos o futuros no listados van a train (el contrato
+    OOD solo secuestra ids que existen como tareas registradas).
+    Determinístico por construcción: mismo input, mismo output.
     """
     if not 0.0 < ood_fraction < 1.0:
         raise ValueError("ood_fraction debe estar entre 0 y 1 (exclusivo)")
-    threshold = int(ood_fraction * (2**32))
-    train: list[str] = []
-    ood: list[str] = []
-    for task_id in sorted(task_ids):
-        digest = hashlib.sha256(task_id.encode("utf-8")).digest()
-        bucket = int.from_bytes(digest[:4], "big")
-        if bucket < threshold:
-            ood.append(task_id)
-        else:
-            train.append(task_id)
+    ood_set = set(OOD_TASK_IDS)
+    train = [tid for tid in sorted(task_ids) if tid not in ood_set]
+    ood = [tid for tid in sorted(task_ids) if tid in ood_set]
     return train, ood
 
 
 __all__ = [
     "TASK_MODULE_NAMES",
     "REQUIRED_ATTRS",
+    "OOD_TASK_IDS",
     "load_task",
     "load_all_tasks",
     "split_train_ood",

@@ -86,6 +86,50 @@ class StrayHoleError(StrayError):
         super().__init__(f"runtime error at line {line}, col {col}: {reason}")
 
 
+DEFAULT_MAX_STEPS: int = 1_000_000
+
+
+class StepBudget:
+    """Shared mutable step counter that bounds total evaluation work.
+
+    Threads a deterministic resource limit through the iterative TCO loop: a
+    runaway tail-recursive candidate consumes the budget instead of looping
+    forever. The counter is shared across ALL nested eval_loop invocations
+    (each recursive call re-enters eval_loop with the same budget object).
+    """
+
+    __slots__ = ("_remaining", "_total", "_limit", "_origin")
+
+    def __init__(self, limit: int = DEFAULT_MAX_STEPS, origin: str = "step budget") -> None:
+        if limit <= 0:
+            raise ValueError("step limit must be positive")
+        self._limit = limit
+        self._total = 0
+        self._remaining = limit
+        self._origin = origin
+
+    @property
+    def total(self) -> int:
+        return self._total
+
+    @property
+    def limit(self) -> int:
+        return self._limit
+
+    def charge(self, n: int = 1) -> None:
+        if n <= 0:
+            return
+        self._total += n
+        self._remaining -= n
+        if self._remaining < 0:
+            raise StrayRuntimeError(
+                f"execution exceeded {self._limit} steps ({self._origin}); "
+                + "likely runaway recursion or non-terminating loop",
+                1,
+                1,
+            )
+
+
 # ---------------------------------------------------------------------------
 # StrayList Value Model
 # ---------------------------------------------------------------------------
@@ -543,13 +587,20 @@ def _validate_params(params: Sequence[Sym | str], line: int, col: int) -> list[s
     return param_names
 
 
-def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = None) -> Any:
+def eval_loop(
+    node: Node,
+    env: Environment,
+    capabilities: Optional[set[str]] = None,
+    budget: Optional[StepBudget] = None,
+) -> Any:
     """Iterative evaluation loop supporting tail-call optimization."""
     curr_node: Node = node
     curr_env: Environment = env
     must_be_bool_stack: list[tuple[int, int]] = []
 
     while True:
+        if budget is not None:
+            budget.charge()
         if isinstance(curr_node, IntLit):
             result = curr_node.value
         elif isinstance(curr_node, FloatLit):
@@ -566,7 +617,7 @@ def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = N
             except KeyError:
                 raise StrayRuntimeError(f"unbound symbol '{curr_node.name}'", curr_node.line, curr_node.col)
         elif isinstance(curr_node, ListLit):
-            items = [eval_loop(item, curr_env, capabilities) for item in curr_node.items]
+            items = [eval_loop(item, curr_env, capabilities, budget) for item in curr_node.items]
             result = StrayList(items)
         elif isinstance(curr_node, Fn):
             _validate_params(curr_node.params, curr_node.line, curr_node.col)
@@ -584,7 +635,7 @@ def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = N
         elif isinstance(curr_node, Grant):
             result = NIL
         elif isinstance(curr_node, Def):
-            val = eval_loop(curr_node.value, curr_env, capabilities)
+            val = eval_loop(curr_node.value, curr_env, capabilities, budget)
             curr_env.set_global(curr_node.name.name, val)
             result = NIL
         elif isinstance(curr_node, Defn):
@@ -600,7 +651,7 @@ def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = N
             curr_env.set_global(curr_node.name.name, closure)
             result = NIL
         elif isinstance(curr_node, If):
-            cond_val = eval_loop(curr_node.cond, curr_env, capabilities)
+            cond_val = eval_loop(curr_node.cond, curr_env, capabilities, budget)
             if type(cond_val) is not bool:
                 c_line = getattr(curr_node.cond, "line", 0) or curr_node.line
                 c_col = getattr(curr_node.cond, "col", 0) or curr_node.col
@@ -611,12 +662,12 @@ def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = N
                 curr_node = curr_node.else_
             continue
         elif isinstance(curr_node, Let):
-            val = eval_loop(curr_node.value, curr_env, capabilities)
+            val = eval_loop(curr_node.value, curr_env, capabilities, budget)
             curr_env = curr_env.extend({curr_node.name.name: val})
             curr_node = curr_node.body
             continue
         elif isinstance(curr_node, And):
-            l_val = eval_loop(curr_node.l, curr_env, capabilities)
+            l_val = eval_loop(curr_node.l, curr_env, capabilities, budget)
             if type(l_val) is not bool:
                 l_line = getattr(curr_node.l, "line", 0) or curr_node.line
                 l_col = getattr(curr_node.l, "col", 0) or curr_node.col
@@ -630,7 +681,7 @@ def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = N
                 must_be_bool_stack.append((r_line, r_col))
                 continue
         elif isinstance(curr_node, Or):
-            l_val = eval_loop(curr_node.l, curr_env, capabilities)
+            l_val = eval_loop(curr_node.l, curr_env, capabilities, budget)
             if type(l_val) is not bool:
                 l_line = getattr(curr_node.l, "line", 0) or curr_node.line
                 l_col = getattr(curr_node.l, "col", 0) or curr_node.col
@@ -646,7 +697,7 @@ def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = N
         elif isinstance(curr_node, Call):
             head = curr_node.head
             if head in PRIMITIVES:
-                arg_vals = [eval_loop(a, curr_env, capabilities) for a in curr_node.args]
+                arg_vals = [eval_loop(a, curr_env, capabilities, budget) for a in curr_node.args]
                 result = _exec_primitive(head, arg_vals, curr_node, capabilities)
             else:
                 try:
@@ -661,7 +712,7 @@ def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = N
                         curr_node.line,
                         curr_node.col,
                     )
-                arg_vals = [eval_loop(a, curr_env, capabilities) for a in curr_node.args]
+                arg_vals = [eval_loop(a, curr_env, capabilities, budget) for a in curr_node.args]
                 param_bindings = {
                     (p.name if isinstance(p, Sym) else str(p)): v
                     for p, v in zip(fn_val.params, arg_vals)
@@ -670,7 +721,7 @@ def eval_loop(node: Node, env: Environment, capabilities: Optional[set[str]] = N
                 curr_node = fn_val.body
                 continue
         elif isinstance(curr_node, Program):
-            result = evaluate(curr_node, curr_env, capabilities=capabilities)
+            result = evaluate(curr_node, curr_env, capabilities=capabilities, budget=budget)
         else:
             raise StrayRuntimeError(
                 f"unsupported AST node: {type(curr_node).__name__}",
@@ -704,7 +755,7 @@ class Evaluator:
         self.env = env if env is not None else Environment()
         self.capabilities: set[str] = set(capabilities) if capabilities else set()
 
-    def evaluate(self, program: Program) -> Any:
+    def evaluate(self, program: Program, budget: Optional[StepBudget] = None) -> Any:
         last_val: Any = NIL
         has_expr: bool = False
 
@@ -714,7 +765,7 @@ class Evaluator:
                     name = cap.name if isinstance(cap, Sym) else str(cap)
                     self.capabilities.add(name)
             elif isinstance(form, Def):
-                val = eval_loop(form.value, self.env, self.capabilities)
+                val = eval_loop(form.value, self.env, self.capabilities, budget)
                 self.env.set_global(form.name.name, val)
             elif isinstance(form, Defn):
                 _validate_params(form.params, form.line, form.col)
@@ -728,13 +779,18 @@ class Evaluator:
                 )
                 self.env.set_global(form.name.name, closure)
             else:
-                last_val = eval_loop(form, self.env, self.capabilities)
+                last_val = eval_loop(form, self.env, self.capabilities, budget)
                 has_expr = True
 
         return last_val if has_expr else NIL
 
 
-def _guard_recursion(program: Program, env: Optional[Environment], capabilities: Optional[set[str]] = None) -> Any:
+def _guard_recursion(
+    program: Program,
+    env: Optional[Environment],
+    capabilities: Optional[set[str]] = None,
+    budget: Optional[StepBudget] = None,
+) -> Any:
     """Translate raw Python RecursionError into a prosecutorial StrayRuntimeError.
 
     NON-tail recursion depth is bounded by the host interpreter stack; exceeding
@@ -742,7 +798,7 @@ def _guard_recursion(program: Program, env: Optional[Environment], capabilities:
     reports it instead of leaking a traceback.
     """
     try:
-        return Evaluator(env=env, capabilities=capabilities).evaluate(program)
+        return Evaluator(env=env, capabilities=capabilities).evaluate(program, budget=budget)
     except RecursionError:
         raise StrayRuntimeError(
             "non-tail recursion exceeded host stack depth (no TCO on this call path)",
@@ -751,12 +807,21 @@ def _guard_recursion(program: Program, env: Optional[Environment], capabilities:
         ) from None
 
 
-def evaluate(program: Program, env: Optional[Environment] = None, capabilities: Optional[set[str]] = None) -> Any:
+def evaluate(
+    program: Program,
+    env: Optional[Environment] = None,
+    capabilities: Optional[set[str]] = None,
+    budget: Optional[StepBudget] = None,
+) -> Any:
     """Evaluate a Program AST and return the value of the last evaluated expression form (nil if none)."""
-    return _guard_recursion(program, env, capabilities)
+    return _guard_recursion(program, env, capabilities, budget)
 
 
-def run_source(src: str, env: Optional[Environment] = None) -> Any:
+def run_source(
+    src: str,
+    env: Optional[Environment] = None,
+    budget: Optional[StepBudget] = None,
+) -> Any:
     """Parse and evaluate Netelpro source text.
 
     Raises StrayError carrying all parse diagnostic messages if parsing fails.
@@ -766,4 +831,4 @@ def run_source(src: str, env: Optional[Environment] = None) -> Any:
     if not parse_result.ok:
         all_msgs = "\n".join(str(e) for e in parse_result.errors)
         raise StrayError(f"parse error(s):\n{all_msgs}", errors=parse_result.errors)
-    return evaluate(parse_result.program, env=env)
+    return evaluate(parse_result.program, env=env, budget=budget)

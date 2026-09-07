@@ -38,8 +38,14 @@ def test_split_covers_every_id_exactly_once():
 
 
 def test_split_fraction_is_roughly_respected():
-    ids = [f"task_{i}" for i in range(500)]
+    """Fix I1: el OOD es el contrato explícito de 5 tareas (20% del corpus).
+
+    El hash-split original daba 2/25 (8%); la spec promete ~20%. El split
+    explícito balancea por familia (ver docstring de OOD_TASK_IDS).
+    """
+    ids = TASK_MODULE_NAMES
     train, ood = split_train_ood(ids, ood_fraction=0.2)
+    assert ood == ["gcd_pair", "list_sum", "nth_element", "power_int", "string_to_int"]
     ratio = len(ood) / len(ids)
     assert 0.1 <= ratio <= 0.3
 

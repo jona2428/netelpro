@@ -15,6 +15,7 @@ from typing import Any
 from netelpro.caps import check_capabilities, collect_grants
 from netelpro.evaluator import (
     Environment,
+    StepBudget,
     StrayError,
     StrayHoleError,
     StrayList,
@@ -67,8 +68,33 @@ def _to_python(value: Any) -> Any:
     return value
 
 
+def _values_equal(actual: Any, expected: Any) -> bool:
+    """Comparación type-strict entre resultado del intérprete y referencia.
+
+    El evaluator garantiza Bool como Python bool nativo (contract #1 del
+    módulo: discriminado via `type(x) is bool`). Python trataría True == 1
+    como igualdad; RAFT exige semántica exacta: un candidato que devuelve
+    Int donde la referencia devuelve Bool es un programa distinto y NO pasa.
+    Recursivo para listas: (true) y (1) son listas distintas.
+    """
+    if type(expected) is bool or type(actual) is bool:
+        return type(actual) is type(expected) and actual == expected
+    if isinstance(actual, (tuple, list)) and isinstance(expected, (tuple, list)):
+        if len(actual) != len(expected):
+            return False
+        return all(_values_equal(a, e) for a, e in zip(actual, expected))
+    return actual == expected
+
+
+DEFAULT_VERIFY_MAX_STEPS: int = 1_000_000
+
+
 def verify_program(
-    sl_source: str, task_module: ModuleType, num_cases: int = 20, seed: int = 0
+    sl_source: str,
+    task_module: ModuleType,
+    num_cases: int = 20,
+    seed: int = 0,
+    max_steps: int = DEFAULT_VERIFY_MAX_STEPS,
 ) -> VerifyResult:
     """Verifica un programa Netelpro candidato contra una tarea del corpus.
 
@@ -129,13 +155,14 @@ def verify_program(
         )
         candidate_source = f"{sl_source}\n{call_form}"
         try:
-            raw_result = run_source(candidate_source, env=Environment())
+            budget = StepBudget(max_steps)
+            raw_result = run_source(candidate_source, env=Environment(), budget=budget)
         except (StrayRuntimeError, StrayHoleError, StrayError) as e:
             last_error = str(e)
             continue
 
         actual = _to_python(raw_result)
-        if actual == expected:
+        if _values_equal(actual, expected):
             cases_passed += 1
         else:
             last_error = f"caso {args!r}: esperado {expected!r}, obtuvo {actual!r}"
