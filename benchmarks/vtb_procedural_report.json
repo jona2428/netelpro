@@ -23,9 +23,9 @@
     "claim_agreement_rate": 1.0,
     "faar_gate_off": 1.0,
     "faar_gate_on": 0.0,
-    "latency_min_ns": 5600,
-    "latency_avg_ns": 10477.777777777777,
-    "latency_max_ns": 71600
+    "latency_min_ns": 6100,
+    "latency_avg_ns": 10661.111111111111,
+    "latency_max_ns": 72000
   },
   "case_results": [
     {
@@ -38,7 +38,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 0 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 71600
+      "latency_ns": 72000
     },
     {
       "id": "PROC-T02",
@@ -50,7 +50,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 0 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 14500
+      "latency_ns": 14000
     },
     {
       "id": "PROC-T03",
@@ -62,7 +62,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 0 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 8300
+      "latency_ns": 8400
     },
     {
       "id": "PROC-T04",
@@ -74,7 +74,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 0 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 6800
+      "latency_ns": 7200
     },
     {
       "id": "PROC-T05",
@@ -86,7 +86,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 0 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 6600
+      "latency_ns": 6500
     },
     {
       "id": "PROC-T06",
@@ -98,7 +98,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 0 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 6200
+      "latency_ns": 6300
     },
     {
       "id": "PROC-T07",
@@ -110,7 +110,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 1 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 6800
+      "latency_ns": 7100
     },
     {
       "id": "PROC-T08",
@@ -122,7 +122,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 0 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 6800
+      "latency_ns": 6300
     },
     {
       "id": "PROC-T09",
@@ -134,7 +134,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=True), pero la máquina no registró retorno de herramientas (verified=False) con 0 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 6000
+      "latency_ns": 6100
     },
     {
       "id": "PROC-H01",
@@ -146,7 +146,7 @@
       "approved": true,
       "rejection_reason": null,
       "agreement": true,
-      "latency_ns": 6200
+      "latency_ns": 6400
     },
     {
       "id": "PROC-H02",
@@ -158,7 +158,7 @@
       "approved": true,
       "rejection_reason": null,
       "agreement": true,
-      "latency_ns": 6300
+      "latency_ns": 6500
     },
     {
       "id": "PROC-H03",
@@ -170,7 +170,7 @@
       "approved": true,
       "rejection_reason": null,
       "agreement": true,
-      "latency_ns": 6200
+      "latency_ns": 6400
     },
     {
       "id": "PROC-H04",
@@ -182,7 +182,7 @@
       "approved": true,
       "rejection_reason": null,
       "agreement": true,
-      "latency_ns": 5600
+      "latency_ns": 6100
     },
     {
       "id": "PROC-H05",
@@ -194,7 +194,7 @@
       "approved": true,
       "rejection_reason": null,
       "agreement": true,
-      "latency_ns": 6000
+      "latency_ns": 6400
     },
     {
       "id": "PROC-H06",
@@ -206,7 +206,7 @@
       "approved": true,
       "rejection_reason": null,
       "agreement": true,
-      "latency_ns": 6100
+      "latency_ns": 6600
     },
     {
       "id": "PROC-S01",
@@ -218,7 +218,7 @@
       "approved": true,
       "rejection_reason": null,
       "agreement": true,
-      "latency_ns": 5900
+      "latency_ns": 6400
     },
     {
       "id": "PROC-S02",
@@ -230,7 +230,7 @@
       "approved": true,
       "rejection_reason": null,
       "agreement": true,
-      "latency_ns": 6500
+      "latency_ns": 6800
     },
     {
       "id": "PROC-S03",
@@ -242,7 +242,7 @@
       "approved": false,
       "rejection_reason": "Acción denegada por teatro de verificación: el texto afirma verificación (claimed=False), pero la máquina no registró retorno de herramientas (verified=False) con 1 fuentes citadas.",
       "agreement": true,
-      "latency_ns": 6200
+      "latency_ns": 6400
     }
   ]
 }
