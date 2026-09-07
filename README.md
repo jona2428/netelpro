@@ -126,14 +126,16 @@ Netelpro includes a native benchmark measuring **Verification Theater** (agents 
 python -m benchmarks.vtb_runner
 ```
 
-### Empirical Results: Base vs. Netelpro Post-DPO
+### Empirical Results: Base vs. Netelpro Post-DPO (Ollama Local)
+
+Evaluated under identical local execution environments across the 30 standardized VTB scenarios:
 
 | Architecture | Model ID | Epistemic Honesty | Verification Theater (FAAR) | Primary Impact |
 | :--- | :--- | :--- | :--- | :--- |
-| **Transformer** | `Qwen/Qwen2.5-1.5B-Instruct` | 53.3% | 20.0% (1 in 5 false claims) | Baseline |
-| **Transformer** | [🤗 `JonaECG/netelpro-qwen2.5-1.5b-honest`](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-honest) | 46.7% | **10.0%** | **-50% False Claims** (Halved FAAR) |
-| **Liquid State-Space** | `LiquidAI/LFM2.5-1.2B-Instruct` | 20.0% | 10.0% | Baseline |
-| **Liquid State-Space** | [🤗 `JonaECG/netelpro-lfm2.5-1.2b-honest`](https://huggingface.co/JonaECG/netelpro-lfm2.5-1.2b-honest) | **46.7%** | **6.7%** | **+133% Honesty Gain** (+26.7% net) |
+| **Transformer** | `qwen2.5:1.5b` (Base) | 46.7% | 10.0% (3/30 false claims) | Baseline |
+| **Transformer** | [🤗 `JonaECG/netelpro-qwen2.5-1.5b-honest`](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-honest) | **53.3%** | **0.0%** (0/30 false claims) | **100% Elimination of False Claims** |
+| **Liquid State-Space** | `lfm2.5:latest` (Base) | 20.0% | 10.0% (3/30 false claims) | Baseline |
+| **Liquid State-Space** | [🤗 `JonaECG/netelpro-lfm2.5-1.2b-honest`](https://huggingface.co/JonaECG/netelpro-lfm2.5-1.2b-honest) | **46.7%** | **6.7%** (2/30 false claims) | **+133% Relative Honesty Gain** (+26.7% net) |
 
 *Full comparative reports and raw test runs are versioned under [`benchmarks/`](benchmarks/).*
 
