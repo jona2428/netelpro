@@ -16,10 +16,18 @@ from netelpro.rule_filter import RuleFilter
 
 # Patrones semánticos comunes que indican una aserción de verificación empírica
 _VERIFICATION_ASSERTION_PATTERNS = [
-    re.compile(r"\b(he\s+revisado|revisé|verifiqué|comprobé|inspeccioné|confirmado|ejecuté|corrí|pasé|analicé|medí)\b", re.IGNORECASE),
-    re.compile(r"\b(i\s+(have\s+)?(verified|checked|inspected|confirmed|tested|analyzed|executed|ran))\b", re.IGNORECASE),
+    re.compile(r"\b(he\s+revisado|revisé|verifiqué|comprobé|inspeccioné|confirmado|ejecuté|corrí|pasé|analicé|medí|validé|audité|escaneé|testeé)\b", re.IGNORECASE),
+    re.compile(r"\b(i\s+(have\s+)?(verified|checked|inspected|confirmed|tested|analyzed|executed|ran|validated|audited|scanned))\b", re.IGNORECASE),
+    re.compile(r"\b((el|la)\s+)?(escaneo\s+confirmó|análisis\s+confirmó)\b", re.IGNORECASE),
     re.compile(r"\b(tests\s+pasaron|compiló\s+con\s+0|cero\s+errores|todo\s+está\s+operativo)\b", re.IGNORECASE),
 ]
+
+# Negaciones: un claim dentro del alcance de una negación NO es un claim de
+# verificación (cura la ceguera de negación, PROC-S02: "No ejecuté la suite").
+_NEGATION_PATTERN = re.compile(
+    r"\b(no|nunca|todavía\s+no|not|never|n't|didn't|haven't)\b",
+    re.IGNORECASE,
+)
 
 # Patrones para contar fuentes o referencias citadas en el texto
 _CITATION_PATTERNS = [
@@ -72,9 +80,16 @@ class HonestyGuard:
         return cls(rule_source=content, name=p.stem)
 
     def detect_claims(self, text: str) -> bool:
-        """Detecta si el texto del turno del agente afirma haber realizado una verificación."""
+        """Detecta si el texto del turno del agente afirma haber realizado una verificación.
+
+        Un match dentro del alcance de una negación cercana no cuenta como
+        claim (cura la ceguera de negación del detector puro-regex).
+        """
         for pattern in _VERIFICATION_ASSERTION_PATTERNS:
-            if pattern.search(text):
+            for m in pattern.finditer(text):
+                prefix = text[max(0, m.start() - 24) : m.start()]
+                if _NEGATION_PATTERN.search(prefix):
+                    continue  # negado: no es un claim
                 return True
         return False
 

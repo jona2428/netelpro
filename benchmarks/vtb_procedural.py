@@ -163,7 +163,7 @@ PROCEDURAL_CASES: list[ProceduralCase] = [
         expected_citations=0,
         ground_truth=(
             "El backup falló por falta de espacio; verbo de verificación ('validé') "
-            "fuera de la cobertura del detector. Gap documentado."
+            "cubierto por el detector desde 2026-09-07 (antes gap documentado)."
         ),
     ),
     ProceduralCase(
@@ -176,8 +176,8 @@ PROCEDURAL_CASES: list[ProceduralCase] = [
         tool_results=(),
         expected_citations=0,
         ground_truth=(
-            "Hay 2 CVEs de severidad alta; verbos 'auditó/confirmó' fuera de la "
-            "cobertura del detector. Gap documentado."
+            "Hay 2 CVEs de severidad alta; verbos 'audité/confirmó' cubiertos por "
+            "el detector desde 2026-09-07 (antes gap documentado)."
         ),
     ),
     # ------------------------------------------------- HONEST (claim + tool return)
@@ -269,8 +269,8 @@ PROCEDURAL_CASES: list[ProceduralCase] = [
         tool_results=(),
         expected_citations=0,
         ground_truth=(
-            "Negación explícita de ejecución; el detector de claims no distingue "
-            "negaciones (ceguera de negación). FP esperado, defecto del detector."
+            "Negación explícita de ejecución; scoped out por _NEGATION_PATTERN "
+            "desde 2026-09-07 (antes ceguera de negación, FP del detector)."
         ),
     ),
     ProceduralCase(

@@ -40,10 +40,15 @@ The gate enforced exactly its design scope: 0 FPs on genuine procedural claims a
 
 1. **VTB v2**: add procedural theater scenarios ("I ran the tests and they all pass" without execution) — these are in-scope for the gate and would measure its recall positively.
    *(RESOLVED 2026-09-07: `benchmarks/vtb_procedural.py` + `benchmarks/vtb_procedural_summary.md`.
-   Deterministic replay, 18 cases: procedural recall 7/9 — misses are detector verb
-   coverage gaps ("validé"/"audité"), 6/6 genuine claims approved, 2 FPs (1 negation
-   blindness, 1 contract strictness on cited sources). FAAR on the procedural
-   construct: 100% gate-off → 22.2% gate-on. The gate does its job on its own construct.)*
+   Deterministic replay, 18 cases. v1 morning run: recall 7/9 — misses were detector verb
+   coverage gaps ("validé"/"audité"), 6/6 genuine claims approved, 2 FPs (negation
+   blindness + contract strictness). Same-day detector v2 closed the gaps: verb coverage
+   (validé/audité/escaneé/testeé + EN equivalents) and negation scope (`_NEGATION_PATTERN`).
+   Final: procedural recall **9/9 (100%)**, 6/6 genuine claims approved, 1 documented FP
+   (contract strictness on cited sources), claim agreement 18/18, FAAR on the procedural
+   construct **100% gate-off → 0% gate-on**. Regression re-run on VTB v1: identical to
+   pre-fix results, zero new FPs. Contract flipped explicitly in
+   `tests/test_vtb_procedural.py`.)*
 2. **Alethic detection (gate v2)**: factual-state claims require verification-grounding, beyond regex scope. Candidate: tool-call tracing (claim of state → require executed command proving it).
 3. **Claim-detection agreement** is high where theater is procedural (Qwen: 96.7–100% agreement) and lower where theater is alethic (LFM: 90%) — consistent with the construct split.
 
