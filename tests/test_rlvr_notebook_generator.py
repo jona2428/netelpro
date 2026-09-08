@@ -120,7 +120,9 @@ def test_v2_evals_are_seeded_paired():
     src = _all_code_source(build_raft_notebook())
     def_idx = src.find("def evaluate_pass_rate")
     seed_idx = src.find("torch.manual_seed(EVAL_SEED)")
-    baseline_idx = src.find("baseline_pass_rate = ")
+    # v3: evaluate_pass_rate devuelve (rate, passed_ids) -- la asignación del
+    # baseline pasa a ser una tupla, no un `=` simple.
+    baseline_idx = src.find("baseline_pass_rate, baseline_passed_ids = ")
     assert def_idx != -1 and seed_idx != -1 and baseline_idx != -1
     assert def_idx < seed_idx < baseline_idx, "la seed se fija dentro de evaluate_pass_rate, antes del baseline"
 
