@@ -69,6 +69,7 @@ from netelpro.ast_nodes import (
     Node,
     Or,
     Program,
+    Prove,
     Sorry,
     StrLit,
     Sym,
@@ -391,6 +392,13 @@ def compile_program(program: Program) -> CompiledProgram:
             _unify(TYPE_BOOL, l_t, node.l.line, node.l.col, "'or' left operand")
             r_t = typecheck(node.r, lex_env, current_defn)
             _unify(TYPE_BOOL, r_t, node.r.line, node.r.col, "'or' right operand")
+            return TYPE_BOOL
+
+        if isinstance(node, Prove):
+            c_t = typecheck(node.claim, lex_env, current_defn)
+            _unify(TYPE_BOOL, c_t, node.claim.line, node.claim.col, "'prove' claim")
+            ev_t = typecheck(Sym(node.ev_name, line=node.line, col=node.col), lex_env, current_defn)
+            _unify(TYPE_BOOL, ev_t, node.line, node.col, "'prove' evidence")
             return TYPE_BOOL
 
         if isinstance(node, Call):
@@ -747,6 +755,26 @@ def compile_program(program: Program) -> CompiledProgram:
             if is_tail:
                 builder.ret(phi)
             return phi
+
+        if isinstance(node, Prove):
+            # Spec F4 D3: evidence is i1; the hole compiles to
+            # and claim, not evidence -> cond_br -> unreachable (zero overhead).
+            claim_val = compile_expr(node.claim, env, is_tail=False, builder=builder, ctx=ctx)
+            assert claim_val is not None
+            ev_sym = Sym(node.ev_name, line=node.line, col=node.col)
+            ev_val = compile_expr(ev_sym, env, is_tail=False, builder=builder, ctx=ctx)
+            assert ev_val is not None
+            ev_not = builder.xor(ev_val, ir.Constant(i1, 1), name="ev.not")
+            bad = builder.and_(claim_val, ev_not, name="proof.violation")
+            hole_bb = builder.append_basic_block("proof.hole")
+            cont_bb = builder.append_basic_block("proof.cont")
+            builder.cbranch(bad, hole_bb, cont_bb)
+            builder.position_at_end(hole_bb)
+            builder.unreachable()
+            builder.position_at_end(cont_bb)
+            if is_tail:
+                builder.ret(claim_val)
+            return claim_val
 
         if isinstance(node, Or):
             l_val = compile_expr(node.l, env, is_tail=False, builder=builder, ctx=ctx)

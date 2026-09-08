@@ -51,6 +51,7 @@ from netelpro.ast_nodes import (
     ParamType,
     Predicate,
     Program,
+    Prove,
     RefType,
     Sorry,
     StrLit,
@@ -247,6 +248,8 @@ def _build_param_type(ty: Tok | Form) -> ParamType | None:
             return ParamType(kind="bool", enum=())
         if ty.value == "Int":
             return ParamType(kind="int", enum=())
+        if ty.value == "Evidence":
+            return ParamType(kind="evidence", enum=())
     if (
         isinstance(ty, Form)
         and ty.items
@@ -398,6 +401,20 @@ def _check_call_site_literals(
             continue  # refinements are prosecuted by _prosecute_refinements
         if ptype.kind == "int":
             continue  # plain Int: no domain to check at call-site (spec F2 §1.1)
+        if ptype.kind == "evidence":
+            # Spec F4 D1: Evidence is opaque and non-fabricable. Literals can
+            # never stand in for it (only a bound Evidence param symbol may).
+            if arg.kind == "SYMBOL":
+                continue  # a bound Evidence symbol flows through: origin preserved
+            errors.append(
+                ParseError(
+                    arg.line,
+                    arg.col,
+                    f"type-strict call: literal passed to Evidence parameter #{idx + 1} of '{fname}'"
+                    " — evidence originates at the FFI boundary, not in-language",
+                )
+            )
+            continue
         if arg.kind == "BOOL":
             if ptype.kind != "bool":
                 errors.append(
@@ -987,6 +1004,59 @@ def check_special(
                     )
                 )
 
+    elif name == "prove":
+        # Spec F4 D4: prove is only valid inside a defn/fn body. The check_
+        # special walk tracks depth via the existing arity walk; nesting rules
+        # are enforced structurally here and positionally in check_truth_table.
+        if depth <= 1:
+            errors.append(
+                ParseError(
+                    form.lparen.line,
+                    form.lparen.col,
+                    "'prove' is only valid inside a defn/fn body",
+                )
+            )
+        if len(operands) != 2:
+            errors.append(
+                ParseError(
+                    form.lparen.line,
+                    form.lparen.col,
+                    "'prove' requires exactly 2 operands: (prove CLAIM (evidence NAME : Evidence))",
+                )
+            )
+        else:
+            ev_form = operands[1]
+            if not (
+                isinstance(ev_form, Form)
+                and len(ev_form.items) == 4
+                and isinstance(ev_form.items[0], Tok)
+                and ev_form.items[0].kind == "SYMBOL"
+                and ev_form.items[0].value == "evidence"
+                and isinstance(ev_form.items[1], Tok)
+                and ev_form.items[1].kind == "SYMBOL"
+            ):
+                errors.append(
+                    ParseError(
+                        form.lparen.line,
+                        form.lparen.col,
+                        "prove form must contain evidence binder: (evidence NAME : Evidence)",
+                    )
+                )
+            elif not (
+                isinstance(ev_form.items[2], Tok)
+                and ev_form.items[2].kind == "COLON"
+                and isinstance(ev_form.items[3], Tok)
+                and ev_form.items[3].kind == "SYMBOL"
+                and ev_form.items[3].value == "Evidence"
+            ):
+                errors.append(
+                    ParseError(
+                        form.lparen.line,
+                        form.lparen.col,
+                        "evidence binder must be (evidence NAME : Evidence)",
+                    )
+                )
+
     elif name == "grant":
         if depth != 1:
             errors.append(
@@ -1317,6 +1387,8 @@ def walk_and_validate(
                     _check_call_site_literals(name, operands, pt_list, errors)
         elif name == "truth-table":
             check_truth_table(form, operands, errors, heads, user_defns, typed_registry or {}, depth)
+        elif name == "prove":
+            check_special(name, form, operands, errors, depth, set(heads) | {"truth-table"})
         else:
             errors.append(
                 ParseError(
@@ -1332,6 +1404,8 @@ def walk_and_validate(
         skip.add(1 if head.value == "defn" else 0)
     if isinstance(head, Tok) and head.kind == "SYMBOL" and head.value == "truth-table":
         skip.update(range(len(operands)))
+    if isinstance(head, Tok) and head.kind == "SYMBOL" and head.value == "prove":
+        skip.add(1)  # evidence binder: validated in check_special, never walked
 
     for idx, it in enumerate(operands):
         if isinstance(it, Form) and idx not in skip:
@@ -1583,6 +1657,24 @@ def build_node(item: Tok | Form) -> Node | None:
                 col=col,
             )
 
+        case "prove":
+            if len(operands) != 2:
+                return None
+            claim = build_node(operands[0])
+            if claim is None:
+                return None
+            ev_form = operands[1]
+            if not (
+                isinstance(ev_form, Form)
+                and len(ev_form.items) == 4
+                and isinstance(ev_form.items[0], Tok)
+                and ev_form.items[0].value == "evidence"
+                and isinstance(ev_form.items[1], Tok)
+                and ev_form.items[1].kind == "SYMBOL"
+            ):
+                return None
+            return Prove(claim=claim, ev_name=ev_form.items[1].value, line=line, col=col)
+
         case "grant":
             caps: list[Sym] = []
             for op in operands:
@@ -1678,6 +1770,62 @@ class Parser:
         first_line = forms[0].lparen.line if forms else 1
         first_col = forms[0].lparen.col if forms else 1
         program = Program(forms=program_nodes, line=first_line, col=first_col)
+
+        # Spec F4 D5/D7: every declared Evidence param must be consumed by a
+        # prove form of its defn; prove never appears inside a truth-table (D7)
+        # — a Prove node in a desugared (truth-table ...) defn is the violation.
+        def _collect_proves(n: Node) -> list[Prove]:
+            found: list[Prove] = []
+            stack: list[Node] = [n]
+            while stack:
+                cur = stack.pop()
+                if isinstance(cur, Prove):
+                    found.append(cur)
+                for f2 in ("claim", "cond", "then", "else_", "l", "r", "value", "body"):
+                    child = getattr(cur, f2, None)
+                    if isinstance(child, Node):
+                        stack.append(child)
+            return found
+
+        for node in program.forms:
+            if isinstance(node, Defn):
+                consumed_ev: set[str] = set()
+                evidence_params: set[str] = {
+                    s.name
+                    for s, pt in zip(node.params, node.param_types or ())
+                    if pt is not None and pt.kind == "evidence"
+                }
+                in_table = node.truth_table is not None
+                for pv in _collect_proves(node.body):
+                    # B2: an Evidence param is not Bool — as claim it is a type
+                    # error (D1). Static-complete: params are the only source
+                    # of Evidence-typed values in v1.
+                    if isinstance(pv.claim, Sym) and pv.claim.name in evidence_params:
+                        errors.append(
+                            ParseError(
+                                pv.claim.line,
+                                pv.claim.col,
+                                f"claim of 'prove' is Evidence parameter '{pv.claim.name}', not Bool",
+                            )
+                        )
+                    if in_table:
+                        errors.append(
+                            ParseError(
+                                pv.line,
+                                pv.col,
+                                "'prove' is not valid inside a truth-table body",
+                            )
+                        )
+                    consumed_ev.add(pv.ev_name)
+                for pname, pt in zip([s.name for s in node.params], node.param_types or ()):
+                    if pt is not None and pt.kind == "evidence" and pname not in consumed_ev:
+                        errors.append(
+                            ParseError(
+                                node.name.line if hasattr(node.name, "line") else 1,
+                                node.name.col if hasattr(node.name, "col") else 1,
+                                f"Evidence parameter '{pname}' of '{node.name.name}' is never used by a prove form",
+                            )
+                        )
 
         # Fase 3: attach extracted effect rows to their Defn nodes (frozen —
         # same object.__setattr__ discipline as __post_init__ coercions).

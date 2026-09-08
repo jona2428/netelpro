@@ -23,9 +23,9 @@ Semantic contract:
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Optional, Sequence
-import re
 
 from netelpro.ast_nodes import (
     And,
@@ -44,12 +44,12 @@ from netelpro.ast_nodes import (
     Node,
     Or,
     Program,
+    Prove,
     Sorry,
     StrLit,
     Sym,
 )
 from netelpro.parser import parse
-
 
 # ---------------------------------------------------------------------------
 # Error Hierarchy
@@ -631,6 +631,31 @@ def eval_loop(
         elif isinstance(curr_node, Sorry):
             reason_str = curr_node.reason.value if isinstance(curr_node.reason, StrLit) else str(curr_node.reason)
             raise StrayHoleError(reason_str, curr_node.line, curr_node.col)
+        elif isinstance(curr_node, Prove):
+            # Spec F4 D2: strict evaluation. Evidence values are plain bools at
+            # runtime (Evidence = i1, D3); opaqueness is static-only.
+            claim_val = eval_loop(curr_node.claim, curr_env, capabilities, budget)
+            if type(claim_val) is not bool:
+                c_line = getattr(curr_node.claim, "line", 0) or curr_node.line
+                c_col = getattr(curr_node.claim, "col", 0) or curr_node.col
+                raise StrayRuntimeError("claim of 'prove' is not Bool", c_line, c_col)
+            ev_val = curr_env.get(curr_node.ev_name)
+            if type(ev_val) is not bool:
+                e_line = getattr(curr_node, "line", 0) or curr_node.line
+                e_col = getattr(curr_node, "col", 0) or curr_node.col
+                raise StrayRuntimeError(
+                    f"evidence '{curr_node.ev_name}' is not Evidence",
+                    e_line,
+                    e_col,
+                )
+            if claim_val and not ev_val:
+                raise StrayHoleError(
+                    f"Proof violation at line {curr_node.line}, col {curr_node.col}. "
+                    f"Claim=True, Evidence=False",
+                    curr_node.line,
+                    curr_node.col,
+                )
+            result = claim_val
         elif isinstance(curr_node, Grant):
             result = NIL
         elif isinstance(curr_node, Def):

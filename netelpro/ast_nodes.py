@@ -104,6 +104,19 @@ class BoolLit(Literal):
 
 
 @dataclass(frozen=True)
+class Prove(Node):
+    """The 'prove' special form (spec F4).
+
+    (prove CLAIM (evidence NAME : Evidence)) — D6: the evidence sub-form
+    validates origin only; this node carries the referenced param name.
+    D2 runtime: claim=true with evidence=false raises StrayHoleError.
+    """
+
+    claim: Node
+    ev_name: str
+
+
+@dataclass(frozen=True)
 class NilLit(Literal):
     """Nil literal node: 'nil' (the empty list)."""
 
