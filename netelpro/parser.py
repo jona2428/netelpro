@@ -1031,36 +1031,33 @@ def check_special(
             )
         else:
             ev_form = operands[1]
-            if not (
-                isinstance(ev_form, Form)
-                and len(ev_form.items) == 4
-                and isinstance(ev_form.items[0], Tok)
-                and ev_form.items[0].kind == "SYMBOL"
-                and ev_form.items[0].value == "evidence"
-                and isinstance(ev_form.items[1], Tok)
-                and ev_form.items[1].kind == "SYMBOL"
-            ):
+            leaves = _flatten_ev_form(ev_form) if isinstance(ev_form, Form) else None
+            if leaves is None:
                 errors.append(
                     ParseError(
                         form.lparen.line,
                         form.lparen.col,
-                        "prove form must contain evidence binder: (evidence NAME : Evidence)",
+                        "evidence form must be a binder '(evidence NAME : Evidence)' "
+                        "or a binary '(and ev-form ev-form)' of them",
                     )
                 )
-            elif not (
-                isinstance(ev_form.items[2], Tok)
-                and ev_form.items[2].kind == "COLON"
-                and isinstance(ev_form.items[3], Tok)
-                and ev_form.items[3].kind == "SYMBOL"
-                and ev_form.items[3].value == "Evidence"
-            ):
-                errors.append(
-                    ParseError(
-                        form.lparen.line,
-                        form.lparen.col,
-                        "evidence binder must be (evidence NAME : Evidence)",
-                    )
-                )
+            else:
+                for _name_tok, binder in leaves:
+                    if not (
+                        len(binder.items) == 4
+                        and isinstance(binder.items[2], Tok)
+                        and binder.items[2].kind == "COLON"
+                        and isinstance(binder.items[3], Tok)
+                        and binder.items[3].kind == "SYMBOL"
+                        and binder.items[3].value == "Evidence"
+                    ):
+                        errors.append(
+                            ParseError(
+                                form.lparen.line,
+                                form.lparen.col,
+                                "evidence binder must be (evidence NAME : Evidence)",
+                            )
+                        )
 
     elif name == "grant":
         if depth != 1:
@@ -1091,6 +1088,42 @@ _NEG_OP: dict[str, str] = {
     "==": "!=",
     "!=": "==",
 }
+
+
+def _flatten_ev_form(form: Form) -> list[tuple[Tok, Form]] | None:
+    """F4-v2: flatten a prove evidence form into its binders.
+
+    Either a direct binder '(evidence NAME : Evidence)' or a strictly binary
+    '(and ev-form ev-form)' tree.  Returns (name_tok, binder_form) per leaf,
+    or None if the shape is invalid.  Composition desugars to nested prove
+    forms: claim AND NOT(e1 AND e2) == nested hole condition, so runtime and
+    codegen stay untouched and each hole reports its own binder coords.
+    Known trade-off: the claim expression is evaluated once per nesting
+    level (interpreter and native agree).  Claims are propositions — keep
+    them pure; effectful claims would observe repeated evaluation."""
+    if isinstance(form, Form) and len(form.items) == 3 and isinstance(form.items[0], Tok):
+        head = form.items[0]
+        if head.kind == "SYMBOL" and head.value == "and":
+            leaves: list[tuple[Tok, Form]] = []
+            for sub in form.items[1:]:
+                if not isinstance(sub, Form):
+                    return None
+                sub_leaves = _flatten_ev_form(sub)
+                if sub_leaves is None:
+                    return None
+                leaves.extend(sub_leaves)
+            return leaves
+    if (
+        isinstance(form, Form)
+        and len(form.items) == 4
+        and isinstance(form.items[0], Tok)
+        and form.items[0].kind == "SYMBOL"
+        and form.items[0].value == "evidence"
+        and isinstance(form.items[1], Tok)
+        and form.items[1].kind == "SYMBOL"
+    ):
+        return [(form.items[1], form)]
+    return None
 
 _CMP_FN: dict[str, object] = {
     "<": operator.lt,
@@ -1698,19 +1731,20 @@ def build_node(item: Tok | Form) -> Node | None:
             if len(operands) != 2:
                 return None
             claim = build_node(operands[0])
-            if claim is None:
+            if claim is None or not isinstance(operands[1], Form):
                 return None
-            ev_form = operands[1]
-            if not (
-                isinstance(ev_form, Form)
-                and len(ev_form.items) == 4
-                and isinstance(ev_form.items[0], Tok)
-                and ev_form.items[0].value == "evidence"
-                and isinstance(ev_form.items[1], Tok)
-                and ev_form.items[1].kind == "SYMBOL"
-            ):
+            leaves = _flatten_ev_form(operands[1])
+            if leaves is None:
                 return None
-            return Prove(claim=claim, ev_name=ev_form.items[1].value, line=line, col=col)
+            node: Prove | None = None
+            for name_tok, _binder in leaves:
+                node = Prove(
+                    claim=node if node is not None else claim,
+                    ev_name=name_tok.value,
+                    line=name_tok.line,
+                    col=name_tok.col,
+                )
+            return node
 
         case "grant":
             caps: list[Sym] = []

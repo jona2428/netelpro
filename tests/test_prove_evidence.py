@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from netelpro.ast_nodes import Prove
-from netelpro.evaluator import Evaluator, StrayHoleError
+from netelpro.evaluator import Environment, Evaluator, StrayHoleError, run_source
 from netelpro.parser import parse
 
 PKG = Path(__file__).resolve().parent.parent / "netelpro"
@@ -74,12 +74,12 @@ def test_compile_fabricated_evidence() -> None:
     # B3/D6: only (evidence NAME : Evidence) binds-originates; a computed
     # expression is fabrication by structure.
     errs = _errors("(defn bad ((y : Bool)) (prove true (evidence (not y) : Evidence)))")
-    assert any("must contain evidence binder" in e for e in errs)
+    assert any("evidence form must be a binder" in e for e in errs)
 
 
 def test_compile_bad_binder_shape() -> None:
     errs = _errors("(defn bad ((ev : Evidence)) (prove true 42))")
-    assert any("must contain evidence binder" in e for e in errs)
+    assert any("evidence form must be a binder" in e for e in errs)
 def test_compile_unused_evidence() -> None:
     # D5: a declared Evidence param with no prove consumer is a compile error.
     errs = _errors("(defn bad ((claim : Bool) (ev : Evidence)) claim)")
@@ -150,3 +150,24 @@ def test_regression_fase1() -> None:
     assert prog.ok, prog.errors
     tt = prog.program.forms[0]
     assert tt.truth_table is not None  # desugar preserved the spec (Fase 1 pin)
+def test_prove_composition_runtime() -> None:
+    """F4-v2: (and e1 e2) composition — nested prove desugar, both true passes."""
+    src = (
+        "(defn f ((e1 : Evidence) (e2 : Evidence)) "
+        "(prove true (and (evidence e1 : Evidence) (evidence e2 : Evidence))))"
+        "(f e1 e2)"
+    )
+    ok = run_source(src, env=Environment(bindings={"e1": True, "e2": True}))
+    assert ok is True
+    with pytest.raises(StrayHoleError):
+        run_source(src, env=Environment(bindings={"e1": True, "e2": False}))
+
+
+def test_prove_composition_honest_negative() -> None:
+    """F4-v2: claim=false with composed evidence stays honest (D2)."""
+    src = (
+        "(defn f ((e1 : Evidence) (e2 : Evidence)) "
+        "(prove false (and (evidence e1 : Evidence) (evidence e2 : Evidence))))"
+        "(f e1 e2)"
+    )
+    assert run_source(src, env=Environment(bindings={"e1": False, "e2": True})) is False
