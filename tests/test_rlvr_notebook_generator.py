@@ -100,3 +100,35 @@ def test_generator_writes_valid_ipynb_file(tmp_path):
     with open(output_path, encoding="utf-8") as f:
         loaded = json.load(f)
     assert "cells" in loaded
+
+
+def test_v2_pool_accumulates_between_rounds():
+    """v2: el SFT de cada ronda entrena sobre el pool acumulado (RAFT canónico),
+    no solo sobre el harvest fresco -- la v1 entrenaba 8-10 ejemplos nuevos por
+    ronda y arriesgaba borrar lo aprendido en rondas previas (plateau ronda 2)."""
+    src = _all_code_source(build_raft_notebook())
+    assert "all_sft_examples" in src
+    assert "all_sft_examples.extend(sft_examples)" in src
+    assert "Dataset.from_list(all_sft_examples)" in src
+    assert "Dataset.from_list(sft_examples)" not in src  # no re-caer en harvest fresco
+
+
+def test_v2_evals_are_seeded_paired():
+    """v2: evaluate_pass_rate fija la seed antes de muestrear -- baseline,
+    rondas y eval final comparten draws del sampler (comparación pareada;
+    en la v1 el sampler no seeded dejaba el salto sin poder atribuir)."""
+    src = _all_code_source(build_raft_notebook())
+    def_idx = src.find("def evaluate_pass_rate")
+    seed_idx = src.find("torch.manual_seed(EVAL_SEED)")
+    baseline_idx = src.find("baseline_pass_rate = ")
+    assert def_idx != -1 and seed_idx != -1 and baseline_idx != -1
+    assert def_idx < seed_idx < baseline_idx, "la seed se fija dentro de evaluate_pass_rate, antes del baseline"
+
+
+def test_v2_levers():
+    """Palancas v2 declaradas: 5 rondas, 16 muestras/tarea, logging_steps=1."""
+    src = _all_code_source(build_raft_notebook())
+    assert "NUM_ROUNDS = 5" in src
+    assert "SAMPLES_PER_TASK = 16" in src
+    assert "logging_steps=1" in src
+    assert "logging_steps=5" not in src
