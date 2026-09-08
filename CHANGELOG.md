@@ -4,6 +4,27 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## Unreleased — gcd curriculum for run #3 (2026-09-08)
+
+### Added
+- **gcd curriculum (`rlvr/tasks/`):** 3 TRAIN-side tasks that teach the exact
+  skill `gcd_pair` (OOD) demands — two-argument recursion with parameter
+  reordering (`(gcd-two b (rem a b))`), absent from every previous train task
+  (all `quot`/`rem` tasks were unary): `halving_steps` (unary recursion with
+  `quot`), `euclid_steps` (reorder + `rem`, steps counted instead of gcd
+  returned) and `sub_gcd_steps` (bidirectional subtractive reorder). Outputs
+  are step counts, deliberately distinct from the gcd value itself — the
+  lever is pattern transfer, not memorization of the held-out task.
+  Corpus: 55 → 58 tasks (38 train + 20 OOD). `OOD_TASK_IDS` untouched (20
+  ids): per the contract, adding tasks never grows the OOD — run #3 measures
+  `gcd_pair` as true transfer. Gradable: hand-written Netelpro solutions for
+  all 3 pass the real RLVR verifier 20/20 cases (`tests/test_rlvr_gcd_curriculum.py`).
+
+### Notes
+- Run #3 (fresh from base, protocol of #1/#2) still not executed; the
+  curriculum lands in the train pool for that run. No eval-comparison claims
+  are made here — nothing has been trained yet.
+
 ## v0.9.0 — RAFT run #2: accumulated pool, paired seeded evals (2026-09-08)
 
 ### Added

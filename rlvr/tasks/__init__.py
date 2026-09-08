@@ -67,6 +67,17 @@ TASK_MODULE_NAMES: list[str] = [
     "wrap_in_brackets",
     "double_concat",
     "prefix_or_default",
+    # --- curriculum gcd 2026-09-08 (lever run #3) ---
+    # gcd_pair (OOD) quedó 0/8 en runs #1/#2: exige recursión de DOS
+    # argumentos con reorden (gcd-two b (rem a b)), patrón que ninguna tarea
+    # train ejercita (las tareas con quot/rem son unarias). Estas 3 enseñan
+    # ese patrón con salidas distintas al gcd (transferencia, no memorización
+    # del OOD): halving-steps (recursión quot unaria), euclid-steps
+    # (reorden+rem) y sub-gcd-steps (reorden bidireccional). TRAIN side
+    # only: OOD_TASK_IDS intacto -- regla de mantenimiento del contrato.
+    "halving_steps",
+    "euclid_steps",
+    "sub_gcd_steps",
 ]
 
 REQUIRED_ATTRS: tuple[str, ...] = (

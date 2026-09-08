@@ -209,12 +209,17 @@ comparison is each run against its own baseline.
 
 **Corpus grown 2026-09-08 (no new training run yet):** the 5-task OOD split above
 (runs #1/#2) gave 20% granularity per task — one extra pass shifted the whole
-number. The corpus is now **55 tasks (35 train + 20 OOD)**, still balanced by
-family (arithmetic/list/string) and still an explicit, versioned contract
+number. The corpus is now **58 tasks (38 train + 20 OOD)**, still an explicit,
+versioned contract
 (`rlvr.tasks.OOD_TASK_IDS`) rather than a computed split — the original 5 OOD
 tasks are unchanged inside the new 20, so runs #1/#2 stay comparable to each
-other even as future runs measure against the larger set. Run #3 (fresh from
-base, same protocol as #1/#2) is the next step, not yet executed.
+other even as future runs measure against the larger set. A gcd curriculum
+was added on the train side (38 train tasks) to target the refuted
+`gcd_pair` hypothesis: 3 tasks teaching two-argument recursion with
+parameter reordering — the skill the 0/8-in-two-runs OOD task demands and
+no previous train task exercised (see `tests/test_rlvr_gcd_curriculum.py`).
+Run #3 (fresh from base, same protocol as #1/#2) is the next step, not yet
+executed.
 
 Local evaluation against your own exported GGUF (requires [Ollama](https://ollama.com)
 with the model installed):
