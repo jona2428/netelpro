@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from netelpro.caps import check_capabilities, collect_grants
+from netelpro.effects import check_effect_rows
 from netelpro.evaluator import (
     StrayError,
     StrayHoleError,
@@ -59,6 +60,15 @@ def main(argv: list[str] | None = None) -> int:
     if cap_errors:
         for err in cap_errors:
             print(str(err), file=sys.stderr)
+        return 1
+
+    # Fase 3: per-function effect rows — declared must cover inferred (compile-time only).
+    for warn in parse_result.effect_warnings:
+        print(f"warning: line {warn.line}, col {warn.col}: {warn.message}", file=sys.stderr)
+    effect_errors = check_effect_rows(parse_result.program)
+    if effect_errors:
+        for fx_err in effect_errors:
+            print(str(fx_err), file=sys.stderr)
         return 1
 
     # Phase 4: static hole prosecution — sorry manifest is emitted, never hidden.

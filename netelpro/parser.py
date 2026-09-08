@@ -37,6 +37,7 @@ from netelpro.ast_nodes import (
     Call,
     Def,
     Defn,
+    EffectRow,
     FloatLit,
     Fn,
     Grant,
@@ -96,6 +97,7 @@ class ParseResult:
     program: Program
     errors: list[ParseError] = field(default_factory=list)
     defn_registry: dict[str, int] = field(default_factory=dict)
+    effect_warnings: list[ParseError] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -115,6 +117,91 @@ class Form:
     lparen: Tok
     items: list[Tok | Form] = field(default_factory=list)
     rparen: Tok | None = None
+
+
+EFFECT_VERBS: tuple[str, ...] = ("read", "write", "delete", "network", "io")
+
+
+def _extract_effect_clauses(
+    forms: list[Form],
+    errors: list[ParseError],
+    warnings: list[ParseError],
+) -> dict[str, tuple[EffectRow, ...]]:
+    """Fase 3: extract ': (effects ...)' clauses from top-level defn forms (spec §1.1).
+
+    Splices the clause out of each defn form IN PLACE so every downstream pass
+    (collect_defns, refinement prosecution, walk_and_validate, build_node) keeps
+    seeing the classic 3-operand defn shape — zero changes elsewhere in the parser.
+    Validates D6 (duplicates -> warning), D7 (unknown verb), D8 (empty pattern).
+    Returns defn name -> declared rows.
+    """
+    clauses: dict[str, tuple[EffectRow, ...]] = {}
+
+    def _err(anchor: Tok | Form, msg: str) -> None:
+        if isinstance(anchor, Form):
+            errors.append(ParseError(anchor.lparen.line, anchor.lparen.col, msg))
+        else:
+            errors.append(ParseError(anchor.line, anchor.col, msg))
+
+    for form in forms:
+        if not form.items or not isinstance(form.items[0], Tok):
+            continue
+        if form.items[0].value != "defn" or len(form.items) < 6:
+            continue
+        # Potential clause: [defn, NAME, PARAMS, COLON, (effects ...), BODY]
+        colon = form.items[3]
+        if not (isinstance(colon, Tok) and colon.kind == "COLON"):
+            continue
+        name_tok = form.items[1]
+        effects_form = form.items[4]
+        if not (isinstance(name_tok, Tok) and name_tok.kind == "SYMBOL"):
+            continue
+        if not (
+            isinstance(effects_form, Form)
+            and effects_form.items
+            and isinstance(effects_form.items[0], Tok)
+            and effects_form.items[0].value == "effects"
+        ):
+            _err(effects_form if isinstance(effects_form, Form) else colon,
+                 "': (effects ...)' clause expected after parameter list")
+            continue
+        # Splice COLON + effects form out of the defn form.
+        del form.items[3:5]
+        if len(effects_form.items) < 2:
+            _err(effects_form, "'(effects ...)' requires at least one effect row")
+            continue
+        rows: list[EffectRow] = []
+        seen: set[tuple[str, str]] = set()
+        for row in effects_form.items[1:]:
+            if not (
+                isinstance(row, Form)
+                and len(row.items) == 2
+                and isinstance(row.items[0], Tok)
+                and row.items[0].kind == "SYMBOL"
+                and isinstance(row.items[1], Tok)
+                and row.items[1].kind == "STRING"
+            ):
+                _err(row if isinstance(row, Form) else effects_form,
+                     'effect row must be \'(VERBO "patrón")\' with VERBO a symbol and patrón a string literal')
+                continue
+            verb, pat = row.items[0].value, row.items[1].value
+            if verb not in EFFECT_VERBS:
+                _err(row, f"unknown effect verb '{verb}' — valid verbs: {', '.join(EFFECT_VERBS)}")
+                continue
+            if not pat:
+                _err(row, "effect pattern cannot be empty string")
+                continue
+            if (verb, pat) in seen:
+                warnings.append(ParseError(
+                    row.lparen.line, row.lparen.col,
+                    f"duplicate effect row ({verb} \"{pat}\") — deduplicated (D6)",
+                ))
+                continue
+            seen.add((verb, pat))
+            rows.append(EffectRow(verb=verb, pattern=pat, line=row.lparen.line, col=row.lparen.col))
+        if rows:
+            clauses[name_tok.value] = tuple(rows)
+    return clauses
 
 
 def load_table(path: str | Path = TABLE_PATH) -> dict[str, tuple[Arity, str]]:
@@ -1539,6 +1626,7 @@ class Parser:
         Returns a ParseResult containing the AST Program, errors, and defn_registry.
         """
         errors: list[ParseError] = []
+        effect_warnings: list[ParseError] = []
 
         if isinstance(src_or_toks, str):
             try:
@@ -1551,6 +1639,10 @@ class Parser:
 
         forms, paren_errors = parse_s_expressions(toks)
         errors.extend(paren_errors)
+
+        # Fase 3: extract ': (effects ...)' clauses BEFORE any other pass so the
+        # classic defn shape is preserved for every downstream prosecutor.
+        effect_clauses = _extract_effect_clauses(forms, errors, effect_warnings)
 
         user_defns, dup_errors, typed_registry = collect_defns(forms, self.reserved)
         errors.extend(dup_errors)
@@ -1587,7 +1679,20 @@ class Parser:
         first_col = forms[0].lparen.col if forms else 1
         program = Program(forms=program_nodes, line=first_line, col=first_col)
 
-        return ParseResult(program=program, errors=errors, defn_registry=user_defns)
+        # Fase 3: attach extracted effect rows to their Defn nodes (frozen —
+        # same object.__setattr__ discipline as __post_init__ coercions).
+        for node in program.forms:
+            if isinstance(node, Defn):
+                rows = effect_clauses.get(node.name.name)
+                if rows:
+                    object.__setattr__(node, "effects", rows)
+
+        return ParseResult(
+            program=program,
+            errors=errors,
+            defn_registry=user_defns,
+            effect_warnings=effect_warnings,
+        )
 
 
 def parse(src_or_toks: str | Sequence[Tok], table_path: str | Path | None = None) -> ParseResult:

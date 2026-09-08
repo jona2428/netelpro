@@ -241,3 +241,136 @@ def check_gate_purity(
 
     msg = f"gate rule '{gate_rule_name}' must be pure (effects: {effects_str} via <chain: {chain_str}>)"
     return [EffectError(message=msg, line=line, col=col)]
+
+
+def _primitive_effect_reqs() -> dict[str, list[tuple[str, str]]]:
+    """Derive primitive effect requirements from arity_table.json (spec D3).
+
+    Reuses the single source of truth (caps._derive_capabilities_from_table):
+    each required capability string 'c' becomes the effect row (c "*") — the
+    wildcard pattern means 'any pattern of this verb'. Future IO primitives
+    (read-file, write-file, ...) will declare richer rows in the table.
+    """
+    _, cap_reqs = _derive_capabilities_from_table()
+    return {head: [(c, "*") for c in sorted(caps)] for head, caps in cap_reqs.items()}
+
+
+def _collect_calls(
+    node: Node,
+    prim_calls: list[tuple[str, int, int]],
+    defn_calls: list[tuple[str, int, int]],
+    known_defns: set[str],
+) -> None:
+    """Collect direct primitive and user-defn calls with exact coordinates."""
+    if isinstance(node, Call):
+        if node.head in known_defns:
+            defn_calls.append((node.head, node.line, node.col))
+        else:
+            prim_calls.append((node.head, node.line, node.col))
+        for arg in node.args:
+            _collect_calls(arg, prim_calls, defn_calls, known_defns)
+    elif isinstance(node, (Defn, Fn)):
+        _collect_calls(node.body, prim_calls, defn_calls, known_defns)
+    elif isinstance(node, Let):
+        _collect_calls(node.value, prim_calls, defn_calls, known_defns)
+        _collect_calls(node.body, prim_calls, defn_calls, known_defns)
+    elif isinstance(node, If):
+        _collect_calls(node.cond, prim_calls, defn_calls, known_defns)
+        _collect_calls(node.then, prim_calls, defn_calls, known_defns)
+        _collect_calls(node.else_, prim_calls, defn_calls, known_defns)
+    elif isinstance(node, (And, Or)):
+        _collect_calls(node.l, prim_calls, defn_calls, known_defns)
+        _collect_calls(node.r, prim_calls, defn_calls, known_defns)
+    elif isinstance(node, ListLit):
+        for item in node.items:
+            _collect_calls(item, prim_calls, defn_calls, known_defns)
+    elif isinstance(node, Def):
+        _collect_calls(node.value, prim_calls, defn_calls, known_defns)
+    elif isinstance(node, Sorry):
+        _collect_calls(node.reason, prim_calls, defn_calls, known_defns)
+
+
+def check_effect_rows(program: Program | Node) -> list[EffectError]:
+    """Fase 3: verify declared effect rows cover every inferred effect (spec §2).
+
+    Composition (D2): for every direct call edge caller -> callee, every declared
+    row of the callee must appear LITERALLY in the caller's rows. Literal row-set
+    subset checks are transitive, so chained and mutual calls need no fixpoint.
+    Primitives (D3): required capability 'c' is the row (c "*"), satisfied by any
+    declared row of the same verb. Top-level forms (D11) have no declaration
+    site: calling an effectful defn from them is an error (legacy grants still
+    own top-level io via caps.py — D10 coexistence).
+    """
+    forms: list[Node]
+    if isinstance(program, Program):
+        forms = list(program.forms)
+    else:
+        forms = [program]
+
+    defns: dict[str, Defn] = {}
+    for form in forms:
+        if isinstance(form, Defn):
+            name = form.name.name if isinstance(form.name, Sym) else str(form.name)
+            defns[name] = form
+
+    prim_reqs = _primitive_effect_reqs()
+    errors: list[EffectError] = []
+
+    for name, defn_node in defns.items():
+        declared = {(r.verb, r.pattern) for r in defn_node.effects}
+        declared_verbs = {v for (v, _) in declared}
+
+        prim_calls: list[tuple[str, int, int]] = []
+        defn_calls: list[tuple[str, int, int]] = []
+        _collect_calls(defn_node.body, prim_calls, defn_calls, set(defns))
+
+        for head, line, col in prim_calls:
+            for verb, _pat in prim_reqs.get(head, []):
+                if verb not in declared_verbs:
+                    msg = (
+                        f"call to '{head}' requires effect ({verb} \"*\") not declared "
+                        f"in function '{name}' — add : (effects ({verb} \"*\"))"
+                    )
+                    errors.append(EffectError(message=msg, line=line, col=col))
+
+        for callee, line, col in defn_calls:
+            callee_rows = {(r.verb, r.pattern) for r in defns[callee].effects}
+            missing = callee_rows - declared
+            if not missing:
+                continue
+            missing_str = " ".join(f'({v} "{p}")' for v, p in sorted(missing))
+            if not declared:
+                msg = (
+                    f"call to '{callee}' brings effects {missing_str} "
+                    f"but caller '{name}' declares none"
+                )
+            else:
+                have_str = " ".join(
+                    f'({r.verb} "{r.pattern}")' for r in defn_node.effects
+                )
+                msg = (
+                    f"call to '{callee}' brings effects {missing_str} "
+                    f"but caller '{name}' declares only {have_str} — "
+                    f"add the missing effect rows"
+                )
+            errors.append(EffectError(message=msg, line=line, col=col))
+
+    # Top-level (D11): no declaration site — effectful defn calls are rejected.
+    for form in forms:
+        if isinstance(form, Defn):
+            continue
+        top_prims: list[tuple[str, int, int]] = []
+        top_calls: list[tuple[str, int, int]] = []
+        _collect_calls(form, top_prims, top_calls, set(defns))
+        for callee, line, col in top_calls:
+            if defns[callee].effects:
+                rows_str = " ".join(
+                    f'({r.verb} "{r.pattern}")' for r in defns[callee].effects
+                )
+                msg = (
+                    f"top-level call to '{callee}' brings effects {rows_str} — "
+                    f"wrap it in a defn that declares : (effects {rows_str})"
+                )
+                errors.append(EffectError(message=msg, line=line, col=col))
+
+    return errors

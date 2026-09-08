@@ -142,6 +142,23 @@ class Def(Node):
 
 
 @dataclass(frozen=True)
+class EffectRow:
+    """One declared effect '(VERBO "patrón")' — compile-time metadata only (Fase 3).
+
+    Never reaches codegen or the evaluator: effects are a static compilation
+    check (spec D1). Frozen + hashable so effect sets compose in fixpoint sets.
+    """
+
+    verb: str
+    pattern: str
+    line: int = 0
+    col: int = 0
+
+    def __str__(self) -> str:
+        return f'({self.verb} "{self.pattern}")'
+
+
+@dataclass(frozen=True)
 class Defn(Node):
     """Named function definition: '(defn name (params...) body)'.
 
@@ -158,6 +175,7 @@ class Defn(Node):
     body: Node = field(default_factory=Node)
     param_types: tuple[ParamType | None, ...] | None = None
     truth_table: TruthTableSpec | None = None
+    effects: tuple[EffectRow, ...] = ()
 
     def __post_init__(self) -> None:
         if isinstance(self.name, str):
