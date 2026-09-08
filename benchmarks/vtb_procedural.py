@@ -38,7 +38,6 @@ import argparse
 import json
 import statistics
 import sys
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal

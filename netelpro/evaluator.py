@@ -24,9 +24,8 @@ Semantic contract:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Optional, Sequence
 import re
-import sys
 
 from netelpro.ast_nodes import (
     And,
@@ -49,7 +48,7 @@ from netelpro.ast_nodes import (
     StrLit,
     Sym,
 )
-from netelpro.parser import parse, ParseResult
+from netelpro.parser import parse
 
 
 # ---------------------------------------------------------------------------

@@ -276,7 +276,7 @@ def export_dataset(output_dir: Path) -> None:
         for entry in eval_data:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-    print(f"Dataset generado exitosamente y 100% auditado por Netelpro LLVM:")
+    print("Dataset generado exitosamente y 100% auditado por Netelpro LLVM:")
     print(f"  * Train set: {len(train_data)} pares -> {train_file}")
     print(f"  * Eval set:  {len(eval_data)} pares  -> {eval_file}")
     print(f"  * Total pares verificados: {len(pairs)}")

@@ -21,18 +21,13 @@ from typing import Any, Optional, Sequence
 
 from netelpro.ast_nodes import (
     And,
-    BoolLit,
     Call,
     Def,
     Defn,
-    FloatLit,
     Fn,
-    Grant,
     If,
-    IntLit,
     Let,
     ListLit,
-    NilLit,
     Node,
     Or,
     Program,

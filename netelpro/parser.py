@@ -50,7 +50,7 @@ from netelpro.ast_nodes import (
     StrLit,
     Sym,
 )
-from netelpro.lexer import LexError, Lexer, Tok, tokenize
+from netelpro.lexer import LexError, Tok, tokenize
 
 TABLE_PATH = Path(__file__).resolve().parent.parent / "spec" / "arity_table.json"
 

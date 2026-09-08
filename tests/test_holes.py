@@ -28,7 +28,6 @@ from netelpro.parser import parse
 from netelpro.holes import check_holes, collect_declarations, HoleError
 from netelpro.evaluator import (
     StrayHoleError,
-    StrayRuntimeError,
     run_source,
 )
 

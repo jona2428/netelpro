@@ -17,7 +17,6 @@ unambiguous, and auditable without relying on dynamic runtime value inspection.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Sequence
 
 
 @dataclass(frozen=True)
