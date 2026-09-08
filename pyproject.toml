@@ -40,3 +40,12 @@ ignore_missing_imports = true
 [tool.ruff]
 extend-exclude = ["*.ipynb"]
 
+[tool.ruff.lint]
+# E741: `l`/`r` are the deliberate Clojure-style names for AND/OR AST nodes
+# and parser locals (`(and l r)`); renaming them would churn core files.
+ignore = ["E741"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests insert the repo root into sys.path before importing the package:
+# imports after statements are the structural pattern, not an accident.
+"tests/*" = ["E402"]
