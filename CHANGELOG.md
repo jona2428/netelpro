@@ -4,6 +4,56 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## v0.9.0 — RAFT run #2: accumulated pool, paired seeded evals (2026-09-08)
+
+### Added
+- **RAFT notebook v2** (`training/train_raft_colab.ipynb`): accumulated SFT pool across
+  rounds (no forgetting between rounds, vs. v1's per-round-only harvest), seeded
+  baseline/final evals (`torch.manual_seed`, reproducible pairing), full loss-curve
+  visibility (`logging_steps=1`), 5 rounds (vs. 3) at 16 samples/task (vs. 8).
+- **Run #2 results** (5 rounds, Colab T4): OOD pass@8 **20% → 60%** (paired, same
+  seed) — 3/5 tasks, 3× more individual samples passing than run #1 (13/40 vs 4/40).
+  GGUF q4_k_m re-measurement matched the fp16 verdict exactly (60%, 3/5) — second
+  consecutive run where quantization does not degrade the learned behavior.
+- **Refuted hypothesis, documented honestly:** `gcd_pair` stayed at 0/8 in both runs
+  — the accumulated pool alone does not unlock it; needs a different lever
+  (curriculum or more diverse samples), not just more of the same volume.
+- **[🤗 `JonaECG/netelpro-qwen2.5-1.5b-raft-v2`](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-raft-v2)** published, with per-task breakdown vs. v1 in the model card.
+
+## v0.8.0 — RLVR/RAFT: training against a compiled verifier (2026-09-07)
+
+### Added
+- **RLVR task corpus** (`rlvr/tasks/`): 25 tasks across arithmetic (7), lists (9),
+  and strings (8), with a deterministic train/OOD split (`power_int`, `nth_element`,
+  `string_to_int`, `gcd_pair`, `list_sum` held out).
+- **Binary verifier** (`rlvr/verify.py`): static checks + real interpreter execution
+  against 20 randomized test cases per task — the reward signal is a compiler, not
+  a preference model.
+- **Fixed prompt builder**: condensed language spec + few-shots drawn from
+  `examples/` + task description — same shape used at train and eval time.
+- **RAFT Colab notebook** (`training/train_raft_colab.ipynb`, run #1): sample →
+  verify → filter → SFT loop, 2–4 rounds on a free T4.
+  - `SFTTrainer` conditions loss on the prompt via `formatting_func` (not raw
+    completion); `completion_only_loss=False` (the Unsloth fork used here rejects
+    `formatting_func` with the library default of `True`); explicit GPU guard
+    before importing Unsloth (clear failure instead of a cryptic
+    `NotImplementedError`); OOD scoring asserts order-insensitive (sorted both
+    sides).
+- **`rlvr.gguf_eval`**: official local-evaluation tool — the same measurement that
+  scored the published GGUF enters the repo, runnable by anyone with Ollama.
+- **Run #1 results**: OOD pass@8 **0% → 20% → 40% → 40%** over 3 rounds (baseline
+  solved 0/5 tasks in 40 attempts). Local GGUF re-measurement scored 80% (4/5) —
+  see the [model card](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-raft#honest-caveats)
+  for why that number sits above the in-notebook fp16 figure: the in-notebook
+  baseline/final comparison was unseeded, the local re-eval was seeded — the two
+  aren't measuring under identical protocol, which run #2 fixed.
+- **[🤗 `JonaECG/netelpro-qwen2.5-1.5b-raft`](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-raft)** published.
+
+### Honest caveats (both releases)
+- Metric is **pass@8**, not pass@1; **n=5** OOD tasks (20% granularity per task).
+- v1 vs. v2 headline numbers (40% vs. 60%) come from *different* runs — directional,
+  not paired. The paired comparison is each run against its own seeded baseline.
+
 ## v0.7.0 — Verification Theater Benchmark & Honesty Guard (2026-09-06)
 
 ### Added

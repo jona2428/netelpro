@@ -93,7 +93,7 @@ Every program runs on **both engines**, by contract:
 - **Python interpreter** — the reference semantics.
 - **LLVM native backend** — the verified implementation.
 
-The native backend is a strict subset compiler: it accepts only programs whose values are representable in machine words and rejects everything else with a prosecutorial compile error — never a silent fallback, never a silent divergence. The test suite runs every program through both engines and compares: **356 tests passing, zero mismatches**. The same principle is exposed programmatically by the Phase 6 bridge: `RuleFilter.verify(cases)` returns any `(args, expected, interpreted, native)` mismatches; an empty list means full agreement.
+The native backend is a strict subset compiler: it accepts only programs whose values are representable in machine words and rejects everything else with a prosecutorial compile error — never a silent fallback, never a silent divergence. The test suite runs every program through both engines and compares them: zero mismatches (see the CI badge above for the current pass count — kept out of this prose so it can't go stale). The same principle is exposed programmatically by the Phase 6 bridge: `RuleFilter.verify(cases)` returns any `(args, expected, interpreted, native)` mismatches; an empty list means full agreement.
 
 ## Phase history
 
@@ -192,7 +192,11 @@ destroy the learned behavior.
 Honest caveats, as always: these are **pass@8, not pass@1**; n=5 tasks (granularity
 20%); baseline vs. final sampling is not paired (unseeded sampler); the round-2
 plateau is expected under per-round-only SFT datasets (canonical RAFT accumulates
-the verified pool across rounds).
+the verified pool across rounds). The 80% GGUF figure sits well above the 40% fp16
+figure from the same checkpoint — that gap is **not** a quantization effect, it's
+two different measurement protocols (in-notebook comparison unseeded, local
+`gguf_eval` re-measurement seeded); run #2 below fixes this by seeding both sides
+of the same run.
 
 **Run #2 (2026-09-08, Colab T4, 5 rounds, accumulated pool, seeded evals):** OOD
 pass@8 went **20% → 60%** (paired baseline/final, same seed) — **3/5 tasks**, with
@@ -213,5 +217,5 @@ python -m rlvr.gguf_eval --model netelpro-qwen1.5b-raft
 
 ## Status
 - **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md); machine-consumed arity table at `spec/arity_table.json`.
-- **Release:** v0.7.0 (HonestyGuard SDK, Verification Theater Benchmark, DPO Colab Trainer, LLVM native JIT, MCP server).
-- **History:** 374+ tests passing with zero differential divergence between Python interpreter and LLVM native backend.
+- **Release:** [v0.9.0](https://github.com/jona2428/netelpro/releases/tag/v0.9.0) — RLVR/RAFT run #2 (accumulated pool, paired seeded evals, official `rlvr.gguf_eval`), on top of v0.7.0's HonestyGuard SDK, Verification Theater Benchmark, DPO Colab Trainer, LLVM native JIT, and MCP server. Full history in [`CHANGELOG.md`](CHANGELOG.md).
+- **History:** zero differential divergence between Python interpreter and LLVM native backend across the test suite (see the CI badge above for current pass count — this file no longer hardcodes it, it goes stale every release).
