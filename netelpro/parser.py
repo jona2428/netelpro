@@ -26,9 +26,10 @@ from __future__ import annotations
 
 import itertools
 import json
+import operator
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
 
 from netelpro.ast_nodes import (
     And,
@@ -41,17 +42,19 @@ from netelpro.ast_nodes import (
     Grant,
     If,
     IntLit,
-    ParamType,
-    TruthTableSpec,
     Let,
     ListLit,
     NilLit,
     Node,
     Or,
+    ParamType,
+    Predicate,
     Program,
+    RefType,
     Sorry,
     StrLit,
     Sym,
+    TruthTableSpec,
 )
 from netelpro.lexer import LexError, Tok, tokenize
 
@@ -152,8 +155,11 @@ def _annotation_param_name(p: Tok | Form) -> str | None:
 
 def _build_param_type(ty: Tok | Form) -> ParamType | None:
     """Construct a ParamType from a syntactically validated TYPE node, or None."""
-    if isinstance(ty, Tok) and ty.kind == "SYMBOL" and ty.value == "Bool":
-        return ParamType(kind="bool", enum=())
+    if isinstance(ty, Tok) and ty.kind == "SYMBOL":
+        if ty.value == "Bool":
+            return ParamType(kind="bool", enum=())
+        if ty.value == "Int":
+            return ParamType(kind="int", enum=())
     if (
         isinstance(ty, Form)
         and ty.items
@@ -168,8 +174,63 @@ def _build_param_type(ty: Tok | Form) -> ParamType | None:
     return None
 
 
-def _check_type_annotation(ty: Tok | Form, errors: list[ParseError]) -> ParamType | None:
+_REF_OPS: dict[str, str] = {
+    ">": ">",
+    ">=": ">=",
+    "<": "<",
+    "<=": "<=",
+    "!=": "!=",
+    "==": "==",
+}
+
+
+def _refine_predicates(ty: Tok | Form) -> tuple[Predicate, ...] | None:
+    """Extract predicates from '(Ref Int P1 P2 ...)' if well-formed, else None."""
+    if not (isinstance(ty, Form) and len(ty.items) >= 2):
+        return None
+    head = ty.items[0]
+    base = ty.items[1]
+    if not (isinstance(head, Tok) and head.kind == "SYMBOL" and head.value == "Ref"):
+        return None
+    if not (isinstance(base, Tok) and base.kind == "SYMBOL" and base.value == "Int"):
+        return None
+    preds: list[Predicate] = []
+    for p in ty.items[2:]:
+        if not (
+            isinstance(p, Form)
+            and len(p.items) == 2
+            and isinstance(p.items[0], Tok)
+            and p.items[0].kind == "SYMBOL"
+            and p.items[0].value in _REF_OPS
+            and isinstance(p.items[1], Tok)
+            and p.items[1].kind == "INT"
+        ):
+            return None
+        op_tok = p.items[0]
+        assert isinstance(op_tok, Tok)
+        const_tok = p.items[1]
+        assert isinstance(const_tok, Tok)
+        preds.append(Predicate(op=_REF_OPS[op_tok.value], const=int(const_tok.value)))
+    if not preds:
+        return None
+    return tuple(preds)
+
+
+def _param_type_of(ty: Tok | Form) -> ParamType | RefType | None:
+    """Union type of a param annotation: refinement first, then plain/enum."""
+    preds = _refine_predicates(ty)
+    if preds is not None:
+        return RefType(predicates=preds)
+    return _build_param_type(ty)
+
+
+def _check_type_annotation(
+    ty: Tok | Form, errors: list[ParseError]
+) -> ParamType | RefType | None:
     """Validate a TYPE annotation, reporting a prosecutorial error if malformed."""
+    ref_preds = _refine_predicates(ty)
+    if ref_preds is not None:
+        return RefType(predicates=ref_preds)
     pt = _build_param_type(ty)
     if pt is None:
         if isinstance(ty, Tok):
@@ -177,7 +238,7 @@ def _check_type_annotation(ty: Tok | Form, errors: list[ParseError]) -> ParamTyp
                 ParseError(
                     ty.line,
                     ty.col,
-                    f"unsupported parameter type {ty.value!r}, expected Bool or (Int <int literals>)",
+                    f"unsupported parameter type {ty.value!r}, expected Bool, Int, (Int <int literals>) or (Ref Int (<op> <int>)...)",
                 )
             )
         elif isinstance(ty, Form):
@@ -185,7 +246,7 @@ def _check_type_annotation(ty: Tok | Form, errors: list[ParseError]) -> ParamTyp
                 ParseError(
                     ty.lparen.line,
                     ty.lparen.col,
-                    "unsupported parameter type, expected Bool or (Int <int literals>)",
+                    "unsupported parameter type, expected Bool, Int, (Int <int literals>) or (Ref Int (<op> <int>)...)",
                 )
             )
     return pt
@@ -193,7 +254,7 @@ def _check_type_annotation(ty: Tok | Form, errors: list[ParseError]) -> ParamTyp
 
 def _check_annotated_param(
     form: Form, errors: list[ParseError]
-) -> tuple[str, ParamType | None] | None:
+) -> tuple[str, ParamType | RefType | None] | None:
     """Validate one annotated parameter '(name : TYPE)'. Returns (name, type)."""
     if (
         len(form.items) != 3
@@ -234,7 +295,7 @@ def _fmt_slot(v: bool | int) -> str:
 def _check_call_site_literals(
     fname: str,
     operands: list[Tok | Form],
-    ptypes: list[ParamType | None],
+    ptypes: list[ParamType | RefType | None],
     errors: list[ParseError],
 ) -> None:
     """Type-strict literal checking at call sites of annotated functions (spec §1.1).
@@ -246,6 +307,10 @@ def _check_call_site_literals(
     for idx, (ptype, arg) in enumerate(zip(ptypes, operands)):
         if ptype is None or not isinstance(arg, Tok):
             continue
+        if isinstance(ptype, RefType):
+            continue  # refinements are prosecuted by _prosecute_refinements
+        if ptype.kind == "int":
+            continue  # plain Int: no domain to check at call-site (spec F2 §1.1)
         if arg.kind == "BOOL":
             if ptype.kind != "bool":
                 errors.append(
@@ -342,7 +407,7 @@ def check_truth_table(
     errors: list[ParseError],
     heads: dict[str, tuple[Arity, str]],
     user_defns: dict[str, int],
-    typed_registry: dict[str, list[ParamType | None]],
+    typed_registry: dict[str, list[ParamType | RefType | None]],
     depth: int,
 ) -> None:
     """Prosecutor for the truth-table special form (spec §1.2, §2).
@@ -404,7 +469,17 @@ def check_truth_table(
     for pf in param_forms:
         res = _check_annotated_param(pf, errors)
         if res is not None:
-            params.append(res)
+            pname, pty = res
+            if isinstance(pty, RefType):
+                errors.append(
+                    ParseError(
+                        pf.lparen.line,
+                        pf.lparen.col,
+                        "refinement types not allowed in truth-table parameters (use enum)",
+                    )
+                )
+                continue
+            params.append((pname, pty))
     if len(params) != len(param_forms):
         return  # malformed params already reported; nothing sound to check further
     n = len(params)
@@ -656,7 +731,7 @@ def parse_s_expressions(toks: Sequence[Tok]) -> tuple[list[Form], list[ParseErro
 
 def collect_defns(
     forms: list[Form], reserved: set[str]
-) -> tuple[dict[str, int], list[ParseError], dict[str, list[ParamType | None]]]:
+) -> tuple[dict[str, int], list[ParseError], dict[str, list[ParamType | RefType | None]]]:
     """Register top-level user defn arities (name -> parameter count).
 
     Enables mechanical validation of user function calls regardless of
@@ -673,7 +748,7 @@ def collect_defns(
     parameter annotations, used for call-site literal type-checking.
     """
     out: dict[str, int] = {}
-    typed: dict[str, list[ParamType | None]] = {}
+    typed: dict[str, list[ParamType | RefType | None]] = {}
     dup_errors: list[ParseError] = []
     for f in forms:
         head = f.items[0] if f.items else None
@@ -703,9 +778,7 @@ def collect_defns(
                 out[name_tok.value] = len(f.items[2].items)
                 if any(isinstance(t, Form) for t in f.items[2].items):
                     typed[name_tok.value] = [
-                        _build_param_type(t.items[2])
-                        if isinstance(t, Form) and len(t.items) == 3
-                        else None
+                        _param_type_of(t.items[2]) if isinstance(t, Form) and len(t.items) == 3 else None
                         for t in f.items[2].items
                     ]
         elif head.value == "truth-table" and len(f.items) >= 2:
@@ -812,6 +885,8 @@ def check_special(
                         )
                     else:
                         seen.add(pname)
+                        if isinstance(p, Form) and len(p.items) == 3:
+                            _check_type_annotation(p.items[2], errors)
 
     elif name == "sorry":
         if operands:
@@ -846,13 +921,254 @@ def check_special(
                 )
 
 
+_NEG_OP: dict[str, str] = {
+    "<": ">=",
+    ">=": "<",
+    ">": "<=",
+    "<=": ">",
+    "==": "!=",
+    "!=": "==",
+}
+
+_CMP_FN: dict[str, object] = {
+    "<": operator.lt,
+    "<=": operator.le,
+    ">": operator.gt,
+    ">=": operator.ge,
+    "==": operator.eq,
+    "!=": operator.ne,
+}
+
+
+def _cmp_fact(f: Tok | Form) -> tuple[str, str, int] | None:
+    """(op, subject, const) if f is '(op SUBJECT const)' with symbol/expr subject."""
+    if not (isinstance(f, Form) and len(f.items) == 3):
+        return None
+    h = f.items[0]
+    a = f.items[1]
+    b = f.items[2]
+    if not (isinstance(h, Tok) and h.kind == "SYMBOL" and h.value in _CMP_FN):
+        return None
+    if not (isinstance(b, Tok) and b.kind == "INT"):
+        return None
+    if isinstance(a, Tok) and a.kind == "SYMBOL":
+        return (h.value, a.value, int(b.value))
+    if isinstance(a, Form) and len(a.items) == 3:
+        sub = a.items[0]
+        x = a.items[1]
+        y = a.items[2]
+        if (
+            isinstance(sub, Tok)
+            and sub.kind == "SYMBOL"
+            and sub.value == "-"
+            and isinstance(x, Tok)
+            and x.kind == "SYMBOL"
+            and isinstance(y, Tok)
+            and y.kind == "INT"
+        ):
+            return (h.value, f"(- {x.value} {y.value})", int(b.value))
+    return None
+
+
+def _arg_key(a: Tok | Form) -> str | None:
+    """Argument identity for guard lookup: variable name or expression key."""
+    if isinstance(a, Tok) and a.kind == "SYMBOL":
+        return a.value
+    if (
+        isinstance(a, Form)
+        and len(a.items) == 3
+        and isinstance(a.items[0], Tok)
+        and a.items[0].kind == "SYMBOL"
+        and a.items[0].value == "-"
+        and isinstance(a.items[1], Tok)
+        and a.items[1].kind == "SYMBOL"
+        and isinstance(a.items[2], Tok)
+        and a.items[2].kind == "INT"
+    ):
+        return f"(- {a.items[1].value} {a.items[2].value})"
+    return None
+
+
+def _fact_proves(facts: set[tuple[str, int]], op: str, const: int) -> bool:
+    for f_op, f_val in facts:
+        if f_op == "lit":
+            fn = _CMP_FN[op]
+            assert callable(fn)
+            if fn(f_val, const):
+                return True
+        elif _cmp_implies(f_op, f_val, op, const):
+            return True
+    return False
+
+
+def _cmp_implies(f_op: str, f_val: int, op: str, const: int) -> bool:
+    """Does (x f_op f_val) imply (x op const) over the integers? Pure operator
+    lattice on constants — no symbolic arithmetic (spec F2 D6/D7 keep)."""
+    if op == "==":
+        return f_op == "==" and f_val == const
+    if op == "!=":
+        if f_op == "==":
+            return f_val != const
+        if f_op == "!=":
+            return f_val == const
+        return f_op in ("<", ">")  # x < c or x > c proves x != c
+    if op == "<":
+        if f_op == "<":
+            return f_val <= const
+        if f_op == "<=":
+            return f_val < const
+        return False
+    if op == "<=":
+        if f_op in ("<", "<="):
+            return f_val <= const
+        return False
+    if op == ">":
+        if f_op == ">":
+            return f_val >= const
+        if f_op == ">=":
+            return f_val > const
+        return False
+    if op == ">=":
+        if f_op in (">", ">="):
+            return f_val >= const
+        return False
+    return False
+
+
+def _with_fact(
+    guards: dict[str, set[tuple[str, int]]], subject: str, fact: tuple[str, int]
+) -> dict[str, set[tuple[str, int]]]:
+    g = {k: set(v) for k, v in guards.items()}
+    g.setdefault(subject, set()).add(fact)
+    return g
+
+
+def _prosecute_refinements(
+    node: Tok | Form,
+    guards: dict[str, set[tuple[str, int]]],
+    refined: dict[str, list[ParamType | RefType | None]],
+    errors: list[ParseError],
+) -> None:
+    """F2 prosecutor: call args to refined params need proven literal or
+    dominating guard (D1/D2). Purely static: erasure total."""
+    if isinstance(node, Tok) or not node.items:
+        return
+    head = node.items[0]
+    if not (isinstance(head, Tok) and head.kind == "SYMBOL"):
+        return
+    name = head.value
+    ops = node.items[1:]
+
+    if name == "if" and len(ops) == 3:
+        _prosecute_refinements(ops[0], guards, refined, errors)
+        fact = _cmp_fact(ops[0])
+        if fact is not None:
+            f_op, subj, f_const = fact
+            g_then = _with_fact(guards, subj, (f_op, f_const))
+            g_else = _with_fact(guards, subj, (_NEG_OP[f_op], f_const))
+            _prosecute_refinements(ops[1], g_then, refined, errors)
+            _prosecute_refinements(ops[2], g_else, refined, errors)
+        else:
+            _prosecute_refinements(ops[1], guards, refined, errors)
+            _prosecute_refinements(ops[2], guards, refined, errors)
+        return
+
+    if name == "and" and len(ops) == 2:
+        _prosecute_refinements(ops[0], guards, refined, errors)
+        fact = _cmp_fact(ops[0])
+        g_right = _with_fact(guards, fact[1], (fact[0], fact[2])) if fact else guards
+        _prosecute_refinements(ops[1], g_right, refined, errors)
+        return
+
+    if name == "or" and len(ops) == 2:
+        _prosecute_refinements(ops[0], guards, refined, errors)
+        _prosecute_refinements(ops[1], guards, refined, errors)
+        return
+
+    if name == "let" and len(ops) == 3:
+        _prosecute_refinements(ops[1], guards, refined, errors)
+        g_body = {k: set(v) for k, v in guards.items()}
+        nm = ops[0]
+        if isinstance(nm, Tok) and nm.kind == "SYMBOL":
+            g_body.pop(nm.value, None)
+            val = ops[1]
+            if isinstance(val, Tok) and val.kind == "INT":
+                g_body[nm.value] = {("lit", int(val.value))}
+            elif isinstance(val, Tok) and val.kind == "SYMBOL" and val.value in g_body:
+                g_body[nm.value] = set(g_body[val.value])
+        _prosecute_refinements(ops[2], g_body, refined, errors)
+        return
+
+    if name == "fn" and ops and isinstance(ops[0], Form):
+        pnames = [_annotation_param_name(t) for t in ops[0].items]
+        g_fn = {k: set(v) for k, v in guards.items() if k not in pnames}
+        for t, pn in zip(ops[0].items, pnames):
+            if pn is None or not (isinstance(t, Form) and len(t.items) == 3):
+                continue
+            preds = _refine_predicates(t.items[2])
+            if preds is not None:
+                g_fn[pn] = {(p.op, p.const) for p in preds}
+        for o in ops[1:]:
+            _prosecute_refinements(o, g_fn, refined, errors)
+        return
+
+    if name in refined:
+        rts = refined[name]
+        if len(ops) == len(rts):
+            for idx, (rt, arg) in enumerate(zip(rts, ops)):
+                if not isinstance(rt, RefType):
+                    continue
+                if isinstance(arg, Tok) and arg.kind == "INT":
+                    lit = int(arg.value)
+                    for p in rt.predicates:
+                        fn = _CMP_FN[p.op]
+                        assert callable(fn)
+                        if not fn(lit, p.const):
+                            errors.append(
+                                ParseError(
+                                    arg.line,
+                                    arg.col,
+                                    f"literal {lit} violates refinement '({p.op} {p.const})' "
+                                    f"for parameter #{idx} of '{name}'",
+                                )
+                            )
+                else:
+                    key = _arg_key(arg)
+                    facts = guards.get(key, set()) if key is not None else set()
+                    for p in rt.predicates:
+                        if not _fact_proves(facts, p.op, p.const):
+                            if key is None:
+                                errors.append(
+                                    ParseError(
+                                        head.line,
+                                        head.col,
+                                        f"refinement '({p.op} {p.const})' cannot be proven for a "
+                                        f"non-literal argument at call to '{name}' "
+                                        "(literal or guarded variable required)",
+                                    )
+                                )
+                            else:
+                                errors.append(
+                                    ParseError(
+                                        head.line,
+                                        head.col,
+                                        f"refinement predicate '({p.op} {p.const})' not proven "
+                                        f"for argument '{key}' at call to '{name}'",
+                                    )
+                                )
+
+    for o in ops:
+        if isinstance(o, Form):
+            _prosecute_refinements(o, guards, refined, errors)
+
+
 def walk_and_validate(
     form: Form,
     heads: dict[str, tuple[Arity, str]],
     user_defns: dict[str, int],
     errors: list[ParseError],
     depth: int,
-    typed_registry: dict[str, list[ParamType | None]] | None = None,
+    typed_registry: dict[str, list[ParamType | RefType | None]] | None = None,
 ) -> None:
     """Walk form tree recursively, auditing operand counts and structural rules."""
     if not form.items:
@@ -989,9 +1305,11 @@ def build_node(item: Tok | Form) -> Node | None:
                 if pname is None:
                     return None
                 if isinstance(p, Form):
-                    pt = _build_param_type(p.items[2])
+                    pt = _param_type_of(p.items[2])
                     if pt is None:
                         return None
+                    if isinstance(pt, RefType):
+                        pt = None  # erasure (D4): refinement never reaches the AST
                     ptypes.append(pt)
                     name_tok_p = p.items[0]
                     assert isinstance(name_tok_p, Tok)
@@ -1022,9 +1340,11 @@ def build_node(item: Tok | Form) -> Node | None:
                 if pname is None:
                     return None
                 if isinstance(p, Form):
-                    pt = _build_param_type(p.items[2])
+                    pt = _param_type_of(p.items[2])
                     if pt is None:
                         return None
+                    if isinstance(pt, RefType):
+                        pt = None  # erasure (D4): refinement never reaches the AST
                     ptypes_fn.append(pt)
                     name_tok_p = p.items[0]
                     assert isinstance(name_tok_p, Tok)
@@ -1234,6 +1554,25 @@ class Parser:
 
         user_defns, dup_errors, typed_registry = collect_defns(forms, self.reserved)
         errors.extend(dup_errors)
+
+        refined: dict[str, list[ParamType | RefType | None]] = {}
+        for f in forms:
+            head = f.items[0] if f.items else None
+            if not (isinstance(head, Tok) and head.kind == "SYMBOL" and head.value == "defn"):
+                continue
+            if len(f.items) != 4 or not isinstance(f.items[2], Form):
+                continue
+            nm = f.items[1]
+            if not (isinstance(nm, Tok) and nm.kind == "SYMBOL" and nm.value not in self.reserved):
+                continue
+            refined[nm.value] = [
+                _param_type_of(t.items[2]) if isinstance(t, Form) and len(t.items) == 3 else None
+                for t in f.items[2].items
+            ]
+        if any(any(r is not None for r in lst) for lst in refined.values()):
+            for f in forms:
+                if isinstance(f, Form):
+                    _prosecute_refinements(f, {}, refined, errors)
 
         for f in forms:
             walk_and_validate(f, self.heads, user_defns, errors, depth=1, typed_registry=typed_registry)

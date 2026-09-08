@@ -283,6 +283,29 @@ class Program(Node):
 
 
 @dataclass(frozen=True)
+class Predicate:
+    """One comparison predicate against an int constant: (op const), spec F2 §1.1.
+
+    op is one of '>', '>=', '<', '<=', '!=', '=='; const is a plain int.
+    Only used by the static refinement prosecutor; erased before codegen.
+    """
+
+    op: str
+    const: int
+
+
+@dataclass(frozen=True)
+class RefType:
+    """Refinement type '(Ref Int P1 P2 ...)' — conjunction of predicates (spec F2).
+
+    Declared on defn/fn params only. Erased after prosecution: evaluator and
+    codegen see the plain Int domain, zero runtime cost.
+    """
+
+    predicates: tuple[Predicate, ...]
+
+
+@dataclass(frozen=True)
 class ParamType:
     """A declared parameter type: Bool, or a finite Int literal enumeration.
 
