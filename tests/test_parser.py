@@ -299,7 +299,10 @@ def test_defn_params_must_be_symbols() -> None:
     """All items in 'defn' parameter group must be symbols."""
     res = parse("(defn f (x 1) x)")
     assert not res.ok
-    assert any("parameters must be symbols, found INT" in e.message for e in res.errors)
+    assert any(
+        "parameters must be symbols or (name : TYPE) annotations, found INT" in e.message
+        for e in res.errors
+    )
 
 
 def test_fn_param_list_not_a_group() -> None:
@@ -313,7 +316,10 @@ def test_fn_params_must_be_symbols() -> None:
     """All items in 'fn' parameter group must be symbols."""
     res = parse('(fn (x "bad") x)')
     assert not res.ok
-    assert any("parameters must be symbols, found STRING" in e.message for e in res.errors)
+    assert any(
+        "parameters must be symbols or (name : TYPE) annotations, found STRING" in e.message
+        for e in res.errors
+    )
 
 
 def test_defn_and_fn_duplicate_params_enforced() -> None:
@@ -591,12 +597,18 @@ def test_duplicate_top_level_defn_reported() -> None:
     assert res.defn_registry["add"] == 2
 
 
-def test_symbol_cannot_start_with_hyphen() -> None:
-    """-foo and -> are invalid tokens per spec; lone '-' remains the operator."""
+def test_symbol_cannot_start_with_hyphen_and_arrow_is_token() -> None:
+    """-foo is invalid per spec; '->' is the ARROW token since Phase 1
+    (truth-table rows); lone '-' remains the operator; 'int->str' stays one SYMBOL."""
     with pytest.raises(LexError):
         tokenize("-foo")
-    with pytest.raises(LexError):
-        tokenize("->")
+    arrow_toks = tokenize("->")
+    assert any(t.kind == "ARROW" and t.value == "->" for t in arrow_toks)
+    colon_toks = tokenize(":")
+    assert any(t.kind == "COLON" and t.value == ":" for t in colon_toks)
+    # arrow inside a larger chunk is NOT a separate token (no ambiguity)
+    sym_toks = tokenize("(int->str 5)")
+    assert any(t.kind == "SYMBOL" and t.value == "int->str" for t in sym_toks)
     # lone '-' is still a valid SYMBOL head
     toks = tokenize("(- 5 2)")
     assert any(t.kind == "SYMBOL" and t.value == "-" for t in toks)

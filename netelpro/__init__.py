@@ -23,11 +23,13 @@ from netelpro.ast_nodes import (
     NilLit,
     Node,
     Or,
+    ParamType,
     Program,
     Sorry,
     StrLit,
     Sym,
     Symbol,
+    TruthTableSpec,
 )
 from netelpro.lexer import (
     LexError,
@@ -96,6 +98,8 @@ __all__ = [
     "Grant",
     "Call",
     "Program",
+    "ParamType",
+    "TruthTableSpec",
     # Evaluator exports
     "StrayError",
     "StrayRuntimeError",

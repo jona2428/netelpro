@@ -16,6 +16,8 @@ Syntax rules enforced at lexical stage:
   forbidden in v0.1.
 - Booleans: 'true' and 'false'.
 - Nil: 'nil' (the empty list).
+- Annotations: ':' (COLON) and '->' (ARROW) when they stand alone as a token.
+  Inside larger symbol chunks (e.g. 'int->str') they remain part of the SYMBOL.
 - Symbols: [A-Za-z_][A-Za-z0-9_?->]* or operator heads (+, -, *, /, ==, !=,
   <=, >=, <, >). Lone '-' is a SYMBOL; '-' followed by a digit at token start
   starts an INT or FLOAT. Edge cases like 'int->str', 'is-nil', 'str->int'
@@ -77,6 +79,10 @@ def classify(text: str, line: int, col: int) -> str:
         return "INT"
     if FLOAT_RE.match(text):
         return "FLOAT"
+    if text == ":":
+        return "COLON"
+    if text == "->":
+        return "ARROW"
     if text in ("true", "false"):
         return "BOOL"
     if text == "nil":

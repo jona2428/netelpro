@@ -143,11 +143,21 @@ class Def(Node):
 
 @dataclass(frozen=True)
 class Defn(Node):
-    """Named function definition: '(defn name (params...) body)'."""
+    """Named function definition: '(defn name (params...) body)'.
+
+    param_types carries declared parameter annotations ('(name : Bool)' or
+    '(name : (Int 0 1 2))') aligned positionally with params; None entries mean
+    the parameter is unannotated. truth_table retains the TruthTableSpec when
+    the defn was produced by desugaring a '(truth-table ...)' form. Both fields
+    are metadata-only: evaluation and codegen consume params/body unchanged,
+    which is what makes interpreter/native parity hold by construction.
+    """
 
     name: Sym = field(default_factory=lambda: Sym(""))
     params: list[Sym] = field(default_factory=list)
     body: Node = field(default_factory=Node)
+    param_types: tuple[ParamType | None, ...] | None = None
+    truth_table: TruthTableSpec | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.name, str):
@@ -168,6 +178,7 @@ class Fn(Node):
 
     params: list[Sym] = field(default_factory=list)
     body: Node = field(default_factory=Node)
+    param_types: tuple[ParamType | None, ...] | None = None
 
     def __post_init__(self) -> None:
         if any(isinstance(p, str) for p in self.params):
@@ -269,3 +280,35 @@ class Program(Node):
     def __post_init__(self) -> None:
         if not isinstance(self.forms, list):
             object.__setattr__(self, "forms", list(self.forms))
+
+
+@dataclass(frozen=True)
+class ParamType:
+    """A declared parameter type: Bool, or a finite Int literal enumeration.
+
+    kind == 'bool'    -> the domain is always {true, false}; enum is empty.
+    kind == 'int_enum' -> enum holds the declared integer literals in declared
+    order, e.g. (Int 0 1 2) -> enum=(0, 1, 2). Annotations are declarations,
+    not refinements: no runtime range tags, no runtime validation (B2).
+    """
+
+    kind: str
+    enum: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True)
+class TruthTableSpec:
+    """Retained metadata for a truth-table-defined function (spec §3.1).
+
+    params: ((name, ParamType), ...) in declared order.
+    rows: ((slots, expr_node), ...) in declared order; slots align with params,
+    each slot is bool | int | None where None is the wildcard '_'.
+    default_expr: the expression of the mandatory all-wildcard last row.
+    The spec is the input for the exhaustiveness prosecutor (compile time) and
+    for generated artifacts (fallback + differential matrix); it is NOT used
+    at evaluation time -- the desugared if-chain body is the only executable.
+    """
+
+    params: tuple[tuple[str, ParamType], ...]
+    rows: tuple[tuple[tuple[bool | int | None, ...], Node], ...]
+    default_expr: Node
