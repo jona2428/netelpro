@@ -160,6 +160,7 @@ verified_text = guard.enforce(agent_response, tool_results=results)
 * **Qwen 2.5 1.5B (Transformer):** [🤗 JonaECG/netelpro-qwen2.5-1.5b-honest](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-honest) — GGUF Q4_K_M weights + Modelfile for Ollama and LM Studio.
 * **Liquid AI LFM 2.5 1.2B (Liquid State-Space):** [🤗 JonaECG/netelpro-lfm2.5-1.2b-honest](https://huggingface.co/JonaECG/netelpro-lfm2.5-1.2b-honest) — Ultra-efficient GGUF Q4_K_M weights + Modelfile.
 * **RAFT-trained Qwen 2.5 1.5B (Transformer):** [🤗 JonaECG/netelpro-qwen2.5-1.5b-raft](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-raft) — GGUF Q4_K_M weights + Modelfile. First RL-trained model: see the RAFT section below for the honest numbers.
+* **RAFT v2 Qwen 2.5 1.5B (Transformer):** [🤗 JonaECG/netelpro-qwen2.5-1.5b-raft-v2](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-raft-v2) — 5 rounds with accumulated pool: 20% → 60% pass@8 OOD (paired, seeded). 3× more samples pass than v1.
 
 
 ## Train Your Own Model (Google Colab Free GPU)
@@ -181,7 +182,7 @@ model. Run it on a free Colab T4 (~40 min for 3 rounds):
 
 * **RAFT notebook (RLVR):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_raft_colab.ipynb)
 
-**First run results (2026-09-07, Colab T4, 3 rounds):** OOD pass@8 (`power_int`,
+**Run #1 (2026-09-07, Colab T4, 3 rounds):** OOD pass@8 (`power_int`,
 `nth_element`, `string_to_int`, `gcd_pair`, `list_sum` — 5 held-out tasks never trained
 on) went **0% → 20% → 40% → 40%**, with the baseline model solving 0/5 tasks in 40
 attempts. An independent local re-measurement of the published GGUF
@@ -191,7 +192,16 @@ destroy the learned behavior.
 Honest caveats, as always: these are **pass@8, not pass@1**; n=5 tasks (granularity
 20%); baseline vs. final sampling is not paired (unseeded sampler); the round-2
 plateau is expected under per-round-only SFT datasets (canonical RAFT accumulates
-the verified pool across rounds — queued for run #2).
+the verified pool across rounds).
+
+**Run #2 (2026-09-08, Colab T4, 5 rounds, accumulated pool, seeded evals):** OOD
+pass@8 went **20% → 60%** (paired baseline/final, same seed) — **3/5 tasks**, with
+3× more passing samples than run #1 (13/40 vs 4/40). The GGUF q4_k_m re-measurement
+matched the fp16 verdict exactly (60%, 3/5) — quantization preserved the learned
+behavior. Refuted hypothesis: `gcd_pair` did **not** yield to the accumulated pool
+(0/8 in both runs) — it needs a different lever (curriculum or more diverse
+samples). Run #1 vs #2 final numbers (40% vs 60%) are directional only; the paired
+comparison is each run against its own baseline.
 
 Local evaluation against your own exported GGUF (requires [Ollama](https://ollama.com)
 with the model installed):
