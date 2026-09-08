@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import hashlib
 import itertools
+import keyword
 
 from netelpro.ast_nodes import (
     And,
@@ -80,6 +81,21 @@ class BuilderError(Exception):
 # ---------------------------------------------------------------------------
 
 
+def _py_ident(name: str) -> str:
+    """Deterministic Python identifier rendering of a Netelpro symbol.
+
+    Netelpro allows kebab-case (``filter-rule``); Python does not. The mapping
+    is ``-`` -> ``_`` and nothing else; anything that would not be a valid
+    identifier after that is a BuilderError, never a silent mangle.
+    """
+    cand = name.replace("-", "_")
+    if not cand.isidentifier() or keyword.iskeyword(cand):
+        raise BuilderError(
+            f"netelpro symbol {name!r} has no deterministic Python identifier rendering"
+        )
+    return cand
+
+
 def _slot_condition(name: str, ptype: ParamType, slot: bool | int | None) -> str:
     if slot is None:
         return ""
@@ -91,16 +107,20 @@ def _slot_condition(name: str, ptype: ParamType, slot: bool | int | None) -> str
     raise BuilderError(f"unknown ParamType kind {ptype.kind!r}")
 
 
-def _row_condition(spec: TruthTableSpec, slots: tuple[bool | int | None, ...]) -> str:
+def _row_condition(
+    spec: TruthTableSpec,
+    slots: tuple[bool | int | None, ...],
+    names_map: dict[str, str],
+) -> str:
     parts: list[str] = []
     for (name, ptype), slot in zip(spec.params, slots):
-        cond = _slot_condition(name, ptype, slot)
+        cond = _slot_condition(names_map[name], ptype, slot)
         if cond:
             parts.append(cond)
     return " and ".join(parts) if parts else "True"
 
 
-def _render_expr(node: Node, params: tuple[str, ...]) -> str:
+def _render_expr(node: Node, names_map: dict[str, str]) -> str:
     if isinstance(node, IntLit):
         return str(int(node.value))
     if isinstance(node, FloatLit):
@@ -112,22 +132,23 @@ def _render_expr(node: Node, params: tuple[str, ...]) -> str:
     if isinstance(node, NilLit):
         return "None"
     if isinstance(node, Sym):
-        if node.name not in params:
+        if node.name not in names_map:
             raise BuilderError(
                 f"row body references symbol {node.name!r} which is not a table parameter"
             )
-        return node.name
+        return names_map[node.name]
     if isinstance(node, If):
-        cond = _render_expr(node.cond, params)
-        then = _render_expr(node.then, params)
-        else_ = _render_expr(node.else_, params)
-        return f"(({then}) if ({cond}) else ({else_}))"
+        return (
+            f"(({_render_expr(node.then, names_map)}) "
+            f"if ({_render_expr(node.cond, names_map)}) "
+            f"else ({_render_expr(node.else_, names_map)}))"
+        )
     if isinstance(node, And):
-        return f"(({_render_expr(node.l, params)}) and ({_render_expr(node.r, params)}))"
+        return f"(({_render_expr(node.l, names_map)}) and ({_render_expr(node.r, names_map)}))"
     if isinstance(node, Or):
-        return f"(({_render_expr(node.l, params)}) or ({_render_expr(node.r, params)}))"
+        return f"(({_render_expr(node.l, names_map)}) or ({_render_expr(node.r, names_map)}))"
     if isinstance(node, Call):
-        args = [_render_expr(a, params) for a in node.args]
+        args = [_render_expr(a, names_map) for a in node.args]
         if node.head in _INFIX and len(args) == 2:
             return f"({args[0]} {_INFIX[node.head]} {args[1]})"
         if node.head in _CALLABLE_UNARY and len(args) == 1:
@@ -159,8 +180,14 @@ def render_fallback(defn: Defn, source: str, source_path: str) -> str:
             f"{defn.name.name!r} has no truth_table spec; the builder only accepts "
             "truth-table definitions"
         )
-    names = tuple(n for n, _ in spec.params)
-    fn = defn.name.name
+    names_map = {n: _py_ident(n) for n, _ in spec.params}
+    if len(set(names_map.values())) != len(names_map):
+        raise BuilderError(
+            f"parameter names collide after Python sanitization: "
+            f"{[n for n, _ in spec.params]}"
+        )
+    names = tuple(names_map[n] for n, _ in spec.params)
+    fn = _py_ident(defn.name.name)
     header = (
         f"# GENERATED FROM {source_path} AT {source_sha8(source)} BY "
         "netelpro.truth_table_builder -- DO NOT EDIT."
@@ -172,9 +199,9 @@ def render_fallback(defn: Defn, source: str, source_path: str) -> str:
         f"def {fn}({', '.join(names)}):",
     ]
     for slots, expr in spec.rows:
-        lines.append(f"    if {_row_condition(spec, slots)}:")
-        lines.append(f"        return {_render_expr(expr, names)}")
-    lines.append(f"    return {_render_expr(spec.default_expr, names)}")
+        lines.append(f"    if {_row_condition(spec, slots, names_map)}:")
+        lines.append(f"        return {_render_expr(expr, names_map)}")
+    lines.append(f"    return {_render_expr(spec.default_expr, names_map)}")
     return "\n".join(lines) + "\n"
 
 
@@ -259,6 +286,7 @@ def render_matrix(
 ) -> str:
     cases = oracle_cases(defn, source)
     fn = defn.name.name
+    fn_ident = _py_ident(fn)
     header = (
         f"# GENERATED FROM {source_path} AT {source_sha8(source)} BY "
         "netelpro.truth_table_builder -- DO NOT EDIT."
@@ -287,7 +315,7 @@ def render_matrix(
         "",
         "def test_generated_fallback_matches_build_time_oracle() -> None:",
         "    for args, expected in EXPECTED.items():",
-        f"        got = _MOD.{fn}(*args)",
+        f"        got = _MOD.{fn_ident}(*args)",
         "        assert got == expected, (args, expected, got)",
     ]
     return "\n".join(lines) + "\n"
@@ -301,7 +329,8 @@ def build_truth_table_artifacts(
 ) -> tuple[str, str]:
     """Returns (fallback_module_text, matrix_pytest_text)."""
     if fallback_name is None:
-        fallback_name = f"tt_{defn.name.name}_fallback.py"
+        fallback_name = f"tt_{_py_ident(defn.name.name)}_fallback.py"
+    base = fallback_name[:-3] if fallback_name.endswith(".py") else fallback_name
     fallback = render_fallback(defn, source, source_path)
-    matrix = render_matrix(defn, source, source_path, fallback_name)
+    matrix = render_matrix(defn, source, source_path, base + ".py")
     return fallback, matrix
