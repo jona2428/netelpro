@@ -159,6 +159,7 @@ verified_text = guard.enforce(agent_response, tool_results=results)
 
 * **Qwen 2.5 1.5B (Transformer):** [🤗 JonaECG/netelpro-qwen2.5-1.5b-honest](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-honest) — GGUF Q4_K_M weights + Modelfile for Ollama and LM Studio.
 * **Liquid AI LFM 2.5 1.2B (Liquid State-Space):** [🤗 JonaECG/netelpro-lfm2.5-1.2b-honest](https://huggingface.co/JonaECG/netelpro-lfm2.5-1.2b-honest) — Ultra-efficient GGUF Q4_K_M weights + Modelfile.
+* **RAFT-trained Qwen 2.5 1.5B (Transformer):** [🤗 JonaECG/netelpro-qwen2.5-1.5b-raft](https://huggingface.co/JonaECG/netelpro-qwen2.5-1.5b-raft) — GGUF Q4_K_M weights + Modelfile. First RL-trained model: see the RAFT section below for the honest numbers.
 
 
 ## Train Your Own Model (Google Colab Free GPU)
@@ -170,8 +171,37 @@ Align small edge models to eliminate Verification Theater using DPO on Google Co
 
 See [`training/README.md`](training/README.md) for full instructions and GGUF export.
 
-## Status
+### RLVR/RAFT: Training Against a Compiled Verifier
 
+The RAFT trainer (`training/train_raft_colab.ipynb`) is a different regime from DPO:
+the model samples Netelpro programs, the **compiled verifier** (`rlvr/verify.py`) grades
+every sample against 20 randomized test cases, and only programs that compile *and*
+pass every case become SFT training data. The reward is a compiler, not a preference
+model. Run it on a free Colab T4 (~40 min for 3 rounds):
+
+* **RAFT notebook (RLVR):** [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jona2428/netelpro/blob/master/training/train_raft_colab.ipynb)
+
+**First run results (2026-09-07, Colab T4, 3 rounds):** OOD pass@8 (`power_int`,
+`nth_element`, `string_to_int`, `gcd_pair`, `list_sum` — 5 held-out tasks never trained
+on) went **0% → 20% → 40% → 40%**, with the baseline model solving 0/5 tasks in 40
+attempts. An independent local re-measurement of the published GGUF
+(`python -m rlvr.gguf_eval`) scored **80% pass@8 (4/5 tasks)** — quantization did not
+destroy the learned behavior.
+
+Honest caveats, as always: these are **pass@8, not pass@1**; n=5 tasks (granularity
+20%); baseline vs. final sampling is not paired (unseeded sampler); the round-2
+plateau is expected under per-round-only SFT datasets (canonical RAFT accumulates
+the verified pool across rounds — queued for run #2).
+
+Local evaluation against your own exported GGUF (requires [Ollama](https://ollama.com)
+with the model installed):
+
+```bash
+python -m rlvr.gguf_eval --model netelpro-qwen1.5b-raft
+```
+
+
+## Status
 - **Spec:** v0.9 consolidated at [`docs/SPEC.md`](docs/SPEC.md); machine-consumed arity table at `spec/arity_table.json`.
 - **Release:** v0.7.0 (HonestyGuard SDK, Verification Theater Benchmark, DPO Colab Trainer, LLVM native JIT, MCP server).
 - **History:** 374+ tests passing with zero differential divergence between Python interpreter and LLVM native backend.
