@@ -16,7 +16,13 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from rlvr.gguf_eval import evaluate_task, extract_src, pass_rate, run_ood_eval  # noqa: E402
+from rlvr.gguf_eval import (  # noqa: E402
+    evaluate_task,
+    extract_src,
+    pass_rate,
+    resolve_ckpt_path,
+    run_ood_eval,
+)
 from rlvr.tasks import double_value  # noqa: E402
 
 _GOOD_DOUBLE = "(defn double (x) (+ x x))"
@@ -48,6 +54,26 @@ def test_extract_src_falls_back_to_any_fence():
 def test_extract_src_none_without_fence():
     """Salida sin fence: no hay candidato (cuenta como muestra fallida)."""
     assert extract_src("no hay codigo aqui") is None
+
+
+# ---------------------------------------------------------------------------
+# resolve_ckpt_path: el flag --ckpt '' debe desactivar el checkpoint
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_ckpt_empty_string_disables():
+    """--ckpt '': argparse normaliza a Path('') == Path('.') -> None."""
+    assert resolve_ckpt_path(Path("")) is None
+
+
+def test_resolve_ckpt_dot_disables():
+    """--ckpt '.' tambien cuenta como desactivado (nunca es checkpoint)."""
+    assert resolve_ckpt_path(Path(".")) is None
+
+
+def test_resolve_ckpt_default_and_custom_preserved():
+    assert resolve_ckpt_path(Path("gguf_ood_ckpt.json")) == Path("gguf_ood_ckpt.json")
+    assert resolve_ckpt_path(Path("sub/dir/ckpt.json")) == Path("sub/dir/ckpt.json")
 
 
 # ---------------------------------------------------------------------------

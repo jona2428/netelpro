@@ -147,6 +147,13 @@ def pass_rate(done: dict[str, int]) -> float:
     return solved / max(len(done), 1)
 
 
+def resolve_ckpt_path(ckpt: Path) -> Path | None:
+    """Resuelve el flag --ckpt a Path o None (checkpoint desactivado).
+
+    """
+    return None if str(ckpt) in ("", ".") else ckpt
+
+
 def main() -> None:
     from rlvr.prompting import build_prompt
     from rlvr.tasks import OOD_TASK_IDS, load_task
@@ -166,7 +173,7 @@ def main() -> None:
     def generate_fn(prompt: str, seed: int) -> str:
         return ollama_generate(prompt, seed, model=args.model, temp=args.temp)
 
-    ckpt_path = args.ckpt if str(args.ckpt) else None
+    ckpt_path = resolve_ckpt_path(args.ckpt)
     done = run_ood_eval(
         list(OOD_TASK_IDS),
         load_task,
