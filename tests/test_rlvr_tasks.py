@@ -38,16 +38,45 @@ def test_split_covers_every_id_exactly_once():
 
 
 def test_split_fraction_is_roughly_respected():
-    """Fix I1: el OOD es el contrato explícito de 5 tareas (20% del corpus).
+    """Fix I1 + crecimiento 2026-09-08: el OOD es el contrato explícito de
+    20 tareas (granularidad 5% de pass@8, corpus total 55).
 
-    El hash-split original daba 2/25 (8%); la spec promete ~20%. El split
-    explícito balancea por familia (ver docstring de OOD_TASK_IDS).
+    El hash-split original daba 2/25 (8%); el split explícito de 5 tareas
+    (fix I1) daba 20% pero con granularidad de 20% por tarea -- 15 tareas
+    más se agregaron para bajar la granularidad a 5% sin escalar el corpus
+    a ~100 tareas por sostener la proporción del 20% (ver docstring de
+    OOD_TASK_IDS). El ratio ya no se acota a ~20%: es un efecto secundario
+    del tamaño del corpus, no un invariante que el split deba mantener.
     """
     ids = TASK_MODULE_NAMES
     train, ood = split_train_ood(ids, ood_fraction=0.2)
-    assert ood == ["gcd_pair", "list_sum", "nth_element", "power_int", "string_to_int"]
+    assert ood == sorted(
+        [
+            "gcd_pair",
+            "list_sum",
+            "nth_element",
+            "power_int",
+            "string_to_int",
+            "lcm_pair",
+            "collatz_steps",
+            "reverse_digits",
+            "is_perfect_square",
+            "ceil_div",
+            "list_min",
+            "count_occurrences",
+            "is_sorted_ascending",
+            "list_index_of",
+            "count_zero",
+            "string_repeat_n",
+            "longest_of_two",
+            "concat_with_separator",
+            "is_empty_string",
+            "str_len_diff",
+        ]
+    )
+    assert len(ood) == 20
     ratio = len(ood) / len(ids)
-    assert 0.1 <= ratio <= 0.3
+    assert 0.3 <= ratio <= 0.4
 
 
 @pytest.mark.parametrize("bad_fraction", [0.0, 1.0, -0.1, 1.5])

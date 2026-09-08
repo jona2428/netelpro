@@ -207,6 +207,15 @@ behavior. Refuted hypothesis: `gcd_pair` did **not** yield to the accumulated po
 samples). Run #1 vs #2 final numbers (40% vs 60%) are directional only; the paired
 comparison is each run against its own baseline.
 
+**Corpus grown 2026-09-08 (no new training run yet):** the 5-task OOD split above
+(runs #1/#2) gave 20% granularity per task — one extra pass shifted the whole
+number. The corpus is now **55 tasks (35 train + 20 OOD)**, still balanced by
+family (arithmetic/list/string) and still an explicit, versioned contract
+(`rlvr.tasks.OOD_TASK_IDS`) rather than a computed split — the original 5 OOD
+tasks are unchanged inside the new 20, so runs #1/#2 stay comparable to each
+other even as future runs measure against the larger set. Run #3 (fresh from
+base, same protocol as #1/#2) is the next step, not yet executed.
+
 Local evaluation against your own exported GGUF (requires [Ollama](https://ollama.com)
 with the model installed):
 

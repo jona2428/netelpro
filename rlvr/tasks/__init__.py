@@ -35,6 +35,38 @@ TASK_MODULE_NAMES: list[str] = [
     "string_to_int",
     "concat_three",
     "label_with_length",
+    # --- corpus growth 2026-09-08 (OOD granularity 20% -> 5%, ver docstring
+    # de OOD_TASK_IDS más abajo) ---
+    "lcm_pair",
+    "collatz_steps",
+    "reverse_digits",
+    "is_perfect_square",
+    "ceil_div",
+    "digit_count",
+    "max_of_three",
+    "sum_even_up_to",
+    "product_range",
+    "is_palindrome_number",
+    "list_min",
+    "count_occurrences",
+    "is_sorted_ascending",
+    "list_index_of",
+    "count_zero",
+    "list_product",
+    "list_all_positive",
+    "count_even",
+    "append_at_end",
+    "list_average_floor",
+    "string_repeat_n",
+    "longest_of_two",
+    "concat_with_separator",
+    "is_empty_string",
+    "str_len_diff",
+    "shorter_of_two",
+    "int_pair_to_string",
+    "wrap_in_brackets",
+    "double_concat",
+    "prefix_or_default",
 ]
 
 REQUIRED_ATTRS: tuple[str, ...] = (
@@ -48,24 +80,36 @@ REQUIRED_ATTRS: tuple[str, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Held-out (OOD) fijo por decisión de diseño (review final 2026-09-07, fix I1).
+# Held-out (OOD) fijo por decisión de diseño (review final 2026-09-07, fix I1;
+# crecido 2026-09-08 para resolver la granularidad de pass@8).
 #
-# La spec promete ~20% del corpus como held-out. El hash-split original dio
-# 2/25 (8%) -- granularity de 50% por tarea hacía la evaluación §7
-# estadísticamente hueca. En vez de crecer el corpus, el split se declara
-# EXPLÍCITO: 5 tareas (20%), balanceadas por familia para que el held-out
-# mida las tres familias del corpus:
-#   - arithmetic: power_int (recursión multiplicativa, no confundible con
-#     los few-shots fib/sum-to que viven en TRAIN)
-#   - list: nth_element (indexing, distinto del reverse del test-verifier)
-#   - string: string_to_int (parseo inverso de int_to_string, TRAIN)
-#   - arithmetic: gcd_pair (Euclides, la forma de recursión más "clásica")
-#   - list: list_sum (fold manual -- el patrón de composición más común)
+# Diseño original (runs #1/#2, 5 tareas): la spec promete ~20% del corpus
+# como held-out. El hash-split inicial dio 2/25 (8%) -- granularity de 50%
+# por tarea hacía la evaluación §7 estadísticamente hueca. El split se
+# declaró EXPLÍCITO: 5 tareas (20%), balanceadas por familia.
+#
+# Crecimiento 2026-09-08: 5 tareas seguían dando granularidad de 20% por
+# tarea (un solo acierto de más movía el pass@8 entero un salto). Se decidió
+# CRECER el absoluto de OOD a 20 tareas (granularidad 5%) en vez de mantener
+# el ~20% del corpus a rajatabla -- eso hubiera exigido ~100 tareas totales
+# (80 train) solo para sostener la proporción, trabajo desproporcionado al
+# problema real (resolución estadística, no proporción). El corpus total
+# queda en 55 (35 train + 20 OOD, ~36%) -- la convención del 20% se
+# releva explícitamente por la misma razón que motivó el fix original.
+#
+# Balance por familia (7 aritmética / 7 listas / 6 strings):
+#   arithmetic: power_int, gcd_pair (run #1/#2, sin cambios), + lcm_pair,
+#     collatz_steps, reverse_digits, is_perfect_square, ceil_div
+#   list: nth_element, list_sum (run #1/#2, sin cambios), + list_min,
+#     count_occurrences, is_sorted_ascending, list_index_of, count_zero
+#   string: string_to_int (run #1/#2, sin cambios), + string_repeat_n,
+#     longest_of_two, concat_with_separator, is_empty_string, str_len_diff
 #
 # Regla de mantenimiento: OOD_TASK_IDS es un CONTRATO, no una sugerencia.
 # Añadir tareas al corpus NO las agrega al OOD; cambiar esta lista es una
 # decisión de diseño (cambiar el set de evaluación invalida comparaciones
-# históricas).
+# históricas -- por eso las 5 originales de runs #1/#2 se mantienen intactas
+# dentro del set de 20, para que ese tramo de la serie siga siendo comparable).
 # ---------------------------------------------------------------------------
 OOD_TASK_IDS: tuple[str, ...] = (
     "power_int",
@@ -73,6 +117,21 @@ OOD_TASK_IDS: tuple[str, ...] = (
     "string_to_int",
     "gcd_pair",
     "list_sum",
+    "lcm_pair",
+    "collatz_steps",
+    "reverse_digits",
+    "is_perfect_square",
+    "ceil_div",
+    "list_min",
+    "count_occurrences",
+    "is_sorted_ascending",
+    "list_index_of",
+    "count_zero",
+    "string_repeat_n",
+    "longest_of_two",
+    "concat_with_separator",
+    "is_empty_string",
+    "str_len_diff",
 )
 
 
