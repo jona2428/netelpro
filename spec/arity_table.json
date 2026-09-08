@@ -11,6 +11,7 @@
     "and":    {"arity": [2, 2],  "sig": "(and a b)", "eval": "short-circuit"},
     "or":     {"arity": [2, 2],  "sig": "(or a b)", "eval": "short-circuit"},
     "sorry":  {"arity": [1, 1],  "sig": "(sorry \"reason\")", "phase": "grammar reserved now; enforced in Phase 4"},
+    "fold":   {"arity": [3, null], "sig": "(fold op a b [c ...]) with op in {and, or}; desugars to right-assoc binary nesting", "phase": "v0.6 fold sugar for LLM ergonomics"},
     "grant":  {"arity": [1, null], "sig": "(grant cap...)", "scope": "top-level only", "phase": "grammar reserved now; enforced in Phase 3"}
   },
   "primitives": {

@@ -936,6 +936,24 @@ def check_special(
             )
         )
         return
+    if name == "fold":
+        if not operands or not (isinstance(operands[0], Tok) and operands[0].kind == "SYMBOL"):
+            errors.append(
+                ParseError(
+                    form.lparen.line,
+                    form.lparen.col,
+                    "'fold' requires an 'and' or 'or' operator symbol as first operand",
+                )
+            )
+        elif operands[0].value not in ("and", "or"):
+            errors.append(
+                ParseError(
+                    operands[0].line,
+                    operands[0].col,
+                    f"fold: operator must be 'and' or 'or', found '{operands[0].value}'",
+                )
+            )
+        return
     if name in ("def", "defn", "let"):
         if not operands:
             return
@@ -1717,6 +1735,26 @@ def build_node(item: Tok | Form) -> Node | None:
             if l is None or r is None:
                 return None
             return Or(l=l, r=r, line=line, col=col)
+
+        case "fold":
+            if len(operands) < 3 or not isinstance(operands[0], Tok):
+                return None
+            op = operands[0].value
+            if op not in ("and", "or"):
+                return None
+            built: list[Node] = []
+            for o in operands[1:]:
+                child = build_node(o)
+                if child is None:
+                    return None
+                built.append(child)
+            acc: Node = built[-1]
+            for child in reversed(built[:-1]):
+                if op == "and":
+                    acc = And(l=child, r=acc, line=line, col=col)
+                else:
+                    acc = Or(l=child, r=acc, line=line, col=col)
+            return acc
 
         case "sorry":
             if len(operands) != 1 or not isinstance(operands[0], Tok):
