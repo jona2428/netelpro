@@ -1158,6 +1158,13 @@ def _fact_proves(facts: set[tuple[str, int]], op: str, const: int) -> bool:
     return False
 
 
+def _derive_shifted_facts(facts: set[tuple[str, int]], shift: int) -> set[tuple[str, int]]:
+    """F2-v2: affine translation of facts about a variable to facts about
+    (- var k).  Sound over Z for all six operators: (var OP c) implies
+    ((- var k) OP (c - k)).  Linear shift only — no Presburger (spec F2 v2)."""
+    return {(op, val - shift) for op, val in facts}
+
+
 def _cmp_implies(f_op: str, f_val: int, op: str, const: int) -> bool:
     """Does (x f_op f_val) imply (x op const) over the integers? Pure operator
     lattice on constants — no symbolic arithmetic (spec F2 D6/D7 keep)."""
@@ -1174,20 +1181,28 @@ def _cmp_implies(f_op: str, f_val: int, op: str, const: int) -> bool:
             return f_val <= const
         if f_op == "<=":
             return f_val < const
+        if f_op == "==":
+            return f_val < const  # x == c proves x < c'
         return False
     if op == "<=":
         if f_op in ("<", "<="):
             return f_val <= const
+        if f_op == "==":
+            return f_val <= const  # x == c proves x <= c'
         return False
     if op == ">":
         if f_op == ">":
             return f_val >= const
         if f_op == ">=":
             return f_val > const
+        if f_op == "==":
+            return f_val > const  # x == c proves x > c'
         return False
     if op == ">=":
         if f_op in (">", ">="):
             return f_val >= const
+        if f_op == "==":
+            return f_val >= const  # x == c proves x >= c'
         return False
     return False
 
@@ -1292,8 +1307,25 @@ def _prosecute_refinements(
                 else:
                     key = _arg_key(arg)
                     facts = guards.get(key, set()) if key is not None else set()
+                    shift_facts: set[tuple[str, int]] = set()
+                    if (
+                        key is not None
+                        and isinstance(arg, Form)
+                        and len(arg.items) == 3
+                        and isinstance(arg.items[0], Tok)
+                        and arg.items[0].kind == "SYMBOL"
+                        and arg.items[0].value == "-"
+                        and isinstance(arg.items[1], Tok)
+                        and arg.items[1].kind == "SYMBOL"
+                        and isinstance(arg.items[2], Tok)
+                        and arg.items[2].kind == "INT"
+                    ):
+                        shift_facts = _derive_shifted_facts(
+                            guards.get(arg.items[1].value, set()),
+                            int(arg.items[2].value),
+                        )
                     for p in rt.predicates:
-                        if not _fact_proves(facts, p.op, p.const):
+                        if not _fact_proves(facts | shift_facts, p.op, p.const):
                             if key is None:
                                 errors.append(
                                     ParseError(
