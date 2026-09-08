@@ -147,14 +147,19 @@ def _extract_effect_clauses(
     for form in forms:
         if not form.items or not isinstance(form.items[0], Tok):
             continue
-        if form.items[0].value != "defn" or len(form.items) < 6:
+        if form.items[0].value != "defn":
             continue
-        # Potential clause: [defn, NAME, PARAMS, COLON, (effects ...), BODY]
-        colon = form.items[3]
+        # Clause placement: [defn, NAME, PARAMS, COLON, (effects ...), BODY].
+        colon_idx: int | None = None
+        if len(form.items) >= 6 and isinstance(form.items[3], Tok) and form.items[3].kind == "COLON":
+            colon_idx = 3
+        if colon_idx is None:
+            continue
+        colon = form.items[colon_idx]
         if not (isinstance(colon, Tok) and colon.kind == "COLON"):
             continue
         name_tok = form.items[1]
-        effects_form = form.items[4]
+        effects_form = form.items[colon_idx + 1]
         if not (isinstance(name_tok, Tok) and name_tok.kind == "SYMBOL"):
             continue
         if not (
@@ -167,7 +172,7 @@ def _extract_effect_clauses(
                  "': (effects ...)' clause expected after parameter list")
             continue
         # Splice COLON + effects form out of the defn form.
-        del form.items[3:5]
+        del form.items[colon_idx : colon_idx + 2]
         if len(effects_form.items) < 2:
             _err(effects_form, "'(effects ...)' requires at least one effect row")
             continue

@@ -290,6 +290,27 @@ def _collect_calls(
         _collect_calls(node.reason, prim_calls, defn_calls, known_defns)
 
 
+def _pattern_covers(declared: str, needed: str) -> bool:
+    """F3-v2: does a declared row pattern cover a needed one?
+
+    Glob semantics (conservative): '*' matches any run of characters that
+    does NOT cross a '/' (path-segment scope, zone_rule_generator
+    vocabulary).  A non-glob pattern covers only its literal self.
+    Conservative on purpose: under-coverage fails closed (compile error),
+    never the reverse."""
+    if declared == needed:
+        return True
+    if declared.count("*") != 1:
+        return False
+    head, _, tail = declared.partition("*")
+    if len(needed) < len(head) + len(tail):
+        return False
+    if not needed.startswith(head) or not needed.endswith(tail):
+        return False
+    middle = needed[len(head) : len(needed) - len(tail)]
+    return "/" not in middle
+
+
 def check_effect_rows(program: Program | Node) -> list[EffectError]:
     """Fase 3: verify declared effect rows cover every inferred effect (spec §2).
 
@@ -320,6 +341,19 @@ def check_effect_rows(program: Program | Node) -> list[EffectError]:
         declared = {(r.verb, r.pattern) for r in defn_node.effects}
         declared_verbs = {v for (v, _) in declared}
 
+        for r in defn_node.effects:
+            if r.pattern.count("*") > 1:
+                errors.append(
+                    EffectError(
+                        message=(
+                            f"effect pattern '{r.pattern}' in '{name}' supports "
+                            f"at most one '*'"
+                        ),
+                        line=r.line,
+                        col=r.col,
+                    )
+                )
+
         prim_calls: list[tuple[str, int, int]] = []
         defn_calls: list[tuple[str, int, int]] = []
         _collect_calls(defn_node.body, prim_calls, defn_calls, set(defns))
@@ -335,7 +369,13 @@ def check_effect_rows(program: Program | Node) -> list[EffectError]:
 
         for callee, line, col in defn_calls:
             callee_rows = {(r.verb, r.pattern) for r in defns[callee].effects}
-            missing = callee_rows - declared
+            missing = [
+                (v, p)
+                for (v, p) in sorted(callee_rows)
+                if not any(
+                    dv == v and _pattern_covers(dp, p) for (dv, dp) in declared
+                )
+            ]
             if not missing:
                 continue
             missing_str = " ".join(f'({v} "{p}")' for v, p in sorted(missing))
