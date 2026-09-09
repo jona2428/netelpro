@@ -51,6 +51,17 @@ class TestCompileAndManifest:
         assert "pending rule refinement" in mf[0]
         assert "line" in mf[0]
 
+    def test_sorry_hole_precedes_arity_error(self):
+        # Precedencia prosecutorial: una regla con sorry hole declarado NO
+        # compilo, asi que no hay nada que ejecutar -- eso se prosecuta
+        # ANTES que la aridad, incluso si la llamada tambien viene con el
+        # numero equivocado de argumentos. El mensaje debe ser el del sorry
+        # hole, no el de aridad.
+        src = RULE_SRC + '\n(defn unused () (sorry "pending rule refinement"))\n'
+        f = compile_filter(src)
+        with pytest.raises(RuleFilterError, match="declared sorry hole"):
+            f.decide(1)  # aridad real es 3; RULE_SRC toma 3 argumentos
+
     def test_missing_filter_rule_rejected(self):
         with pytest.raises(RuleFilterError) as ei:
             compile_filter("(defn other (x) x)")
@@ -309,6 +320,23 @@ def test_decide_int_rejects_bool_returning_rule() -> None:
     rf = RuleFilter(src)
     with pytest.raises(RuleFilterError, match="returns Bool"):
         rf.decide_int(0)
+
+
+def test_decide_int_sorry_hole_precedes_arity_error() -> None:
+    """decide_int() debe respetar la misma precedencia que decide(): el
+    sorry hole se prosecuta antes que la aridad (y antes que el chequeo de
+    tipo de retorno, que ademas quedaria enganoso -- restype por defecto es
+    c_bool cuando hay sorry, asi que sin este orden reportaria 'returns
+    Bool' en vez del sorry hole real).
+    """
+    src = (
+        "(defn filter-rule ((a : Int) (b : Int)) "
+        "(if (== a 0) 0 (if (== a 1) 1 2)))\n"
+        '(defn unused () (sorry "pending"))\n'
+    )
+    rf = RuleFilter(src)
+    with pytest.raises(RuleFilterError, match="declared sorry hole"):
+        rf.decide_int(1)  # aridad real es 2
 
 
 def test_verify_int_detects_no_mismatch() -> None:

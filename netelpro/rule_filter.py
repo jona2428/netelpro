@@ -262,13 +262,14 @@ class RuleFilter:
         """
         return list(self._manifest)
 
-    def _resolve_entry_address(self) -> int:
-        """Direccion de maquina del entry compilado, con la fiscalia comun.
+    def _check_compiled(self) -> None:
+        """Prosecuta primero lo mas fundamental: si la regla ni siquiera compilo.
 
-        Comparte la logica de decide() y decide_int(): si la regla quedo sin
-        compilar por un sorry declarado, o si la direccion no resuelve, ambos
-        levantan el mismo RuleFilterError con las mismas coordenadas. Extraido
-        aqui para no duplicar ese tramo entre los dos metodos de llamada.
+        Compartida por decide() y decide_int(): una regla con sorry hole(s)
+        declarados no genero codigo nativo (self._compiled es None), asi que
+        no hay nada que ejecutar. Este chequeo va ANTES que cualquier otro
+        (aridad, tipo de retorno): una regla que no puede correr en absoluto
+        debe decirlo antes de quejarse de cuantos argumentos le pasaste.
         """
         if self._compiled is None:
             first_sorry = self._sorry_entries[0] if self._sorry_entries else None
@@ -279,6 +280,14 @@ class RuleFilter:
                 line=line,
                 col=col,
             )
+
+    def _resolve_entry_address(self) -> int:
+        """Direccion de maquina del entry compilado.
+
+        Precondicion: self._compiled no es None (llama a _check_compiled()
+        antes). Unica sede de esta logica -- compartida por decide() y
+        decide_int() para no duplicarla entre los dos metodos de llamada.
+        """
         addr = self._compiled.engine.get_function_address(self._defn_name)
         if not addr:
             raise RuleFilterError(
@@ -302,10 +311,12 @@ class RuleFilter:
             Resultado booleano de la decision de la regla.
 
         Raises:
-            RuleFilterError: Si la regla contiene sorry holes sin implementar,
-                si la aridad no calza, o si falla la resolucion de direccion
-                de maquina.
+            RuleFilterError: Si la regla contiene sorry holes sin implementar
+                (chequeado PRIMERO: una regla que no compilo no puede correr,
+                punto), si la aridad no calza, o si falla la resolucion de
+                direccion de maquina.
         """
+        self._check_compiled()
         if len(args) != self._arity:
             raise RuleFilterError(
                 f"'{self._defn_name}' expects {self._arity} argument(s), got {len(args)}",
@@ -330,7 +341,12 @@ class RuleFilter:
         entregaria False/True/True y perderia el veredicto. Usar decide_int
         sobre una regla que retorna Bool es un error explicito, nunca una
         coercion silenciosa en el otro sentido.
+
+        Precedencia identica a decide(): primero se prosecuta si la regla
+        siquiera compilo (sorry hole declarado), y solo despues se audita
+        el tipo de retorno y la aridad -- no al reves.
         """
+        self._check_compiled()
         if self._restype is not ctypes.c_int64:
             raise RuleFilterError(
                 f"'{self._defn_name}' returns Bool (i1); use decide() for boolean rules",
