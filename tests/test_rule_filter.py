@@ -281,3 +281,50 @@ def test_decide_arity_error_names_the_real_entry() -> None:
     rf = RuleFilter(src, defn_name="admit-step")
     with pytest.raises(RuleFilterError, match="admit-step"):
         rf.decide(1)
+
+
+def test_verify_honors_custom_defn_name() -> None:
+    """verify() debe invocar al entry declarado, no el literal 'filter-rule'."""
+    src = "(defn admit-step ((a : Int)) (== a 1))"
+    rf = RuleFilter(src, defn_name="admit-step")
+    cases = [((1,), True), ((0,), False)]
+    assert rf.verify(cases) == []
+
+
+def test_decide_int_returns_three_valued_verdict() -> None:
+    """Una regla que retorna 0/1/2 no debe colapsar a bool."""
+    src = (
+        "(defn filter-rule ((a : Int)) "
+        "(if (== a 0) 0 (if (== a 1) 1 2)))"
+    )
+    rf = RuleFilter(src)
+    assert rf.decide_int(0) == 0
+    assert rf.decide_int(1) == 1
+    assert rf.decide_int(5) == 2
+
+
+def test_decide_int_rejects_bool_returning_rule() -> None:
+    """Usar decide_int sobre una regla i1 es un error explicito, no una coercion."""
+    src = "(defn filter-rule ((a : Int)) (if (== a 0) true false))"
+    rf = RuleFilter(src)
+    with pytest.raises(RuleFilterError, match="returns Bool"):
+        rf.decide_int(0)
+
+
+def test_verify_int_detects_no_mismatch() -> None:
+    src = (
+        "(defn filter-rule ((a : Int)) "
+        "(if (== a 0) 0 (if (== a 1) 1 2)))"
+    )
+    rf = RuleFilter(src)
+    assert rf.verify_int([((0,), 0), ((1,), 1), ((7,), 2)]) == []
+
+
+def test_verify_int_reports_mismatch() -> None:
+    src = (
+        "(defn filter-rule ((a : Int)) "
+        "(if (== a 0) 0 (if (== a 1) 1 2)))"
+    )
+    rf = RuleFilter(src)
+    bad = rf.verify_int([((0,), 9)])
+    assert len(bad) == 1
