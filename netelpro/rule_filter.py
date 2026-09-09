@@ -262,20 +262,14 @@ class RuleFilter:
         """
         return list(self._manifest)
 
-    def decide(self, *args: int | bool) -> bool:
-        """Call the compiled defn named `filter-rule` natively and return a boolean decision.
+    def _check_compiled(self) -> None:
+        """Prosecuta primero lo mas fundamental: si la regla ni siquiera compilo.
 
-        Args:
-            *args: Positional arguments matching the arity of `filter-rule` --
-                `int` for Int params, `bool` for Bool params (per-param ctypes
-                prototype is built from the compiled LLVM signature).
-
-        Returns:
-            Boolean outcome of the gate rule decision.
-
-        Raises:
-            RuleFilterError: If the rule contains unimplemented sorry holes,
-                if arity mismatches, or if machine address lookup fails.
+        Compartida por decide() y decide_int(): una regla con sorry hole(s)
+        declarados no genero codigo nativo (self._compiled es None), asi que
+        no hay nada que ejecutar. Este chequeo va ANTES que cualquier otro
+        (aridad, tipo de retorno): una regla que no puede correr en absoluto
+        debe decirlo antes de quejarse de cuantos argumentos le pasaste.
         """
         if self._compiled is None:
             first_sorry = self._sorry_entries[0] if self._sorry_entries else None
@@ -287,20 +281,50 @@ class RuleFilter:
                 col=col,
             )
 
+    def _resolve_entry_address(self) -> int:
+        """Direccion de maquina del entry compilado.
+
+        Precondicion: self._compiled no es None (llama a _check_compiled()
+        antes). Unica sede de esta logica -- compartida por decide() y
+        decide_int() para no duplicarla entre los dos metodos de llamada.
+        """
+        addr = self._compiled.engine.get_function_address(self._defn_name)
+        if not addr:
+            raise RuleFilterError(
+                f"failed to resolve machine address for '{self._defn_name}'",
+                line=self._defn_line,
+                col=self._defn_col,
+            )
+        return addr
+
+    def decide(self, *args: int | bool) -> bool:
+        """Llama al entry compilado (el declarado en `defn_name`) y devuelve
+        un veredicto booleano.
+
+        Args:
+            *args: Argumentos posicionales que respetan la aridad del entry
+                declarado -- `int` para params Int, `bool` para params Bool
+                (el prototipo ctypes por parametro se arma desde la firma
+                LLVM compilada).
+
+        Returns:
+            Resultado booleano de la decision de la regla.
+
+        Raises:
+            RuleFilterError: Si la regla contiene sorry holes sin implementar
+                (chequeado PRIMERO: una regla que no compilo no puede correr,
+                punto), si la aridad no calza, o si falla la resolucion de
+                direccion de maquina.
+        """
+        self._check_compiled()
         if len(args) != self._arity:
             raise RuleFilterError(
-                f"'filter-rule' expects {self._arity} argument(s), got {len(args)}",
+                f"'{self._defn_name}' expects {self._arity} argument(s), got {len(args)}",
                 line=self._defn_line,
                 col=self._defn_col,
             )
 
-        addr = self._compiled.engine.get_function_address("filter-rule")
-        if not addr:
-            raise RuleFilterError(
-                "failed to resolve machine address for 'filter-rule'",
-                line=self._defn_line,
-                col=self._defn_col,
-            )
+        addr = self._resolve_entry_address()
 
         c_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
         call_args: list[Any] = [
@@ -309,6 +333,76 @@ class RuleFilter:
         ]
         raw_result = c_fn(*call_args)
         return bool(raw_result)
+
+    def decide_int(self, *args: int | bool | str) -> int:
+        """Llama al entry compilado y devuelve el entero crudo (i64).
+
+        Existe porque decide() coacciona a bool: una regla que retorna 0/1/2
+        entregaria False/True/True y perderia el veredicto. Usar decide_int
+        sobre una regla que retorna Bool es un error explicito, nunca una
+        coercion silenciosa en el otro sentido.
+
+        Precedencia identica a decide(): primero se prosecuta si la regla
+        siquiera compilo (sorry hole declarado), y solo despues se audita
+        el tipo de retorno y la aridad -- no al reves.
+        """
+        self._check_compiled()
+        if self._restype is not ctypes.c_int64:
+            raise RuleFilterError(
+                f"'{self._defn_name}' returns Bool (i1); use decide() for boolean rules",
+                line=self._defn_line,
+                col=self._defn_col,
+            )
+        if len(args) != self._arity:
+            raise RuleFilterError(
+                f"'{self._defn_name}' expects {self._arity} argument(s), got {len(args)}",
+                line=self._defn_line,
+                col=self._defn_col,
+            )
+        addr = self._resolve_entry_address()
+        c_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
+        call_args: list[Any] = [
+            a.encode("utf-8") if (isinstance(a, str) and at is ctypes.c_char_p) else a
+            for a, at in zip(args, self._argtypes, strict=True)
+        ]
+        return int(c_fn(*call_args))
+
+    def verify_int(
+        self, cases: Sequence[tuple[Any, int]]
+    ) -> list[tuple[Any, int, Any, int]]:
+        """Verificacion diferencial entera: JIT nativo contra el interprete.
+
+        Extiende el modelo de verify() al caso entero: cada caso es
+        `(args, expected_int)`, y una discrepancia entre nativo, interprete
+        o el esperado queda registrada como `(args, expected, interpretado, nativo)`.
+        """
+        mismatches: list[tuple[Any, int, Any, int]] = []
+        for args_case, expected_int in cases:
+            args_tuple = tuple(args_case) if isinstance(args_case, (tuple, list)) else (args_case,)
+            native_res = self.decide_int(*args_tuple)
+
+            def _render(a: Any) -> str:
+                if a is True:
+                    return "true"
+                if a is False:
+                    return "false"
+                if isinstance(a, str):
+                    escaped = (
+                        a.replace("\\", "\\\\").replace('"', '\\"')
+                        .replace("\n", "\\n").replace("\t", "\\t")
+                    )
+                    return f'"{escaped}"'
+                return str(a)
+
+            args_str = " ".join(_render(a) for a in args_tuple)
+            call_form = (
+                f"({self._defn_name} {args_str})" if args_str else f"({self._defn_name})"
+            )
+            interp_res = run_source(f"{self._source}\n{call_form}", env=Environment())
+
+            if (native_res != interp_res) or (native_res != expected_int) or (interp_res != expected_int):
+                mismatches.append((args_case, expected_int, interp_res, native_res))
+        return mismatches
 
     def verify(
         self, cases: Sequence[tuple[Any, bool]]
@@ -343,7 +437,9 @@ class RuleFilter:
                 return str(a)
 
             args_str = " ".join(_render(a) for a in args_tuple)
-            call_form = f"(filter-rule {args_str})" if args_str else "(filter-rule)"
+            call_form = (
+                f"({self._defn_name} {args_str})" if args_str else f"({self._defn_name})"
+            )
             interp_src = f"{self._source}\n{call_form}"
             interp_res = run_source(interp_src, env=env)
 

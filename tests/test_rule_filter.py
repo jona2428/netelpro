@@ -51,6 +51,17 @@ class TestCompileAndManifest:
         assert "pending rule refinement" in mf[0]
         assert "line" in mf[0]
 
+    def test_sorry_hole_precedes_arity_error(self):
+        # Precedencia prosecutorial: una regla con sorry hole declarado NO
+        # compilo, asi que no hay nada que ejecutar -- eso se prosecuta
+        # ANTES que la aridad, incluso si la llamada tambien viene con el
+        # numero equivocado de argumentos. El mensaje debe ser el del sorry
+        # hole, no el de aridad.
+        src = RULE_SRC + '\n(defn unused () (sorry "pending rule refinement"))\n'
+        f = compile_filter(src)
+        with pytest.raises(RuleFilterError, match="declared sorry hole"):
+            f.decide(1)  # aridad real es 3; RULE_SRC toma 3 argumentos
+
     def test_missing_filter_rule_rejected(self):
         with pytest.raises(RuleFilterError) as ei:
             compile_filter("(defn other (x) x)")
@@ -265,3 +276,83 @@ class TestStrParamsV03:
             (("downloads/r.md", False, 0), True),
         ]
         assert f.verify(cases) == []
+
+
+def test_decide_honors_custom_defn_name() -> None:
+    """Una regla con entry distinto de filter-rule debe llamarse a sí misma."""
+    src = "(defn admit-step ((a : Int) (b : Int)) (if (== a 1) b 0))"
+    rf = RuleFilter(src, defn_name="admit-step")
+    assert rf.decide(1, 1) is True
+    assert rf.decide(0, 1) is False
+
+
+def test_decide_arity_error_names_the_real_entry() -> None:
+    """El mensaje de arity debe nombrar el entry real, no 'filter-rule'."""
+    src = "(defn admit-step ((a : Int) (b : Int)) (if (== a 1) b 0))"
+    rf = RuleFilter(src, defn_name="admit-step")
+    with pytest.raises(RuleFilterError, match="admit-step"):
+        rf.decide(1)
+
+
+def test_verify_honors_custom_defn_name() -> None:
+    """verify() debe invocar al entry declarado, no el literal 'filter-rule'."""
+    src = "(defn admit-step ((a : Int)) (== a 1))"
+    rf = RuleFilter(src, defn_name="admit-step")
+    cases = [((1,), True), ((0,), False)]
+    assert rf.verify(cases) == []
+
+
+def test_decide_int_returns_three_valued_verdict() -> None:
+    """Una regla que retorna 0/1/2 no debe colapsar a bool."""
+    src = (
+        "(defn filter-rule ((a : Int)) "
+        "(if (== a 0) 0 (if (== a 1) 1 2)))"
+    )
+    rf = RuleFilter(src)
+    assert rf.decide_int(0) == 0
+    assert rf.decide_int(1) == 1
+    assert rf.decide_int(5) == 2
+
+
+def test_decide_int_rejects_bool_returning_rule() -> None:
+    """Usar decide_int sobre una regla i1 es un error explicito, no una coercion."""
+    src = "(defn filter-rule ((a : Int)) (if (== a 0) true false))"
+    rf = RuleFilter(src)
+    with pytest.raises(RuleFilterError, match="returns Bool"):
+        rf.decide_int(0)
+
+
+def test_decide_int_sorry_hole_precedes_arity_error() -> None:
+    """decide_int() debe respetar la misma precedencia que decide(): el
+    sorry hole se prosecuta antes que la aridad (y antes que el chequeo de
+    tipo de retorno, que ademas quedaria enganoso -- restype por defecto es
+    c_bool cuando hay sorry, asi que sin este orden reportaria 'returns
+    Bool' en vez del sorry hole real).
+    """
+    src = (
+        "(defn filter-rule ((a : Int) (b : Int)) "
+        "(if (== a 0) 0 (if (== a 1) 1 2)))\n"
+        '(defn unused () (sorry "pending"))\n'
+    )
+    rf = RuleFilter(src)
+    with pytest.raises(RuleFilterError, match="declared sorry hole"):
+        rf.decide_int(1)  # aridad real es 2
+
+
+def test_verify_int_detects_no_mismatch() -> None:
+    src = (
+        "(defn filter-rule ((a : Int)) "
+        "(if (== a 0) 0 (if (== a 1) 1 2)))"
+    )
+    rf = RuleFilter(src)
+    assert rf.verify_int([((0,), 0), ((1,), 1), ((7,), 2)]) == []
+
+
+def test_verify_int_reports_mismatch() -> None:
+    src = (
+        "(defn filter-rule ((a : Int)) "
+        "(if (== a 0) 0 (if (== a 1) 1 2)))"
+    )
+    rf = RuleFilter(src)
+    bad = rf.verify_int([((0,), 9)])
+    assert len(bad) == 1
