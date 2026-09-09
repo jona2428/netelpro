@@ -265,3 +265,19 @@ class TestStrParamsV03:
             (("downloads/r.md", False, 0), True),
         ]
         assert f.verify(cases) == []
+
+
+def test_decide_honors_custom_defn_name() -> None:
+    """Una regla con entry distinto de filter-rule debe llamarse a sí misma."""
+    src = "(defn admit-step ((a : Int) (b : Int)) (if (== a 1) b 0))"
+    rf = RuleFilter(src, defn_name="admit-step")
+    assert rf.decide(1, 1) is True
+    assert rf.decide(0, 1) is False
+
+
+def test_decide_arity_error_names_the_real_entry() -> None:
+    """El mensaje de arity debe nombrar el entry real, no 'filter-rule'."""
+    src = "(defn admit-step ((a : Int) (b : Int)) (if (== a 1) b 0))"
+    rf = RuleFilter(src, defn_name="admit-step")
+    with pytest.raises(RuleFilterError, match="admit-step"):
+        rf.decide(1)

@@ -289,15 +289,15 @@ class RuleFilter:
 
         if len(args) != self._arity:
             raise RuleFilterError(
-                f"'filter-rule' expects {self._arity} argument(s), got {len(args)}",
+                f"'{self._defn_name}' expects {self._arity} argument(s), got {len(args)}",
                 line=self._defn_line,
                 col=self._defn_col,
             )
 
-        addr = self._compiled.engine.get_function_address("filter-rule")
+        addr = self._compiled.engine.get_function_address(self._defn_name)
         if not addr:
             raise RuleFilterError(
-                "failed to resolve machine address for 'filter-rule'",
+                f"failed to resolve machine address for '{self._defn_name}'",
                 line=self._defn_line,
                 col=self._defn_col,
             )
