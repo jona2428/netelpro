@@ -601,7 +601,7 @@ def eval_loop(
         if budget is not None:
             budget.charge()
         if isinstance(curr_node, IntLit):
-            result = curr_node.value
+            result: Any = curr_node.value
         elif isinstance(curr_node, FloatLit):
             result = curr_node.value
         elif isinstance(curr_node, StrLit):
@@ -722,7 +722,7 @@ def eval_loop(
             head = curr_node.head
             if head in PRIMITIVES:
                 arg_vals = [eval_loop(a, curr_env, capabilities, budget) for a in curr_node.args]
-                result = _exec_primitive(head, arg_vals, curr_node, capabilities)
+                result = _exec_primitive(head, arg_vals, curr_node, capabilities)  # type: ignore[assignment]
             else:
                 try:
                     fn_val = curr_env.get(head)

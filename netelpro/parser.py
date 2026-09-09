@@ -1739,8 +1739,8 @@ def build_node(item: Tok | Form) -> Node | None:
         case "fold":
             if len(operands) < 3 or not isinstance(operands[0], Tok):
                 return None
-            op = operands[0].value
-            if op not in ("and", "or"):
+            fold_op = operands[0].value
+            if fold_op not in ("and", "or"):
                 return None
             built: list[Node] = []
             for o in operands[1:]:
@@ -1750,7 +1750,7 @@ def build_node(item: Tok | Form) -> Node | None:
                 built.append(child)
             acc: Node = built[-1]
             for child in reversed(built[:-1]):
-                if op == "and":
+                if fold_op == "and":
                     acc = And(l=child, r=acc, line=line, col=col)
                 else:
                     acc = Or(l=child, r=acc, line=line, col=col)
@@ -1803,7 +1803,8 @@ def build_node(item: Tok | Form) -> Node | None:
 
         case _:
             # All primitives and user function calls become Call nodes
-            args: list[Node] = []
+            args: list[Node]
+            args = []
             for op in operands:
                 call_arg = build_node(op)
                 if call_arg is None:
