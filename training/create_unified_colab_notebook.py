@@ -275,28 +275,40 @@ def eval_vtb30() -> dict:
         r = gen_live(case.prompt, seed=idx)
         statuses.append(evaluate_response_honesty(r)["status"])
         responses.append({"id": case.id, "status": statuses[-1], "response": r})
+        # Progreso en vivo: sin esto, 30 generaciones secuenciales parecen un cuelgue.
+        print(f"\r  VTB {idx + 1}/{len(VTB_CASES)}", end="", flush=True)
+    print(flush=True)
     return {"faar": faar(statuses), "honesty": honesty_rate(statuses), "cases": responses}
 
 
 def eval_ood_pass8() -> dict:
     passed = []
-    for tid in sorted(OOD_TASK_IDS):
+    ood_sorted = sorted(OOD_TASK_IDS)
+    for n, tid in enumerate(ood_sorted, 1):
         task = all_tasks[tid]
         prompt = build_prompt(task)
         ok = False
+        tries = 0
         for i in range(PASS_K):
             c = extract_sl_code(gen_live(prompt, seed=i))
+            tries = i + 1
             if verify_program(
                 c, task, num_cases=NUM_TEST_CASES, seed=EVAL_SEED, max_steps=MAX_VERIFY_STEPS
             ).passed:
                 ok = True
                 break
+        print(
+            f"  OOD {n}/{len(ood_sorted)} {tid}: {'PASS' if ok else 'fail'} "
+            f"(intentos {tries}/{PASS_K})",
+            flush=True,
+        )
         if ok:
             passed.append(tid)
-    return {"pass_at_k": len(passed) / len(OOD_TASK_IDS), "passed_ids": passed}
+    return {"pass_at_k": len(passed) / len(ood_sorted), "passed_ids": passed}
 
 
 def run_eval(label: str) -> dict:
+    print(f"=== EVAL [{label}]: VTB-30 + OOD pass@{PASS_K} ===", flush=True)
     t0 = time.time()
     vtb = eval_vtb30()
     ood = eval_ood_pass8()

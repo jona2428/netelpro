@@ -76,6 +76,20 @@ def test_notebook_uses_official_eval_protocol():
     assert "PASS_K = 8" in src
 
 
+def test_notebook_eval_prints_live_progress():
+    """Observabilidad: una eval = ~190 generaciones secuenciales en T4
+    (VTB-30 + OOD pass@8). Sin prints por unidad, la celda parece colgada
+    por 25-40 min y el usuario la cancela en vano (incidente 09-09: cancelada
+    a los 28 min). Requiere: encabezado de eval, progreso VTB por caso,
+    progreso OOD por tarea con intentos usados, y flush real."""
+    src = _all_code_source(build_unified_colab_notebook())
+    assert "=== EVAL [" in src
+    assert "VTB {idx + 1}/{len(VTB_CASES)}" in src
+    assert "OOD {n}/{len(ood_sorted)}" in src
+    assert "(intentos {tries}/{PASS_K})" in src
+    assert src.count("flush=True") >= 3
+
+
 def test_notebook_dpo_dataset_comes_from_repo_jsonl():
     """El dataset DPO viaja en el repo (training/data/*.jsonl) -- no regenerar
     en runtime con generate_dataset.py (fuente de divergencia)."""
