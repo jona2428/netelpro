@@ -250,7 +250,84 @@ def test_tools_list_shape(server):
         assert "description" in t
         assert "inputSchema" in t
     names = {t["name"] for t in tools}
-    assert {"netelpro_compile", "netelpro_eval", "netelpro_verify", "netelpro_spec"} <= names
+    assert {"netelpro_compile", "netelpro_eval", "netelpro_verify", "netelpro_spec", "netelpro_gate"} <= names
+
+
+def test_gate_happy_path_parity(server):
+    src = "(defn filter-rule (x) (> x 10))"
+    resp = server.call(
+        "tools/call",
+        {"name": "netelpro_gate", "arguments": {"source": src, "args": [[5], [15]]}},
+    )
+    assert resp.get("error") is None
+    body = resp["result"]["content"][0]["text"]
+    data = json.loads(body)
+    assert data["ok"] is True
+    assert data["version"] == "0.1.0"
+    assert len(data["cases"]) == 2
+    assert data["cases"][0]["args"] == [5]
+    assert data["cases"][0]["native_result"] is False
+    assert data["cases"][0]["interp_result"] is False
+    assert data["cases"][0]["parity"] is True
+    assert data["cases"][1]["args"] == [15]
+    assert data["cases"][1]["native_result"] is True
+    assert data["cases"][1]["interp_result"] is True
+    assert data["cases"][1]["parity"] is True
+    assert data["hole_manifest"] == []
+    assert data["errors"] == []
+
+
+def test_gate_101_args_rejected(server):
+    args = [[i] for i in range(MAX_CASES + 1)]
+    resp = server.call(
+        "tools/call",
+        {
+            "name": "netelpro_gate",
+            "arguments": {"source": "(defn filter-rule (x) (> x 10))", "args": args},
+        },
+    )
+    assert resp.get("error") is None
+    result = resp.get("result")
+    assert isinstance(result, dict)
+    assert result.get("ok") is False
+    assert "limit" in _phases(resp)
+
+
+def test_gate_syntax_error(server):
+    resp = server.call(
+        "tools/call",
+        {"name": "netelpro_gate", "arguments": {"source": "(defn filter-rule (x) (> x))", "args": [[1]]}},
+    )
+    assert resp.get("error") is None
+    result = resp.get("result")
+    assert isinstance(result, dict)
+    assert result.get("ok") is False
+    assert _domain_errors(resp)
+
+
+def test_gate_hole_manifest(server):
+    resp = server.call(
+        "tools/call",
+        {"name": "netelpro_gate", "arguments": {"source": '(defn filter-rule (x) (sorry "todo"))', "args": [[1]]}},
+    )
+    assert resp.get("error") is None
+    body = resp["result"]["content"][0]["text"]
+    data = json.loads(body)
+    assert data["ok"] is False
+    assert data["hole_manifest"]
+    assert data["version"] == "0.1.0"
+
+
+def test_gate_dispatch(server):
+    resp = server.call(
+        "tools/call",
+        {"name": "netelpro_gate", "arguments": {"source": "(defn filter-rule (x) true)", "args": [[0]]}},
+    )
+    assert resp.get("error") is None
+    body = resp["result"]["content"][0]["text"]
+    data = json.loads(body)
+    assert data["ok"] is True
+    assert data["cases"][0]["parity"] is True
 
 
 # ---------------------------------------------------------------------------

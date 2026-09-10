@@ -9,6 +9,7 @@ Tools exposed:
 - netelpro_compile: Static prosecutorial validation (parse, caps, holes, codegen).
 - netelpro_eval: Subprocess execution with resource limits and stdout capture.
 - netelpro_verify: Differential parity verification between native JIT and interpreter.
+- netelpro_gate: Per-case differential gate evaluation between native JIT and interpreter.
 - netelpro_spec: Static language specification knowledge, forms, and capabilities.
 
 Limits (module-level overridable attributes):
@@ -370,6 +371,29 @@ TOOLS_LIST: list[dict[str, Any]] = [
                     "description": "Optional search term to filter forms and capabilities.",
                 },
             },
+        },
+    },
+    {
+        "name": "netelpro_gate",
+        "description": "Differential gate evaluation for a single Netelpro filter-rule, running each case under native JIT and interpreter backends and reporting per-case parity.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Netelpro source code defining (defn filter-rule ...).",
+                },
+                "args": {
+                    "type": "array",
+                    "description": "Array of positional argument lists to pass to filter-rule (max 100).",
+                    "items": {
+                        "type": "array",
+                        "items": {"type": ["integer", "boolean", "string"]},
+                        "description": "Positional argument tuple for one invocation.",
+                    },
+                },
+            },
+            "required": ["source", "args"],
         },
     },
 ]
@@ -1196,6 +1220,321 @@ def _worker_verify(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _validate_gate_args(args: list[Any]) -> list[dict[str, Any]]:
+    """Type/size validation for netelpro_gate args (fail-closed, no coercion)."""
+    errors: list[dict[str, Any]] = []
+    for i, case in enumerate(args):
+        if not isinstance(case, (list, tuple)):
+            errors.append(
+                {"phase": "runtime", "line": 0, "col": 0, "message": f"args[{i}]: must be a list"}
+            )
+            continue
+        for j, arg in enumerate(case):
+            if isinstance(arg, (bool, int)):
+                continue
+            if isinstance(arg, str):
+                if len(arg) > VERIFY_STRING_ARG_CAP:
+                    errors.append(
+                        {
+                            "phase": "limit",
+                            "line": 0,
+                            "col": 0,
+                            "message": f"args[{i}] arg {j}: string arg exceeds {VERIFY_STRING_ARG_CAP} chars",
+                        }
+                    )
+                continue
+            errors.append(
+                {
+                    "phase": "runtime",
+                    "line": 0,
+                    "col": 0,
+                    "message": f"args[{i}] arg {j}: arg must be int, bool or str",
+                }
+            )
+    return errors
+
+
+def tool_gate(source: str, args: list[Any]) -> dict[str, Any]:
+    """Differential gate evaluation across native JIT and interpreter backends.
+
+    Compiles a single (defn filter-rule ...) and evaluates every provided args
+    vector under both backends. Returns per-case parity with the raw native and
+    interpreter results. Overall ok=True only if compilation is clean (no errors,
+    hole_manifest present) and every case runs without error and reports parity.
+    """
+    if len(args) > MAX_CASES:
+        return {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [
+                {
+                    "phase": "limit",
+                    "line": 0,
+                    "col": 0,
+                    "message": f"args count ({len(args)}) exceeds MAX_CASES ({MAX_CASES})",
+                }
+            ],
+        }
+
+    byte_errs = check_source_bytes(source)
+    if byte_errs:
+        return {"ok": False, "version": "0.1.0", "hole_manifest": [], "cases": [], "errors": byte_errs}
+
+    depth_errs = check_nesting_depth(source)
+    if depth_errs:
+        return {"ok": False, "version": "0.1.0", "hole_manifest": [], "cases": [], "errors": depth_errs}
+
+    arg_errs = _validate_gate_args(args)
+    if arg_errs:
+        return {"ok": False, "version": "0.1.0", "hole_manifest": [], "cases": [], "errors": arg_errs}
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+    temp_path = temp_file.name
+    temp_file.close()
+
+    try:
+        cmd = [sys.executable, "-m", "netelpro.mcp_server", "--exec-gate", "--out", temp_path]
+        payload = json.dumps({"source": source, "args": args})
+
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+        )
+
+        try:
+            stdout_text, stderr_text = proc.communicate(input=payload, timeout=EVAL_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            _kill_process_tree(proc)
+            _close_pipes(proc)
+            return {
+                "ok": False,
+                "version": "0.1.0",
+                "hole_manifest": [],
+                "cases": [],
+                "errors": [{"phase": "limit", "line": 0, "col": 0, "message": "gate evaluation timed out"}],
+            }
+
+        if os.path.exists(temp_path) and os.path.getsize(temp_path) > 0:
+            try:
+                with open(temp_path, encoding="utf-8") as f:
+                    res_data = json.load(f)
+                if isinstance(res_data, dict):
+                    return res_data
+            except Exception:
+                pass
+
+        err_msg = (
+            (stdout_text or "").strip()
+            or (stderr_text or "").strip()
+            or f"process exited with code {proc.returncode}"
+        )
+        return {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [{"phase": "runtime", "line": 0, "col": 0, "message": err_msg}],
+        }
+    finally:
+        if os.path.exists(temp_path):
+            with contextlib.suppress(Exception):
+                os.remove(temp_path)
+
+
+def _worker_gate(argv: list[str] | None = None) -> int:
+    """Worker entrypoint for --exec-gate running in a child process."""
+    if argv is None:
+        argv = sys.argv[1:]
+    out_path = _validated_out_path(argv)
+    raw_input = sys.stdin.read(MAX_LINE_BYTES)
+    if not raw_input.strip():
+        res = {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [{"phase": "runtime", "line": 0, "col": 0, "message": "empty input"}],
+        }
+        _write_worker_result(res, out_path)
+        return 0
+
+    try:
+        data = json.loads(raw_input)
+    except Exception as e:
+        res = {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [{"phase": "runtime", "line": 0, "col": 0, "message": f"invalid JSON: {e}"}],
+        }
+        _write_worker_result(res, out_path)
+        return 0
+
+    source = data.get("source", "")
+    args_raw = data.get("args", [])
+
+    if len(args_raw) > MAX_CASES:
+        res = {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [
+                {
+                    "phase": "limit",
+                    "line": 0,
+                    "col": 0,
+                    "message": f"args count ({len(args_raw)}) exceeds MAX_CASES ({MAX_CASES})",
+                }
+            ],
+        }
+        _write_worker_result(res, out_path)
+        return 0
+
+    byte_errs = check_source_bytes(source)
+    if byte_errs:
+        res = {"ok": False, "version": "0.1.0", "hole_manifest": [], "cases": [], "errors": byte_errs}
+        _write_worker_result(res, out_path)
+        return 0
+
+    depth_errs = check_nesting_depth(source)
+    if depth_errs:
+        res = {"ok": False, "version": "0.1.0", "hole_manifest": [], "cases": [], "errors": depth_errs}
+        _write_worker_result(res, out_path)
+        return 0
+
+    arg_errs = _validate_gate_args(args_raw)
+    if arg_errs:
+        res = {"ok": False, "version": "0.1.0", "hole_manifest": [], "cases": [], "errors": arg_errs}
+        _write_worker_result(res, out_path)
+        return 0
+
+    try:
+        from netelpro.codegen import CodegenError
+        from netelpro.rule_filter import RuleFilterError, compile_filter
+    except ImportError:
+        res = {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [{"phase": "codegen", "line": 0, "col": 0, "message": "rule_filter or codegen not available"}],
+        }
+        _write_worker_result(res, out_path)
+        return 0
+
+    try:
+        rf = compile_filter(source)
+    except RuleFilterError as e:
+        res = {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [{"phase": "rule_filter", "line": e.line, "col": e.col, "message": e.message}],
+        }
+        _write_worker_result(res, out_path)
+        return 0
+    except CodegenError as e:
+        res = {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [{"phase": "codegen", "line": e.line, "col": e.col, "message": e.message}],
+        }
+        _write_worker_result(res, out_path)
+        return 0
+    except StrayError as e:
+        res = {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [
+                {
+                    "phase": "runtime",
+                    "line": getattr(e, "line", 0),
+                    "col": getattr(e, "col", 0),
+                    "message": getattr(e, "message", str(e)),
+                }
+            ],
+        }
+        _write_worker_result(res, out_path)
+        return 0
+    except Exception as e:
+        res = {
+            "ok": False,
+            "version": "0.1.0",
+            "hole_manifest": [],
+            "cases": [],
+            "errors": [{"phase": "runtime", "line": 0, "col": 0, "message": str(e)}],
+        }
+        _write_worker_result(res, out_path)
+        return 0
+
+    manifest = rf.manifest()
+
+    cases_out: list[dict[str, Any]] = []
+    all_parity = True
+    any_error = False
+    for args_case in args_raw:
+        args_tuple = tuple(args_case) if isinstance(args_case, (list, tuple)) else (args_case,)
+        try:
+            native_res = bool(rf.decide(*args_tuple))
+        except Exception as e:
+            cases_out.append({"args": list(args_case), "native_result": None, "interp_result": None, "parity": False})
+            all_parity = False
+            any_error = True
+            cases_out[-1]["error"] = str(e)
+            continue
+
+        def _render_arg(a: Any) -> str:
+            if a is True:
+                return "true"
+            if a is False:
+                return "false"
+            if isinstance(a, str):
+                escaped = a.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\t", "\\t")
+                return f'"{escaped}"'
+            return str(a)
+
+        args_str = " ".join(_render_arg(a) for a in args_tuple)
+        call_form = f"(filter-rule {args_str})" if args_str else "(filter-rule)"
+        interp_src = f"{source}\n{call_form}"
+        try:
+            interp_parse = parse(interp_src)
+            if not interp_parse.ok:
+                raise ValueError("; ".join(e.message for e in interp_parse.errors))
+            interp_res = evaluate(interp_parse.program)
+            interp_bool = bool(interp_res)
+        except Exception as e:
+            cases_out.append({"args": list(args_case), "native_result": native_res, "interp_result": None, "parity": False})
+            all_parity = False
+            any_error = True
+            cases_out[-1]["error"] = str(e)
+            continue
+
+        parity = native_res == interp_bool
+        if not parity:
+            all_parity = False
+        cases_out.append(
+            {"args": list(args_case), "native_result": native_res, "interp_result": interp_bool, "parity": parity}
+        )
+
+    ok = len(manifest) == 0 and all_parity and not any_error
+    res = {"ok": ok, "version": "0.1.0", "hole_manifest": manifest, "cases": cases_out, "errors": []}
+    _write_worker_result(res, out_path)
+    return 0
+
+
 def _write_worker_result(res: dict[str, Any], out_path: str | None) -> None:
     """Write worker structured result to out_path or stdout."""
     text = json.dumps(res)
@@ -1296,6 +1635,10 @@ def dispatch(name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
         category = args.get("category", "all")
         query = args.get("query")
         return tool_spec(category=category, query=query)
+    elif name == "netelpro_gate":
+        source = args.get("source", "")
+        gate_args = args.get("args", [])
+        return tool_gate(source=source, args=gate_args)
     else:
         raise ValueError(f"Unknown tool '{name}'")
 
@@ -1567,6 +1910,8 @@ def main(argv: list[str] | None = None) -> int:
         return _worker_eval(argv)
     if "--exec-verify" in argv:
         return _worker_verify(argv)
+    if "--exec-gate" in argv:
+        return _worker_gate(argv)
 
     return _run_stdio_server()
 
