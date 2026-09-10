@@ -173,7 +173,7 @@ def _find_call_chain(
 
     Uses BFS over the static call graph, pruning pure branches.
     """
-    queue: deque[tuple[str, list[str]]] = deque([(start_defn, [start_defn])])
+    queue: deque[tuple[str, tuple[str, ...]]] = deque([(start_defn, (start_defn,))])
     visited: set[str] = {start_defn}
 
     while queue:

@@ -245,7 +245,9 @@ class CompiledProgram:
     ) -> None:
         self.engine = engine
         self.entry_point = entry_point
-        self.module = module
+        # The LLVM module is a post-condition of compilation: a CompiledProgram
+        # without a module is meaningless, so None callers get an empty one.
+        self.module: ir.Module = module if module is not None else ir.Module(name="netelpro")
 
     def run(self) -> int:
         """Executes top-level forms and returns the i64 result of the last expression form (nil -> 0)."""
@@ -516,7 +518,9 @@ def compile_program(program: Program) -> CompiledProgram:
 
     # Typecheck all defn bodies
     for d_info in defns.values():
-        initial_env = {p_name: p_var for p_name, p_var in zip(d_info.param_names, d_info.param_vars, strict=True)}
+        initial_env: dict[str, str | TypeVar] = {
+            p_name: p_var for p_name, p_var in zip(d_info.param_names, d_info.param_vars, strict=True)
+        }
         body_t = typecheck(d_info.node.body, initial_env, d_info)
         _unify(d_info.ret_var, body_t, d_info.node.line, d_info.node.col, f"return of '{d_info.name}'")
 
@@ -962,8 +966,8 @@ def compile_program(program: Program) -> CompiledProgram:
             param_slots=param_slots,
             loop_header=loop_header,
         )
-        initial_env: dict[str, ir.Value | ir.AllocaInstr] = dict(param_slots)
-        compile_expr(d_info.node.body, initial_env, is_tail=True, builder=b, ctx=fn_ctx)
+        native_env: dict[str, ir.Value | ir.AllocaInstr] = dict(param_slots)
+        compile_expr(d_info.node.body, native_env, is_tail=True, builder=b, ctx=fn_ctx)
 
     # Compile top-level expressions in main()
     main_ty = ir.FunctionType(i64, [])

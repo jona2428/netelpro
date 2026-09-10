@@ -190,6 +190,13 @@ class RuleFilter:
                 col = getattr(e, "col", 0)
                 raise RuleFilterError(str(e), line=line, col=col) from e
 
+            if compiled is None:  # fail-closed: compile_program raises on failure, never returns None
+                raise RuleFilterError(
+                    "native compilation produced no program",
+                    line=self._defn_line,
+                    col=self._defn_col,
+                )
+
             # Audit LLVM parameter types and determine return calling convention
             llvm_fn: ir.Function | None = None
             for fn in compiled.module.functions:
@@ -231,7 +238,7 @@ class RuleFilter:
             self._compiled = compiled
             if llvm_fn.function_type.return_type == ir.PointerType():
                 # v0.5 builder: Str products cross as c_char_p.
-                self._restype = ctypes.c_char_p
+                self._restype: type[ctypes._SimpleCData] = ctypes.c_char_p
             elif llvm_fn.function_type.return_type == ir.IntType(1):
                 self._restype = ctypes.c_bool
             else:
@@ -252,7 +259,7 @@ class RuleFilter:
         else:
             self._compiled = None
             self._restype = ctypes.c_bool
-            self._argtypes: list[type[ctypes._SimpleCData]] = [ctypes.c_int64] * self._arity
+            self._argtypes = [ctypes.c_int64] * self._arity
 
     def manifest(self) -> list[str]:
         """Return the declared sorry holes as human-readable diagnostic strings.
@@ -288,6 +295,12 @@ class RuleFilter:
         antes). Unica sede de esta logica -- compartida por decide() y
         decide_int() para no duplicarla entre los dos metodos de llamada.
         """
+        if self._compiled is None:  # fail-closed: precondition _check_compiled() violated
+            raise RuleFilterError(
+                "compiled program missing in _resolve_entry_address",
+                line=self._defn_line,
+                col=self._defn_col,
+            )
         addr = self._compiled.engine.get_function_address(self._defn_name)
         if not addr:
             raise RuleFilterError(
@@ -297,7 +310,7 @@ class RuleFilter:
             )
         return addr
 
-    def decide(self, *args: int | bool) -> bool:
+    def decide(self, *args: int | bool | str) -> bool:
         """Llama al entry compilado (el declarado en `defn_name`) y devuelve
         un veredicto booleano.
 
@@ -486,9 +499,10 @@ class RuleBuilder(RuleFilter):
         builder_defn = self._entry_defn
         # The builder's compiled return type must be a pointer (Str product).
         # A builder returning Int/Bool is a semantic misuse: prosecute it.
+        compiled_local = self._compiled
         llvm_fn = None
-        if self._compiled is not None:
-            for fn in self._compiled.module.functions:
+        if compiled_local is not None:
+            for fn in compiled_local.module.functions:
                 if fn.name == "build-rule":
                     llvm_fn = fn
                     break

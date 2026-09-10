@@ -29,6 +29,7 @@ from netelpro.rule_filter import RuleBuilder, RuleFilter  # noqa: E402
 
 _ADAPTER_PATH = _REPO_ROOT / "builders" / "zone_builder_adapter.py"
 _SPEC = importlib.util.spec_from_file_location("zone_builder_adapter", _ADAPTER_PATH)
+assert _SPEC is not None, f"zone_builder_adapter spec not loadable at {_ADAPTER_PATH}"
 adapter = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(adapter)  # type: ignore[union-attr]
 
@@ -38,6 +39,7 @@ _GEN_PATH = Path(
     r"C:\Users\Jona\Desktop\FinalFront\src\neuromancer\domains\agentic\application\zone_rule_generator.py"
 )
 _gen_spec = importlib.util.spec_from_file_location("zone_rule_generator_ref", _GEN_PATH)
+assert _gen_spec is not None, f"zone_rule_generator spec not loadable at {_GEN_PATH}"
 gen_mod = importlib.util.module_from_spec(_gen_spec)
 _gen_spec.loader.exec_module(gen_mod)  # type: ignore[union-attr]
 

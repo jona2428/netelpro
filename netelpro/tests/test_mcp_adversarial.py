@@ -112,13 +112,16 @@ class MCPClient:
 
     def __init__(self, proc: subprocess.Popen):
         self.proc = proc
+        if proc.stdin is None:
+            raise RuntimeError("MCP test client requires a subprocess with stdin=PIPE")
+        self.stdin = proc.stdin
         self.reader = _LineReader(proc.stdout)
         self._lock = threading.Lock()
 
     def send(self, obj: dict) -> None:
         with self._lock:
-            self.proc.stdin.write(json.dumps(obj) + "\n")
-            self.proc.stdin.flush()
+            self.stdin.write(json.dumps(obj) + "\n")
+            self.stdin.flush()
 
     def recv(self, timeout: float = 10.0) -> dict:
         line = self.reader.readline(timeout)
@@ -133,7 +136,7 @@ class MCPClient:
 
     def close(self) -> None:
         with contextlib.suppress(Exception):
-            self.proc.stdin.close()
+            self.stdin.close()
         with contextlib.suppress(Exception):
             self.proc.terminate()
         try:
@@ -185,7 +188,9 @@ def _domain_errors(resp: dict) -> list[dict]:
 
 
 def _phases(resp: dict) -> list[str]:
-    return [e.get("phase") for e in _domain_errors(resp) if isinstance(e, dict)]
+    return [
+        p for e in _domain_errors(resp) if isinstance(e, dict) and (p := e.get("phase")) is not None
+    ]
 
 
 # ---------------------------------------------------------------------------

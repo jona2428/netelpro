@@ -58,8 +58,8 @@ def main(argv: list[str] | None = None) -> int:
     granted = collect_grants(parse_result.program)
     cap_errors = check_capabilities(parse_result.program, granted)
     if cap_errors:
-        for err in cap_errors:
-            print(str(err), file=sys.stderr)
+        for cap_err in cap_errors:
+            print(str(cap_err), file=sys.stderr)
         return 1
 
     # Fase 3: per-function effect rows — declared must cover inferred (compile-time only).
@@ -74,8 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     # Phase 4: static hole prosecution — sorry manifest is emitted, never hidden.
     hole_errors, hole_manifest = check_holes(parse_result.program)
     if hole_errors:
-        for err in hole_errors:
-            print(str(err), file=sys.stderr)
+        for hole_err in hole_errors:
+            print(str(hole_err), file=sys.stderr)
         return 1
     if hole_manifest:
         for hole in hole_manifest:

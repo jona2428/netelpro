@@ -35,9 +35,9 @@ try:  # pragma: no cover - exercised only when the feature is wired
 
     HAS_BUILDER = True
 except ImportError:  # pragma: no cover - expected until orchestrator wires it
-    RuleBuilder = None  # type: ignore[assignment]
-    RuleFilter = None  # type: ignore[assignment]
-    RuleFilterError = None  # type: ignore[assignment]
+    RuleBuilder = None  # type: ignore[misc, assignment]
+    RuleFilter = None  # type: ignore[misc, assignment]
+    RuleFilterError = None  # type: ignore[misc, assignment]
     HAS_BUILDER = False
 
 # NOTE: The skip marker is applied ONLY to the builder test class below, NOT at
