@@ -24,7 +24,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-TABLE_PATH = Path(__file__).resolve().parent.parent / "spec" / "arity_table.json"
+TABLE_PATH = Path(__file__).resolve().parent.parent / "netelpro" / "spec" / "arity_table.json"
 
 DELIMS = " \t\r\n();"
 ESCAPES = {"n": "\n", "t": "\t", '"': '"', "\\": "\\"}

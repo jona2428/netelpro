@@ -34,7 +34,7 @@ from netelpro.ast_nodes import (
     Sym,
 )
 
-TABLE_PATH = Path(__file__).resolve().parent.parent / "spec" / "arity_table.json"
+TABLE_PATH = Path(__file__).resolve().parent / "spec" / "arity_table.json"
 
 KNOWN_CAPABILITIES: set[str] = {"io"}
 

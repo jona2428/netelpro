@@ -1,7 +1,7 @@
 """Netelpro language package -- Phase 1 compiler frontend.
 
 The compiler-as-prosecutor:
-Deterministic lexical analysis, mechanical arity verification against spec/arity_table.json,
+Deterministic lexical analysis, mechanical arity verification against netelpro/spec/arity_table.json,
 and typed, frozen AST construction with exact source coordinates.
 """
 from __future__ import annotations
@@ -59,7 +59,7 @@ from netelpro.evaluator import (
     run_source,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.7.1"
 
 __all__ = [
     # Version

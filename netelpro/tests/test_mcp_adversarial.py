@@ -17,7 +17,7 @@ NOT depend on the server's implementation details -- only on the wire contract:
     timeout -> phase 'limit', never a hang.
 
 Valid .sl syntax is grounded by reading the real package (netelpro/evaluator.py,
-netelpro/parser.py, netelpro/rule_filter.py, netelpro/caps.py, spec/arity_table.json).
+netelpro/parser.py, netelpro/rule_filter.py, netelpro/caps.py, netelpro/spec/arity_table.json).
 
 Collection NEVER errors: if netelpro/mcp_server.py does not exist or does not
 import, every test skips cleanly via pytest.skip.

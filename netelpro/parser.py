@@ -60,7 +60,7 @@ from netelpro.ast_nodes import (
 )
 from netelpro.lexer import LexError, Tok, tokenize
 
-TABLE_PATH = Path(__file__).resolve().parent.parent / "spec" / "arity_table.json"
+TABLE_PATH = Path(__file__).resolve().parent / "spec" / "arity_table.json"
 
 
 @dataclass(frozen=True)
