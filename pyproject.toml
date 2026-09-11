@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,8 @@ version = "0.7.0"
 description = "A programming language designed for LLMs — honest by construction: mechanical verification, explicit holes, no silent gaps."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = ["llvmlite>=0.49"]
 authors = [{ name = "Jonathan", email = "wolfman.agro@gmail.com" }]
 keywords = ["llm", "compiler", "llvm", "dsl", "verification", "honesty"]
@@ -29,6 +30,7 @@ dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
 include = ["netelpro*"]
+exclude = ["netelpro.tests", "netelpro.tests.*"]
 
 [tool.mypy]
 python_version = "3.11"
