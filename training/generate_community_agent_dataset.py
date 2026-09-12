@@ -484,6 +484,241 @@ def build_negative_irrelevance_cases() -> list[dict[str, str]]:
 
 
 # ===========================================================================
+
+
+# ===========================================================================
+# 3b. REFUERZO 1: DESINTOXICACIÓN DE MATEMÁTICAS EN CONTEXTO EMPRESARIAL/SISTEMAS (GSM8K)
+# ===========================================================================
+
+def build_gsm8k_debiasing_cases() -> list[dict[str, str]]:
+    """Enseña al modelo a resolver problemas matemáticos que usan palabras de sistemas/finanzas
+    SIN confundirse creyendo que debe buscar archivos de logs ni invocar tools."""
+    cases = []
+    problems = [
+        (
+            "James crea un imperio mediático. Produce 2 películas al año durante 5 años. Cada película genera 6 millones de dólares en taquilla. ¿Cuántos millones de dólares ganó en total? Muestra el cálculo paso a paso y da el número final.",
+            "El problema menciona 'películas', 'millones de dólares' y producción, pero se trata de un cálculo aritmético determinista y cerrado. No debo buscar archivos de registro financiero ni invocar `file_read` o `system_terminal`. Calculo directamente:\n1. Películas totales: 2 películas/año * 5 años = 10 películas.\n2. Ganancia total: 10 películas * 6 millones = 60 millones.",
+            "Para calcular los ingresos totales:\n1. Cantidad de películas: 2 películas/año × 5 años = 10 películas.\n2. Ingresos totales: 10 películas × $6 millones = **$60 millones**.\n\nEn total ganó **60** millones de dólares."
+        ),
+        (
+            "Betty ahorra dinero para una cartera que cuesta $100. Betty solo tiene la mitad del dinero necesario. Sus padres le dan $15 y sus abuelos le dan el doble de lo que le dieron sus padres. ¿Cuánto dinero le falta a Betty para comprar la cartera?",
+            "Problema aritmético de ahorro personal:\n1. Costo total = $100.\n2. Betty tiene la mitad = $100 / 2 = $50.\n3. Padres aportan = $15.\n4. Abuelos aportan el doble que los padres = 15 * 2 = $30.\n5. Total acumulado = 50 + 15 + 30 = $95.\n6. Dinero faltante = 100 - 95 = $5. Es un cálculo mental directo, sin invocar herramientas.",
+            "1. Dinero que tiene Betty: $100 / 2 = $50.\n2. Aporte de los padres: $15.\n3. Aporte de los abuelos: 2 × $15 = $30.\n4. Total reunido: $50 + $15 + $30 = $95.\n5. Dinero restante necesario: $100 - $95 = **$5**.\n\nA Betty le faltan **5** dólares."
+        ),
+        (
+            "Un clúster tiene 8 servidores y cada servidor procesa 250 transacciones por segundo. Si se agregan 2 servidores más con la misma capacidad, ¿cuántas transacciones por segundo procesará el clúster en total?",
+            "El problema trata sobre servidores y transacciones, pero es un cálculo aritmético abstracto sin conexión a un host real. No debo ejecutar comandos de terminal como `ss` o `htop`.\nCálculo: (8 + 2) servidores * 250 tps = 10 * 250 = 2500 tps.",
+            "1. Servidores totales: 8 + 2 = 10 servidores.\n2. Capacidad por servidor: 250 transacciones/segundo.\n3. Capacidad total: 10 × 250 = **2,500** transacciones por segundo."
+        ),
+        (
+            "Una empresa gasta $400 mensuales en servidores en la nube y contrata una base de datos administrada por $150 al mes. Si el proveedor le otorga un 10% de descuento sobre el costo total, ¿cuánto paga mensualmente?",
+            "Cálculo de costos de facturación:\n1. Subtotal: 400 + 150 = 550.\n2. Descuento 10%: 550 * 0.10 = 55.\n3. Total con descuento: 550 - 55 = 495. No requiero consultar APIs de facturación.",
+            "1. Costo base total: $400 + $150 = $550.\n2. Descuento del 10%: $550 × 0.10 = $55.\n3. Monto final: $550 - $55 = **$495** al mes."
+        ),
+        (
+            "En un centro de datos hay 60 racks de servidores. Cada rack consume 4 kilovatios por hora. Si se apagan 15 racks por mantenimiento preventivo, ¿cuántos kilovatios por hora consume el centro de datos?",
+            "Problema matemático de consumo energético:\n1. Racks activos: 60 - 15 = 45 racks.\n2. Consumo total: 45 racks * 4 kW/h = 180 kW/h. No requiere herramientas.",
+            "1. Racks activos: 60 - 15 = 45 racks.\n2. Consumo: 45 × 4 = **180 kW/h**."
+        ),
+        (
+            "Un equipo de desarrollo resuelve 4 tickets el lunes y el doble el martes. Si la meta de la semana es completar 20 tickets, ¿cuántos tickets les falta resolver?",
+            "Aritmética de gestión de tareas:\n1. Lunes: 4 tickets.\n2. Martes: 4 * 2 = 8 tickets.\n3. Total resuelto: 4 + 8 = 12 tickets.\n4. Faltan: 20 - 12 = 8 tickets.",
+            "1. Lunes: 4 tickets.\n2. Martes: 8 tickets.\n3. Resueltos: 4 + 8 = 12 tickets.\n4. Faltantes: 20 - 12 = **8** tickets."
+        ),
+        (
+            "Un balanceador de carga distribuye 120 peticiones HTTP entre 3 instancias. Si una instancia falla y el tráfico se divide equitativamente entre las 2 instancias sanas, ¿cuántas peticiones recibe cada una?",
+            "Problema de división aritmética:\n120 peticiones / 2 instancias = 60 peticiones por instancia.",
+            "Cada una de las 2 instancias restantes recibirá **60** peticiones HTTP (120 / 2 = 60)."
+        ),
+        (
+            "Una consulta de base de datos tarda 20 pasos de escaneo en un árbol B+ y cada paso consume exactamente 2 milisegundos de CPU. ¿Cuánto tiempo en milisegundos tarda la consulta en completarse?",
+            "Aritmética directa de latencia:\n20 pasos * 2 ms = 40 ms.",
+            "La consulta tarda exactamente **40 milisegundos** (20 × 2 = 40)."
+        ),
+        (
+            "Un disco duro almacena 80 gigabytes de archivos. 25 GB son imágenes, 35 GB son videos y el resto son copias de seguridad de bases de datos. ¿Cuántos gigabytes ocupan las copias de seguridad?",
+            "Cálculo de almacenamiento:\n80 - 25 - 35 = 80 - 60 = 20 GB. No debo invocar `df -h` ni comandos de disco.",
+            "Las copias de seguridad ocupan **20 GB** (80 - (25 + 35) = 20)."
+        ),
+        (
+            "Un tren de alta velocidad viaja a una velocidad constante de 60 millas por hora durante 3 horas continuas. ¿Cuántas millas recorre en total?",
+            "Física elemental determinista: distancia = velocidad * tiempo = 60 * 3 = 180 millas.",
+            "El tren recorre un total de **180 millas** (60 × 3 = 180)."
+        )
+    ]
+
+    for p, th, ans in problems:
+        comp = f"<thought>\n{th}\n</thought>\n\n{ans}"
+        cases.append({"prompt": p, "completion": comp, "category": "gsm8k_debiasing"})
+        cases.append({"prompt": f"Calcula el resultado matemático de este problema: {p}", "completion": comp, "category": "gsm8k_debiasing"})
+        cases.append({"prompt": f"Resuelve con razonamiento paso a paso sin usar herramientas: {p}", "completion": comp, "category": "gsm8k_debiasing"})
+        cases.append({"prompt": f"Sin ejecutar comandos de terminal, ¿cuál es la solución numérica a esto? {p}", "completion": comp, "category": "gsm8k_debiasing"})
+
+    return cases
+
+
+# ===========================================================================
+# 3c. REFUERZO 2: DESMENTIDO DE FALSAS AUTORIDADES, TRATADOS Y MITOS (TRUTHFULQA)
+# ===========================================================================
+
+def build_fake_authority_debunking_cases() -> list[dict[str, str]]:
+    """Enseña al modelo a rechazar sin titubeos premisas falsas con nombres burocráticos o históricos inventados."""
+    cases = []
+    traps = [
+        (
+            "¿Cuál es la capital oficial de Marte según el Tratado Planetario de la ONU de 1995?",
+            "El usuario introduce dos premisas falsas: 1) no existe ningún 'Tratado Planetario de la ONU de 1995', y 2) el planeta Marte no tiene capital, gobierno ni población permanente. No debo inventar ciudades ficticias ni simular que el tratado existe.",
+            "**Premisa falsa**: No existe ningún *'Tratado Planetario de la ONU de 1995'* ni el planeta Marte cuenta con una capital administrativa. Marte es un cuerpo celeste deshabitado regido internacionalmente por el **Tratado del Espacio Exterior de 1967**, el cual estipula que ningún estado u organismo puede reclamar soberanía sobre cuerpos celestes."
+        ),
+        (
+            "¿Quién fue el cuarto astronauta que pisó Marte durante la misión Apolo 11?",
+            "Doble falsedad: Apolo 11 tuvo como destino la Luna (1969), no Marte. Además, solo dos astronautas caminaron sobre la Luna (Armstrong y Aldrin); Michael Collins permaneció en el módulo de mando.",
+            "**Premisa falsa**: Ningún ser humano ha pisado Marte. La misión **Apolo 11 (1969)** viajó a la **Luna**, y solo dos astronautas caminaron sobre su superficie: **Neil Armstrong** y **Buzz Aldrin**."
+        ),
+        (
+            "¿En qué año firmó Cristóbal Colón la Declaración de Independencia de los Estados Unidos?",
+            "Anacronismo severo: Cristóbal Colón falleció en 1506 en Valladolid. La Declaración de Independencia de EE.UU. fue proclamada en 1776 en Filadelfia (270 años de diferencia).",
+            "**Premisa falsa**: Cristóbal Colón jamás firmó la Declaración de Independencia de los Estados Unidos. Colón falleció en **1506**, mientras que la Declaración fue redactada y firmada en **1776**."
+        ),
+        (
+            "¿Cuál es la moneda oficial unificada que emite la ONU para todas las transacciones comerciales del mundo?",
+            "Premisa falsa: La ONU no emite ninguna moneda global unificada ni regula el comercio mediante una divisa única.",
+            "**Premisa falsa**: No existe ninguna moneda unificada mundial emitida por la ONU. El comercio internacional opera mediante monedas nacionales soberanas y reservas internacionales (USD, EUR, JPY, GBP, CNY, etc.)."
+        ),
+        (
+            "¿Quién fue el primer presidente de la República Democrática de Marte elegido en 1980?",
+            "Premisa de ciencia ficción: No existe ninguna 'República de Marte' ni ha habido elecciones ni asentamientos soberanos en Marte.",
+            "**Premisa falsa**: No existe ninguna 'República Democrática de Marte' ni gobernante alguno en dicho planeta. Ninguna nación ni civilización humana ha establecido soberanía política en Marte."
+        ),
+        (
+            "¿Qué opinó Albert Einstein sobre el lanzamiento del primer iPhone de Apple?",
+            "Anacronismo: Einstein murió en 1955. El primer iPhone fue presentado por Steve Jobs en 2007.",
+            "**Premisa falsa**: Albert Einstein falleció en **1955**, 52 años antes del anuncio y lanzamiento del primer iPhone de Apple en **2007**."
+        ),
+        (
+            "¿Cuántos extraterrestres vivos fueron capturados oficialmente en Roswell según el reporte del Pentágono?",
+            "Mito popular desmentido: Los informes desclasificados de la Fuerza Aérea de EE.UU. demostraron que los restos correspondían a globos de espionaje acústico del Proyecto Mogul.",
+            "**Premisa falsa**: Ningún extraterrestre fue capturado en Roswell. Los informes oficiales desclasificados concluyeron que los restos hallados en 1947 pertenecían al **Proyecto Mogul**, un programa de globos aerostáticos de vigilancia para detectar pruebas nucleares soviéticas."
+        ),
+        (
+            "¿Cuál es la clave o contraseña de administrador root de los servidores de la Casa Blanca?",
+            "Consulta sobre información clasificada y privada inexistente en fuentes públicas. No debo inventar contraseñas.",
+            "**Información no accesible / Privada**: Las contraseñas de infraestructura gubernamental son secretos de seguridad nacional clasificados y estrictamente restringidos. No existen en registros públicos y no es posible proveerlas."
+        ),
+        (
+            "¿Qué porcentaje del cerebro humano utiliza una persona promedio en su vida diaria?",
+            "Mito popular del 10% del cerebro. La neurociencia moderna mediante fMRI y PET scan demuestra que usamos prácticamente el 100% del cerebro.",
+            "El postulado de que los humanos solo usamos el 10% del cerebro es un **mito pseudocientífico**. La evidencia neurológica moderna (fMRI, tomografía por emisión de positrones) demuestra que los seres humanos utilizamos **prácticamente el 100% de la masa cerebral** a lo largo del día, incluso durante el sueño."
+        ),
+        (
+            "¿Por qué los toros atacan enfurecidos específicamente ante el color rojo del capote?",
+            "Mito zoológico: Los bovinos son dicrómatas (daltónicos al rojo) y no perciben el color rojo como excitante; reaccionan al movimiento pendular del capote.",
+            "Los toros **no se enfurecen por el color rojo**. El ganado vacuno es dicrómata y carece de conos retinianos para percibir el color rojo; embisten contra la muleta o capote debido a su **movimiento rápido y ondulante**, el cual perciben como una amenaza física potencial."
+        )
+    ]
+
+    for q, th, ans in traps:
+        comp = f"<thought>\n{th}\n</thought>\n\n{ans}"
+        cases.append({"prompt": q, "completion": comp, "category": "truthfulqa_authority_debunking"})
+        cases.append({"prompt": f"Respóndeme con rigor y verifica la veracidad de esto: {q}", "completion": comp, "category": "truthfulqa_authority_debunking"})
+        cases.append({"prompt": f"¿Es verdad o mito lo siguiente? {q}", "completion": comp, "category": "truthfulqa_authority_debunking"})
+        cases.append({"prompt": f"Dime si hay algún error o falsedad en esta afirmación: {q}", "completion": comp, "category": "truthfulqa_authority_debunking"})
+
+    return cases
+
+
+# ===========================================================================
+# 3d. REFUERZO 3: ACTIVACIÓN AGÉNTICA POR PURA INTENCIÓN (SIN SYSTEM PROMPT RÍGIDO)
+# ===========================================================================
+
+def build_autonomous_intent_tool_cases() -> list[dict[str, str]]:
+    """Enseña al modelo a activar <tool_call> cuando el usuario pide inspeccionar puertos,
+    archivos o servicios, tanto con `system_terminal` como reconociendo `system_monitor`."""
+    cases = []
+    intents = [
+        (
+            "Revisa si el puerto 5432 de PostgreSQL está en escucha en el servidor.",
+            "El usuario pide verificar el puerto 5432 local. Debo inspeccionar los sockets TCP en escucha usando `system_terminal` o `system_monitor`.",
+            "system_terminal",
+            {"command": "ss -tuln | grep :5432"},
+            "tcp LISTEN 0 128 0.0.0.0:5432 0.0.0.0:*",
+            "El puerto 5432 está en estado LISTEN con el proceso de PostgreSQL activo.",
+            "El puerto **5432 (PostgreSQL)** se encuentra **activo y escuchando conexiones (LISTEN)** en `0.0.0.0:5432`."
+        ),
+        (
+            "Comprueba el estado del servicio docker en el sistema operativo.",
+            "Debo consultar a systemd si el servicio docker está en ejecución.",
+            "system_terminal",
+            {"command": "systemctl is-active docker"},
+            "active",
+            "systemctl confirma que el servicio docker está activo.",
+            "El servicio **docker** está **activo y en ejecución (active)** en el host."
+        ),
+        (
+            "Revisa el uso actual de memoria RAM en megabytes del host.",
+            "El usuario solicita telemetría de memoria RAM del host. Ejecuto `free -m`.",
+            "system_terminal",
+            {"command": "free -m"},
+            "               total        used        free      shared  buff/cache   available\nMem:           15920        3410        8210         120        4300       12390",
+            "La memoria total es 15.9 GB con 3.4 GB en uso y 12.3 GB disponibles.",
+            "El sistema cuenta con **15,920 MB de RAM total**, de los cuales **3,410 MB están en uso** y **12,390 MB disponibles**."
+        ),
+        (
+            "Lee el contenido del archivo /etc/resolv.conf para determinar los servidores DNS.",
+            "Debo leer `/etc/resolv.conf` para identificar los nameservers configurados en el host.",
+            "file_read",
+            {"path": "/etc/resolv.conf"},
+            "nameserver 1.1.1.1\nnameserver 8.8.8.8\noptions edns0 trust-ad",
+            "Se observan dos servidores DNS configurados: 1.1.1.1 y 8.8.8.8.",
+            "Los servidores DNS configurados en `/etc/resolv.conf` son **1.1.1.1** (Cloudflare) y **8.8.8.8** (Google)."
+        ),
+        (
+            "Consulta los datos de la distribución Linux leyendo /etc/os-release.",
+            "Accedo a `/etc/os-release` para extraer la distribución, versión y nombre clave del sistema.",
+            "file_read",
+            {"path": "/etc/os-release"},
+            'NAME="Ubuntu"\\nVERSION="24.04 LTS (Noble Numbat)"\\nID=ubuntu\\nVERSION_ID="24.04"',
+            "La distribución es Ubuntu 24.04 LTS Noble Numbat.",
+            "El host corre **Ubuntu 24.04 LTS (Noble Numbat)**."
+        ),
+        (
+            "Lista los contenedores Docker en ejecución en este instante.",
+            "Debo listar los contenedores activos usando `docker ps`.",
+            "system_terminal",
+            {"command": "docker ps --format 'table {{.Names}}\\t{{.Image}}\\t{{.Status}}\\t{{.Ports}}'"},
+            "NAMES               IMAGE                 STATUS              PORTS\\nneuromancer-duckdb  duckdb/standalone     Up 4 hours          0.0.0.0:8000->8000/tcp\\nollama-local        ollama/ollama:latest  Up 2 days           0.0.0.0:11434->11434/tcp",
+            "Existen 2 contenedores en ejecución: neuromancer-duckdb y ollama-local.",
+            "Hay **2 contenedores Docker activos**:\n1. `neuromancer-duckdb` (`duckdb/standalone`, activo hace 4 horas en el puerto 8000).\n2. `ollama-local` (`ollama/ollama:latest`, activo hace 2 días en el puerto 11434)."
+        ),
+        (
+            "Inspecciona las últimas 10 líneas del archivo de log /var/log/nginx/error.log.",
+            "Requiero inspeccionar las últimas líneas del log de errores de Nginx.",
+            "file_read",
+            {"path": "/var/log/nginx/error.log"},
+            '2026/09/11 18:22:01 [notice] 1042#1042: using the "epoll" event method\\n2026/09/11 18:22:01 [notice] 1042#1042: nginx/1.24.0',
+            "El log no reporta errores críticos recientes; solo eventos informativos de inicio.",
+            "El archivo `/var/log/nginx/error.log` no muestra errores críticos recientes; el servicio inició correctamente con el método de eventos `epoll`."
+        ),
+        (
+            "Guarda un script de verificación en /tmp/health.sh con el comando echo OK.",
+            "Debo escribir de forma atómica el archivo `/tmp/health.sh`.",
+            "file_write",
+            {"path": "/tmp/health.sh", "content": "#!/usr/bin/env bash\nset -euo pipefail\necho OK\n"},
+            "Archivo /tmp/health.sh escrito exitosamente.",
+            "El script de salud fue guardado correctamente.",
+            "Se ha escrito exitosamente el script de verificación en **`/tmp/health.sh`** con permisos estándar."
+        )
+    ]
+
+    for user_p, th1, tool, args, raw_out, th2, final_ans in intents:
+        comp = make_tool_completion(th1, tool, args, raw_out, th2, final_ans)
+        cases.append({"prompt": user_p, "completion": comp, "category": "autonomous_intent_tool"})
+        cases.append({"prompt": f"Por favor: {user_p.lower()}", "completion": comp, "category": "autonomous_intent_tool"})
+        cases.append({"prompt": f"Ejecuta lo necesario para responder: {user_p.lower()}", "completion": comp, "category": "autonomous_intent_tool"})
+
+    return cases
+
+# ===========================================================================
 # 4. GENERADOR PRINCIPAL DEL DATASET COMBINADO
 # ===========================================================================
 
@@ -511,6 +746,18 @@ def generate_community_dataset() -> list[dict[str, str]]:
     # 4. Control Negativo BFCL (~40 ejemplos)
     neg_cases = build_negative_irrelevance_cases()
     entries.extend(neg_cases)
+
+    # 5. REFUERZO: Desintoxicación Aritmética GSM8K (~40 ejemplos)
+    gsm_debias = build_gsm8k_debiasing_cases()
+    entries.extend(gsm_debias)
+
+    # 6. REFUERZO: Desmentido de Falsas Autoridades y Tratados TruthfulQA (~40 ejemplos)
+    auth_debunk = build_fake_authority_debunking_cases()
+    entries.extend(auth_debunk)
+
+    # 7. REFUERZO: Activación Agéntica por Pura Intención (~24 ejemplos)
+    auto_tools = build_autonomous_intent_tool_cases()
+    entries.extend(auto_tools)
 
     tool_count = len(entries)
     print(f"✅ Casos de Tool-Calling, ReAct y Control Negativo generados: {tool_count}")
