@@ -63,6 +63,7 @@ def build_notebook() -> dict:
             "outputs": [],
             "source": [
                 "import os\n",
+                "os.environ[\"CUDA_VISIBLE_DEVICES\"] = \"0\"\n",
                 "os.environ[\"WANDB_DISABLED\"] = \"true\"\n",
                 "\n",
                 "# Unsloth optimizado para Kaggle + PEFT, TRL, BitsAndBytes y LLVM\n",
