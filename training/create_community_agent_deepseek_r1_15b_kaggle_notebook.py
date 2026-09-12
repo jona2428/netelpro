@@ -424,7 +424,7 @@ def build_notebook() -> dict:
                 "\n",
                 "    # 3. IFEval (Instruction-Following Evaluation)\n",
                 "    ifeval_passed = 0\n",
-                "    for item in IFEval_SUITE:\n",
+                "    for item in IFEVAL_SUITE:\n",
                 '        resp = generate_response(item["prompt"])\n',
                 '        try:\n',
                 '            if item["validator"](resp):\n',
