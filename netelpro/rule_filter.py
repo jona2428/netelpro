@@ -256,10 +256,16 @@ class RuleFilter:
                 else ctypes.c_char_p
                 for arg in llvm_fn.args
             ]
+            addr = self._compiled.engine.get_function_address(self._defn_name)
+            if addr:
+                self._native_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
+            else:
+                self._native_fn = None
         else:
             self._compiled = None
             self._restype = ctypes.c_bool
             self._argtypes = [ctypes.c_int64] * self._arity
+            self._native_fn = None
 
     def manifest(self) -> list[str]:
         """Return the declared sorry holes as human-readable diagnostic strings.
@@ -337,9 +343,12 @@ class RuleFilter:
                 col=self._defn_col,
             )
 
-        addr = self._resolve_entry_address()
+        c_fn = self._native_fn
+        if c_fn is None:
+            addr = self._resolve_entry_address()
+            c_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
+            self._native_fn = c_fn
 
-        c_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
         call_args: list[Any] = [
             a.encode("utf-8") if (isinstance(a, str) and at is ctypes.c_char_p) else a
             for a, at in zip(args, self._argtypes, strict=True)
@@ -372,8 +381,12 @@ class RuleFilter:
                 line=self._defn_line,
                 col=self._defn_col,
             )
-        addr = self._resolve_entry_address()
-        c_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
+        c_fn = self._native_fn
+        if c_fn is None:
+            addr = self._resolve_entry_address()
+            c_fn = ctypes.CFUNCTYPE(self._restype, *self._argtypes)(addr)
+            self._native_fn = c_fn
+
         call_args: list[Any] = [
             a.encode("utf-8") if (isinstance(a, str) and at is ctypes.c_char_p) else a
             for a, at in zip(args, self._argtypes, strict=True)

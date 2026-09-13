@@ -1,0 +1,92 @@
+{
+ "meta": {
+  "date": "2026-09-13 04:25",
+  "n_samples": 5,
+  "temp": 0.8,
+  "models": {
+   "olmoe-base": "hf.co/allenai/OLMoE-1B-7B-0924-Instruct-GGUF:olmoe-1b-7b-0924-instruct-q4_k_m.gguf",
+   "olmoe-gk": "goliath-killer:latest",
+   "qwen-base": "qwen2.5:1.5b"
+  }
+ },
+ "part_a": {
+  "n_examples": 40,
+  "chars_mean": {
+   "netelpro_contract": 254.8,
+   "netelpro_contract_cases": 359.8,
+   "json_indent": 873.8,
+   "json_compact": 351.8
+  },
+  "tokens": {
+   "olmoe-base": {
+    "netelpro_contract": {
+     "mean": 134.5,
+     "median": 134.0,
+     "ratio_vs_json_indent": 0.4
+    },
+    "netelpro_contract_cases": {
+     "mean": 215.5,
+     "median": 215.0,
+     "ratio_vs_json_indent": 0.64
+    },
+    "json_indent": {
+     "mean": 336.5,
+     "median": 336.0,
+     "ratio_vs_json_indent": 1.0
+    },
+    "json_compact": {
+     "mean": 159.5,
+     "median": 159.0,
+     "ratio_vs_json_indent": 0.474
+    }
+   },
+   "olmoe-gk": {
+    "netelpro_contract": {
+     "mean": 134.5,
+     "median": 134.0,
+     "ratio_vs_json_indent": 0.4
+    },
+    "netelpro_contract_cases": {
+     "mean": 215.5,
+     "median": 215.0,
+     "ratio_vs_json_indent": 0.64
+    },
+    "json_indent": {
+     "mean": 336.5,
+     "median": 336.0,
+     "ratio_vs_json_indent": 1.0
+    },
+    "json_compact": {
+     "mean": 159.5,
+     "median": 159.0,
+     "ratio_vs_json_indent": 0.474
+    }
+   },
+   "qwen-base": {
+    "netelpro_contract": {
+     "mean": 147.2,
+     "median": 147.0,
+     "ratio_vs_json_indent": 0.497
+    },
+    "netelpro_contract_cases": {
+     "mean": 234.2,
+     "median": 234.0,
+     "ratio_vs_json_indent": 0.791
+    },
+    "json_indent": {
+     "mean": 296.2,
+     "median": 296.0,
+     "ratio_vs_json_indent": 1.0
+    },
+    "json_compact": {
+     "mean": 127.2,
+     "median": 127.0,
+     "ratio_vs_json_indent": 0.429
+    }
+   }
+  }
+ },
+ "part_b": {
+  "cells": {}
+ }
+}
