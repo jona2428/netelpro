@@ -8,3 +8,11 @@ dist/
 build/
 # Worktrees locales (SDD)
 .worktrees/
+
+# Teo v2: corpus binario y checkpoints regenerables (miles de MB)
+/data/
+models/teo_v2/
+*.onnx
+*.onnx.data
+training/data/*.bin
+training/data/teo_v2_corpus/

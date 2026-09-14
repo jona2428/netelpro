@@ -170,33 +170,62 @@ class NetelproLayer(_ModuleBase):
             batch_size = z_flat.size(0)
 
             if isinstance(control_flags, int):
-                c_list = [control_flags] * self.out_features
-            else:
-                c_list = list(control_flags)
-                if len(c_list) != self.out_features:
-                    c_list = (c_list * ((self.out_features // len(c_list)) + 1))[:self.out_features]
+                if control_flags == 0:
+                    mask_tensor = torch.zeros_like(z)
+                    self.last_audit = [
+                        {"neuron": j, "z": float(z_flat[0, j].item()) if batch_size > 0 else 0.0, "z_scaled": 0, "allow": False, "reason": "inhibit", "control_flag": 0}
+                        for j in range(self.out_features)
+                    ]
+                    return NetelproActivationSTE.apply(z, mask_tensor, self.activation_fn)
 
-            masks = []
-            audit_records = []
-            for b in range(batch_size):
-                z_row = z_flat[b]
-                z_vals = z_row.tolist()
-                z_scaled_list = [int(round(float(v) * self.scale_factor)) for v in z_vals]
-                verdicts = self.kernel.evaluate_batch(z_scaled_list, self.z_min, self.z_max, c_list)
-                masks.append([1.0 if v else 0.0 for v in verdicts])
-                if b == 0:
-                    for j, (zv, zs, v, c_val) in enumerate(zip(z_vals, z_scaled_list, verdicts, c_list)):
-                        audit_records.append({
+                # Vectorized fast path directly on PyTorch tensor (SIMD / AVX / GPU)
+                z_scaled = z * self.scale_factor
+                mask_tensor = ((z_scaled >= self.z_min) & (z_scaled <= self.z_max)).to(z.dtype)
+
+                # Diagnostic audit only during inference/eval to maximize training SIMD speed
+                if not self.training:
+                    z0 = z_flat[0]
+                    z0_scaled = (z0 * self.scale_factor).round()
+                    m0 = mask_tensor.view(-1, self.out_features)[0]
+                    self.last_audit = [
+                        {
                             "neuron": j,
-                            "z": zv,
-                            "z_scaled": zs,
-                            "allow": v,
+                            "z": float(z0[j].item()),
+                            "z_scaled": int(z0_scaled[j].item()),
+                            "allow": bool(m0[j].item() > 0.5),
                             "reason": None,
-                            "control_flag": c_val,
-                        })
+                            "control_flag": 1,
+                        }
+                        for j in range(self.out_features)
+                    ]
+                else:
+                    self.last_audit = []
+                return NetelproActivationSTE.apply(z, mask_tensor, self.activation_fn)
 
-            self.last_audit = audit_records
-            mask_tensor = torch.tensor(masks, dtype=z.dtype, device=z.device).view(z.shape)
+            # Custom per-neuron control flags path
+            c_list = list(control_flags)
+            if len(c_list) != self.out_features:
+                c_list = (c_list * ((self.out_features // len(c_list)) + 1))[:self.out_features]
+
+            c_tensor = torch.tensor(c_list, dtype=z.dtype, device=z.device)
+            z_scaled = z * self.scale_factor
+            in_range = ((z_scaled >= self.z_min) & (z_scaled <= self.z_max)).to(z.dtype)
+            mask_tensor = in_range * (c_tensor == 1).to(z.dtype)
+
+            z0 = z_flat[0]
+            z0_scaled = (z0 * self.scale_factor).round()
+            m0 = mask_tensor.view(-1, self.out_features)[0]
+            self.last_audit = [
+                {
+                    "neuron": j,
+                    "z": float(z0[j].item()),
+                    "z_scaled": int(z0_scaled[j].item()),
+                    "allow": bool(m0[j].item() > 0.5),
+                    "reason": None,
+                    "control_flag": c_list[j],
+                }
+                for j in range(self.out_features)
+            ]
             return NetelproActivationSTE.apply(z, mask_tensor, self.activation_fn)
 
         raise NotImplementedError("Batch pure-python layer without torch: use NetelproNeuron individually")
