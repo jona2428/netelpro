@@ -260,7 +260,7 @@ def _to_llvm_type(t: str) -> ir.Type:
     if t == TYPE_BOOL:
         return ir.IntType(1)
     if t == TYPE_STR:
-        return ir.PointerType()
+        return ir.PointerType(ir.IntType(8))
     return ir.IntType(64)
 
 
@@ -556,14 +556,14 @@ def compile_program(program: Program) -> CompiledProgram:
     i32 = ir.IntType(32)
     i1 = ir.IntType(1)
 
-    printf_ty = ir.FunctionType(i32, [ir.PointerType()], var_arg=True)
+    printf_ty = ir.FunctionType(i32, [ir.PointerType(ir.IntType(8))], var_arg=True)
     printf_fn = ir.Function(mod, printf_ty, name="printf")
 
-    strcmp_ty = ir.FunctionType(i32, [ir.PointerType(), ir.PointerType()])
+    strcmp_ty = ir.FunctionType(i32, [ir.PointerType(ir.IntType(8)), ir.PointerType(ir.IntType(8))])
     strcmp_fn = ir.Function(mod, strcmp_ty, name="strcmp")
-    strncmp_ty = ir.FunctionType(i32, [ir.PointerType(), ir.PointerType(), i64])
+    strncmp_ty = ir.FunctionType(i32, [ir.PointerType(ir.IntType(8)), ir.PointerType(ir.IntType(8)), i64])
     strncmp_fn = ir.Function(mod, strncmp_ty, name="strncmp")
-    strlen_ty = ir.FunctionType(i64, [ir.PointerType()])
+    strlen_ty = ir.FunctionType(i64, [ir.PointerType(ir.IntType(8))])
     strlen_fn = ir.Function(mod, strlen_ty, name="strlen")
 
     exit_ty = ir.FunctionType(ir.VoidType(), [i32])
@@ -581,7 +581,7 @@ def compile_program(program: Program) -> CompiledProgram:
     div_zero_fn = ir.Function(mod, div_zero_ty, name="__stray_div_zero_error")
     div_zero_bb = div_zero_fn.append_basic_block("entry")
     div_zero_b = ir.IRBuilder(div_zero_bb)
-    fmt_div_zero_ptr = div_zero_b.bitcast(msg_gv, ir.PointerType())
+    fmt_div_zero_ptr = div_zero_b.bitcast(msg_gv, ir.PointerType(ir.IntType(8)))
     div_zero_b.call(printf_fn, [fmt_div_zero_ptr])
     div_zero_b.call(exit_fn, [ir.Constant(i32, 1)])
     div_zero_b.unreachable()
@@ -650,7 +650,7 @@ def compile_program(program: Program) -> CompiledProgram:
             return val
 
         if isinstance(node, StrLit):
-            val = builder.bitcast(intern_str_const(node.value), ir.PointerType())
+            val = builder.bitcast(intern_str_const(node.value), ir.PointerType(ir.IntType(8)))
             if is_tail:
                 # v0.5: the capability boundary. ONLY a builder (`build-rule`)
                 # may return a string product: its i8* crosses the bridge as
@@ -887,10 +887,10 @@ def compile_program(program: Program) -> CompiledProgram:
             if head == "print":
                 a = compile_expr(node.args[0], env, is_tail=False, builder=builder, ctx=ctx)
                 assert a is not None
-                if a.type == ir.PointerType():
-                    fmt_ptr = builder.bitcast(fmt_str_gv, ir.PointerType())
+                if a.type == ir.PointerType(ir.IntType(8)):
+                    fmt_ptr = builder.bitcast(fmt_str_gv, ir.PointerType(ir.IntType(8)))
                 else:
-                    fmt_ptr = builder.bitcast(fmt_int_gv, ir.PointerType())
+                    fmt_ptr = builder.bitcast(fmt_int_gv, ir.PointerType(ir.IntType(8)))
                 builder.call(printf_fn, [fmt_ptr, a])
                 res = ir.Constant(i64, 0)
                 if is_tail:
@@ -989,7 +989,7 @@ def compile_program(program: Program) -> CompiledProgram:
                 mb.ret(ir.Constant(i64, 0))
             elif last_val.type == i1:
                 mb.ret(mb.zext(last_val, i64))
-            elif last_val.type == ir.PointerType():
+            elif last_val.type == ir.PointerType(ir.IntType(8)):
                 # v0.5: string products at top level are evaluated for their
                 # effects (print), but main keeps its i64 ABI -- products
                 # cross the boundary exclusively through `build-rule`.
