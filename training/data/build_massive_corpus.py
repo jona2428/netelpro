@@ -492,7 +492,7 @@ def stream_systems_code_deep(
         # dataset itself needs to be Parquet-native. bigcode/the-stack-smol
         # is a genuinely script-free Parquet dataset, one folder per language.
         print("📡 Connecting to Hugging Face: bigcode/the-stack-smol...")
-        target_dirs = ["data/python", "data/rust", "data/cpp", "data/c-sharp"]
+        target_dirs = ["data/python", "data/rust", "data/c++", "data/c-sharp"]
         count = 0
         for data_dir in target_dirs:
             try:
