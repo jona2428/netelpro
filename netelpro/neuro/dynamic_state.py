@@ -234,6 +234,14 @@ class NetelproSDSCell(_ModuleBase):
         # 8. Output projection
         y_t = self.out_proj(y_inner)  # (B, d_model)
 
+        # Fail-closed enforcement: bounded_state already collapses to zero when
+        # control_flag == 0, but the D-skip term (self.D * x_conv) bypasses
+        # that gate entirely and would otherwise leak a non-zero cell output
+        # even while "fail-closed". Collapse the whole cell output to match
+        # the documented silicon law (control_flag == 0 => state/output 0.0).
+        if control_flag == 0:
+            y_t = torch.zeros_like(y_t)
+
         return y_t, bounded_state, new_conv_state
 
     def forward(
@@ -287,7 +295,16 @@ class NetelproSDSCell(_ModuleBase):
         y_inner = y_ssm * F.silu(z)
 
         # 7. Project back to d_model
-        return self.out_proj(y_inner)
+        out = self.out_proj(y_inner)
+
+        # Fail-closed enforcement: mirrors step() — the D-skip term inside the
+        # per-timestep loop (self.D * x_t) bypasses the per-state STE gate, so
+        # without this the sequence forward pass would leak non-zero output
+        # even when control_flag == 0. See NetelproSDSCell.step for detail.
+        if c_flag == 0:
+            out = torch.zeros_like(out)
+
+        return out
 
 
 class NetelproSDSBlock(_ModuleBase):
