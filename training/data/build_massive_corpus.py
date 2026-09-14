@@ -478,33 +478,38 @@ def stream_systems_code_deep(
     try:
         from datasets import load_dataset
 
-        print("📡 Connecting to Hugging Face: codeparrot/github-code-clean...")
-        # codeparrot/github-code (the original) relies on a custom loading
-        # script (github-code.py) which recent `datasets` versions refuse to
-        # run at all ("Dataset scripts are no longer supported"). The -clean
-        # mirror ships plain Parquet shards, streamable without a script.
-        target_langs = {"Python", "Rust", "C++", "C#", "C"}
-        ds = load_dataset(
-            "codeparrot/github-code-clean",
-            streaming=True,
-            split="train",
-        )
+        # Both codeparrot/github-code AND codeparrot/github-code-clean ship a
+        # custom loading script (github-code.py / github-code-clean.py) that
+        # `datasets` >= 4.0 refuses to execute at all ("Dataset scripts are
+        # no longer supported") — there is no config-name fix for this, the
+        # dataset itself needs to be Parquet-native. bigcode/the-stack-smol
+        # is a genuinely script-free Parquet dataset, one folder per language.
+        print("📡 Connecting to Hugging Face: bigcode/the-stack-smol...")
+        target_dirs = ["data/python", "data/rust", "data/cpp", "data/c-sharp"]
         count = 0
-        for row in ds:
-            lang = row.get("language")
-            if lang is not None and lang not in target_langs:
+        for data_dir in target_dirs:
+            try:
+                ds = load_dataset(
+                    "bigcode/the-stack-smol",
+                    data_dir=data_dir,
+                    split="train",
+                    streaming=True,
+                )
+            except Exception as e:
+                print(f"⚠️ Skipping {data_dir} ({e})")
                 continue
 
-            code = row.get("code", "")
-            if not code or len(code) < 200:
-                continue
+            for row in ds:
+                code = row.get("content", "")
+                if not code or len(code) < 200:
+                    continue
 
-            cleaned = clean_document(code, is_code=True, min_chars=150)
-            if cleaned:
-                yield cleaned
-                count += 1
-                if count >= max_samples:
-                    break
+                cleaned = clean_document(code, is_code=True, min_chars=150)
+                if cleaned:
+                    yield cleaned
+                    count += 1
+                    if count >= max_samples:
+                        return
     except Exception as e:
         print(f"⚠️ Systems code stream fallback to local bank ({e})")
         for item in ADVANCED_REASONING_SAMPLES:
