@@ -219,6 +219,135 @@ ADVANCED_REASONING_SAMPLES: list[dict[str, str]] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Bilingual (ES<->EN) Translation Seed Bank
+# ---------------------------------------------------------------------------
+#
+# The rest of the corpus skews heavily toward raw English prose (Cosmopedia)
+# vs. Spanish instruction-following dialogue (Alpaca-ES). Without an explicit
+# signal tying the two languages together, a small model sees "prose in EN"
+# and "Q&A in ES" as nearly disjoint distributions and never learns to map
+# between them, producing incoherent replies. These pairs teach the direct
+# ES<->EN correspondence explicitly, in both directions.
+
+TRANSLATION_PAIRS: list[dict[str, str]] = [
+    {
+        "es": "Hola, soy Teo, un modelo de lenguaje creado por Jonathan usando la arquitectura Netelpro.",
+        "en": "Hello, I am Teo, a language model created by Jonathan using the Netelpro architecture.",
+    },
+    {
+        "es": "¿Podrías explicarme cómo funciona la memoria de contexto O(1) en Netelpro SDS?",
+        "en": "Could you explain to me how the O(1) context memory works in Netelpro SDS?",
+    },
+    {
+        "es": "La compuerta de silicio limita cada activación al rango [-5000, 5000] con un factor de escala de 1000.0.",
+        "en": "The silicon gate bounds every activation to the range [-5000, 5000] with a scale factor of 1000.0.",
+    },
+    {
+        "es": "Un asignador de memoria arena reserva un bloque contiguo grande y despacha punteros incrementando un desplazamiento.",
+        "en": "An arena memory allocator reserves one large contiguous block and dispatches pointers by incrementing an offset.",
+    },
+    {
+        "es": "El algoritmo de Dijkstra encuentra las distancias mínimas desde un nodo origen usando una cola de prioridad.",
+        "en": "Dijkstra's algorithm finds the minimum distances from a source node using a priority queue.",
+    },
+    {
+        "es": "Gracias por tu ayuda, ¿podrías darme un ejemplo de código en Rust?",
+        "en": "Thanks for your help, could you give me a code example in Rust?",
+    },
+    {
+        "es": "El teorema de Bell demuestra que el realismo local no describe correctamente la naturaleza cuántica.",
+        "en": "Bell's theorem proves that local realism does not correctly describe quantum nature.",
+    },
+    {
+        "es": "No entiendo esta parte, ¿me lo podrías explicar de una forma más simple?",
+        "en": "I don't understand this part, could you explain it to me in a simpler way?",
+    },
+    {
+        "es": "Netelpro SBT elimina el desborde numérico acotando cada tensor en silicio a escala entera fija.",
+        "en": "Netelpro SBT eliminates numeric overflow by bounding every tensor in silicon to a fixed integer scale.",
+    },
+    {
+        "es": "¿Cuál es la diferencia entre un puntero y una referencia en C++?",
+        "en": "What is the difference between a pointer and a reference in C++?",
+    },
+    {
+        "es": "El estimador recto (STE) permite que los gradientes fluyan sin truncar la capacidad de aprendizaje.",
+        "en": "The Straight-Through Estimator (STE) lets gradients flow without truncating learning capacity.",
+    },
+    {
+        "es": "Buenos días, ¿en qué puedo ayudarte hoy?",
+        "en": "Good morning, how can I help you today?",
+    },
+    {
+        "es": "El modelo Netelpro SDS logra memoria de inferencia constante eliminando por completo el KV-Cache.",
+        "en": "The Netelpro SDS model achieves constant inference memory by completely eliminating the KV-Cache.",
+    },
+    {
+        "es": "Perdón, no entendí bien la pregunta, ¿la podrías repetir con otras palabras?",
+        "en": "Sorry, I didn't quite understand the question, could you repeat it in other words?",
+    },
+    {
+        "es": "Un router de mezcla dispersa de expertos activa solo unos pocos expertos por token, no la red entera.",
+        "en": "A sparse mixture-of-experts router activates only a few experts per token, not the whole network.",
+    },
+]
+
+
+def generate_translation_stream(multiplier: int = 100) -> Iterator[str]:
+    """Yields explicit ES<->EN translation Q&A turns in both directions.
+
+    Trains the direct mapping between languages that the rest of the corpus
+    (English prose vs. Spanish dialogue) never demonstrates on its own.
+    """
+    pairs = list(TRANSLATION_PAIRS)
+    for _ in range(multiplier):
+        random.shuffle(pairs)
+        for item in pairs:
+            yield format_qa_turn(f"Traduce al inglés: {item['es']}", item["en"])
+            yield format_qa_turn(f"Traduce al español: {item['en']}", item["es"])
+
+
+def stream_english_instructions(
+    max_samples: int = 50000,
+    offline: bool = False,
+) -> Iterator[str]:
+    """Streams English instruction-following dialogues (symmetric to Alpaca-ES).
+
+    Without this, the corpus only sees raw English prose (Cosmopedia) and
+    Spanish Q&A (Alpaca-ES) — never English Q&A — so the model never learns
+    the conversational instruction/response pattern in English at all.
+    """
+    if offline:
+        for item in ADVANCED_REASONING_SAMPLES:
+            yield format_qa_turn(item["prompt"], item["response"], item.get("thought"))
+        return
+
+    try:
+        from datasets import load_dataset
+
+        print("📡 Connecting to Hugging Face: tatsu-lab/alpaca...")
+        ds = load_dataset("tatsu-lab/alpaca", split="train", streaming=True)
+        count = 0
+        for row in ds:
+            inst = row.get("instruction", "")
+            inp = row.get("input", "")
+            out = row.get("output", "")
+
+            full_prompt = f"{inst}\n{inp}".strip() if inp else inst.strip()
+            if not full_prompt or not out or len(out) < 25:
+                continue
+
+            yield format_qa_turn(full_prompt, out)
+            count += 1
+            if count >= max_samples:
+                break
+    except Exception as e:
+        print(f"⚠️ English instructions stream fallback to local bank ({e})")
+        for item in ADVANCED_REASONING_SAMPLES:
+            yield format_qa_turn(item["prompt"], item["response"], item.get("thought"))
+
+
+# ---------------------------------------------------------------------------
 # Formatters & Generators
 # ---------------------------------------------------------------------------
 
@@ -465,18 +594,27 @@ def build_massive_corpus(
 
     # Generators
     reasoning_gen = generate_reasoning_and_persona_stream(multiplier=persona_multiplier)
+    translation_gen = generate_translation_stream(multiplier=persona_multiplier)
     cosmo_gen = stream_cosmopedia_stem(max_samples=50000, offline=offline)
     conv_gen = stream_openassistant_conversations(max_samples=50000, offline=offline)
+    english_conv_gen = stream_english_instructions(max_samples=50000, offline=offline)
     code_gen = stream_systems_code_deep(max_samples=50000, offline=offline)
     phil_gen = stream_fineweb_spanish_philosophy(max_samples=50000, offline=offline)
 
+    # Weighted round-robin: instruction-following dialogue (ES + EN + explicit
+    # translation pairs) now outweighs raw prose (Cosmopedia), so the model
+    # fixes the Q&A pattern in both languages instead of only completing
+    # English textbook text. See docs/ROADMAP_TEO_7B_MOE_SDS.md bitácora.
     stream_schedule = [
         ("reasoning_lore", reasoning_gen),
         ("reasoning_lore", reasoning_gen),
+        ("translation_pairs", translation_gen),
+        ("translation_pairs", translation_gen),
         ("conversations", conv_gen),
         ("conversations", conv_gen),
         ("conversations", conv_gen),
-        ("cosmopedia_stem", cosmo_gen),
+        ("english_instructions", english_conv_gen),
+        ("english_instructions", english_conv_gen),
         ("cosmopedia_stem", cosmo_gen),
         ("cosmopedia_stem", cosmo_gen),
         ("systems_code", code_gen),
@@ -504,7 +642,7 @@ def build_massive_corpus(
                 if not doc:
                     continue
 
-                if domain != "reasoning_lore" and deduplicator.is_duplicate(doc):
+                if domain not in ("reasoning_lore", "translation_pairs") and deduplicator.is_duplicate(doc):
                     continue
 
                 prev_shards = len(shard_writer.shards_completed)

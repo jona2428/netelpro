@@ -391,22 +391,30 @@ class NetelproSDSModel(_ModuleBase):
         layer_records: list[LayerAuditRecord] = []
 
         for layer_idx, block in enumerate(self.blocks):
-            x, audits, block_latency = block(x, control_flags=control_flags)
+            x, audit_list, block_latency = block(x, control_flags=control_flags)
             total_latency += block_latency
 
-            for rec in audits:
-                layer_records.append(
-                    LayerAuditRecord(
-                        layer_index=layer_idx,
-                        neuron_index=rec.get("neuron_index", 0),
-                        pre_activation=rec.get("z", 0.0),
-                        scaled_value=rec.get("z_scaled", 0),
-                        gate_allowed=rec.get("allow", True),
-                        gate_reason=rec.get("reason", "OK"),
-                        control_flag=rec.get("control_flag", 1),
-                        latency_us=block_latency,
-                    )
+            total_n = block.mlp.c_fc.out_features
+            if audit_list:
+                active_n = sum(1 for a in audit_list if a["allow"])
+                suppressed_n = total_n - active_n
+                mean_pot = sum(a["z"] for a in audit_list) / max(1, total_n)
+            else:
+                active_n = total_n
+                suppressed_n = 0
+                mean_pot = 0.0
+
+            layer_records.append(
+                LayerAuditRecord(
+                    layer_index=layer_idx,
+                    total_neurons=total_n,
+                    active_neurons=active_n,
+                    suppressed_neurons=suppressed_n,
+                    mean_potential=mean_pot,
+                    latency_us=block_latency,
+                    details=audit_list,
                 )
+            )
 
         x = self.ln_f(x)
         logits = self.lm_head(x)
@@ -418,7 +426,6 @@ class NetelproSDSModel(_ModuleBase):
         certificate = AuditCertificate(
             records=layer_records,
             total_latency_us=total_latency,
-            verified=all(r.gate_allowed for r in layer_records),
         )
 
         return logits, loss, certificate
