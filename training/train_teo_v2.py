@@ -424,6 +424,15 @@ def discover_shards(corpus_path: str | Path) -> tuple[list[Path], dict[str, Any]
         if not shards:
             shards = sorted(p.glob("*.bin"))
 
+        # Smart fallback: if no shards found in requested dir, check data/teo_v2
+        if not shards and str(p) not in ("data/teo_v2", "data\\teo_v2"):
+            alt_dir = Path("data/teo_v2")
+            if alt_dir.is_dir():
+                alt_shards = sorted(alt_dir.glob("shard_*.bin"))
+                if alt_shards:
+                    p = alt_dir
+                    shards = alt_shards
+
         meta_file = p / "meta.json"
         if meta_file.exists():
             try:
@@ -612,7 +621,7 @@ def load_checkpoint(
 def train_teo_v2(
     config: TeoV2Config | None = None,
     config_path: str | Path | None = None,
-    data_dir: str | Path = "training/data/teo_v2_corpus",
+    data_dir: str | Path = "data/teo_v2",
     data_file: str | Path | None = None,
     checkpoint_dir: str | Path = "models/teo_v2",
     checkpoint_path: str | Path | None = None,
@@ -1009,7 +1018,7 @@ def run_smoke_test(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train Teo v2 (~124M GPT-2-class model) on packed token streams.")
     parser.add_argument("--config", default="training/teo_v2_config.json", help="Path to config JSON.")
-    parser.add_argument("--data-dir", default="training/data/teo_v2_corpus", help="Corpus shard directory.")
+    parser.add_argument("--data-dir", default="data/teo_v2", help="Corpus shard directory.")
     parser.add_argument("--data-file", default=None, help="Optional single binary stream file.")
     parser.add_argument("--checkpoint-dir", default="models/teo_v2", help="Checkpoint save directory.")
     parser.add_argument("--checkpoint-path", default=None, help="Explicit checkpoint file path.")

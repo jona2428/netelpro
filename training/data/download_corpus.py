@@ -252,6 +252,35 @@ class DocumentDeduplicator:
         self.seen_count = 0
         self.duplicate_count = 0
 
+    def save_state(self, path: str | Path) -> None:
+        """Persists the set of seen SHA-1 hex digests as a JSON list."""
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = p.with_suffix(".tmp")
+        data = sorted(self._seen_hashes)
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        try:
+            os.replace(tmp_path, p)
+        except OSError:
+            pass
+
+    def load_state(self, path: str | Path) -> None:
+        """Loads seen SHA-1 hex digests from JSON list (or dict) state file."""
+        p = Path(path)
+        if not p.is_file():
+            return
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            self._seen_hashes.update(data)
+            self.seen_count = len(self._seen_hashes)
+        elif isinstance(data, dict):
+            hashes = data.get("seen_hashes", data.get("hashes", []))
+            self._seen_hashes.update(hashes)
+            self.seen_count = len(self._seen_hashes)
+            self.duplicate_count = data.get("duplicate_count", self.duplicate_count)
+
 
 # ---------------------------------------------------------------------------
 # Packed Shard Writer (reusing compile_packed uint16 format)
@@ -274,6 +303,7 @@ class PackedShardWriter:
         max_shards: int | None = None,
         tokenizer: Any = None,
         prefix: str = "shard",
+        resume: bool = True,
     ) -> None:
         self.out_dir = Path(out_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -281,6 +311,7 @@ class PackedShardWriter:
         self.max_shards = max_shards
         self.tokenizer = tokenizer
         self.prefix = prefix
+        self.resume = resume
 
         self.bos_id: int = getattr(tokenizer, "bos_token_id", 1)
         self.eos_id: int = getattr(tokenizer, "eos_token_id", 2)
@@ -301,6 +332,105 @@ class PackedShardWriter:
         self._current_hasher: hashlib._Hash | None = None
         self._buffer: list[int] = []
         self._buffer_flush_size: int = 2_000_000  # Flush every 2M tokens
+
+        if self.resume:
+            self._scan_and_resume_shards()
+        else:
+            self._archive_existing_shards()
+
+    def _scan_and_resume_shards(self) -> None:
+        """Scans out_dir for completed valid shards and resumes state.
+
+        A shard f"{prefix}_%05d.bin" is valid if:
+        1. Sidecar "<shard>.bin.meta.json" exists and is valid JSON.
+        2. Sidecar total_tokens == self.shard_size.
+        3. File size in bytes == total_tokens * 2.
+        4. Shard indices are consecutive starting from 0.
+
+        Valid shards are added to self.shards_completed and counted.
+        Incomplete/corrupted shards are renamed to "<name>.partial" (not deleted)
+        and recompiled from scratch.
+        """
+        pattern = re.compile(rf"^{re.escape(self.prefix)}_(\d{{5}})\.bin$")
+        candidates: list[tuple[int, Path]] = []
+        for entry in self.out_dir.iterdir():
+            if entry.is_file():
+                m = pattern.match(entry.name)
+                if m:
+                    idx = int(m.group(1))
+                    candidates.append((idx, entry))
+
+        candidates.sort(key=lambda x: x[0])
+
+        valid_count = 0
+        for idx, shard_path in candidates:
+            meta_path = Path(f"{shard_path}.meta.json")
+            is_valid = False
+            meta_data: dict[str, Any] = {}
+
+            if idx == valid_count and meta_path.is_file():
+                try:
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        loaded = json.load(f)
+                    if isinstance(loaded, dict):
+                        meta_data = loaded
+                        tokens = meta_data.get("total_tokens")
+                        if (
+                            tokens == self.shard_size
+                            and shard_path.stat().st_size == tokens * 2
+                        ):
+                            is_valid = True
+                except Exception:
+                    is_valid = False
+
+            if is_valid:
+                self.shards_completed.append(meta_data)
+                self.total_tokens += int(meta_data.get("total_tokens", self.shard_size))
+                self.total_docs += int(meta_data.get("total_docs", 0))
+                valid_count += 1
+            else:
+                # Rename invalid or partial shard to <name>.partial (don't delete)
+                partial_path = shard_path.with_name(f"{shard_path.name}.partial")
+                try:
+                    os.replace(shard_path, partial_path)
+                except OSError:
+                    pass
+
+                # Also rename sidecar if present
+                if meta_path.is_file():
+                    try:
+                        os.replace(meta_path, meta_path.with_name(f"{meta_path.name}.partial"))
+                    except OSError:
+                        pass
+                alt_meta = shard_path.with_suffix(".meta.json")
+                if alt_meta != meta_path and alt_meta.is_file():
+                    try:
+                        os.replace(alt_meta, alt_meta.with_name(f"{alt_meta.name}.partial"))
+                    except OSError:
+                        pass
+
+        self.current_shard_idx = valid_count
+
+    def _archive_existing_shards(self) -> None:
+        """Archives existing shards/manifests when auto-resume is disabled."""
+        pattern = re.compile(rf"^{re.escape(self.prefix)}_\d{{5}}\.bin")
+        old_items = [
+            p for p in self.out_dir.iterdir()
+            if p.is_file() and (
+                pattern.match(p.name)
+                or p.name in ("meta.json", "dedup_state.json")
+            )
+        ]
+        if old_items:
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            archive_dir = self.out_dir / f"archive_{timestamp}"
+            archive_dir.mkdir(parents=True, exist_ok=True)
+            for item in old_items:
+                try:
+                    os.replace(item, archive_dir / item.name)
+                except OSError:
+                    pass
+
 
     def _open_next_shard(self) -> None:
         shard_filename = f"{self.prefix}_{self.current_shard_idx:05d}.bin"
@@ -362,6 +492,7 @@ class PackedShardWriter:
         self.shards_completed.append(meta_data)
         self.current_shard_tokens = 0
         self.current_shard_docs = 0
+        self._write_manifest()
         return meta_data
 
     def frame_document(self, doc_text: str) -> list[int]:
@@ -452,14 +583,8 @@ class PackedShardWriter:
 
         return True
 
-    def close(self) -> dict[str, Any]:
-        """Flushes remaining tokens, closes current shard, and writes global manifest."""
-        if self._current_file is not None and self.current_shard_tokens > 0:
-            self._close_current_shard()
-        elif self._current_file is not None:
-            self._current_file.close()
-            self._current_file = None
-
+    def _write_manifest(self) -> dict[str, Any]:
+        """Writes global meta.json manifest reflecting all completed shards."""
         manifest = {
             "total_shards": len(self.shards_completed),
             "total_tokens": int(self.total_tokens),
@@ -471,10 +596,25 @@ class PackedShardWriter:
         }
 
         manifest_path = self.out_dir / "meta.json"
-        with open(manifest_path, "w", encoding="utf-8") as f:
+        tmp_manifest = manifest_path.with_suffix(".tmp")
+        with open(tmp_manifest, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
+        try:
+            os.replace(tmp_manifest, manifest_path)
+        except OSError:
+            pass
 
         return manifest
+
+    def close(self) -> dict[str, Any]:
+        """Flushes remaining tokens, closes current shard, and writes global manifest."""
+        if self._current_file is not None and self.current_shard_tokens > 0:
+            self._close_current_shard()
+        elif self._current_file is not None:
+            self._current_file.close()
+            self._current_file = None
+
+        return self._write_manifest()
 
 
 # ---------------------------------------------------------------------------
@@ -735,6 +875,7 @@ def build_corpus(
     custom_doc_stream: Iterator[tuple[str, str]] | None = None,
     spanish_shards: Sequence[str] | None = None,
     code_shards: Sequence[str] | None = None,
+    resume: bool = True,
 ) -> dict[str, Any]:
     """Main corpus download, cleaning, deduplication, tokenization, and packed compilation pipeline.
 
@@ -750,6 +891,7 @@ def build_corpus(
         custom_doc_stream: Optional offline document stream (source_name, raw_doc) for testing.
         spanish_shards: Custom parquet URLs/paths for Spanish source.
         code_shards: Custom parquet URLs/paths for Code source.
+        resume: Whether to resume compilation from existing completed shards.
 
     Returns:
         Compilation summary metrics dict.
@@ -767,6 +909,7 @@ def build_corpus(
     print(f"Max Shards:           {max_shards or 'unlimited'}")
     print(f"Max Bytes Per Source: {max_bytes:,} bytes" if max_bytes else "Max Bytes Per Source: unlimited")
     print(f"Output Directory:     {out_dir_path}")
+    print(f"Resume:               {resume}")
 
     # Set up raw document stream
     if custom_doc_stream is not None:
@@ -807,20 +950,47 @@ def build_corpus(
 
     # Step 1: Check or prepare tokenizer
     # If no tokenizer exists, collect sample from doc_stream, train and freeze
-    tok_candidates = []
-    if tokenizer_path:
-        tok_candidates.append(Path(tokenizer_path))
-    tok_candidates.extend([out_dir_path / "tokenizer.json", ROOT_DIR / "tokenizer.json"])
-
     tokenizer: NetelproBPETokenizer | None = None
-    for cand in tok_candidates:
-        if cand.is_file():
-            tokenizer = NetelproBPETokenizer.load(cand)
-            print(f"Loaded existing frozen tokenizer: {cand}")
-            break
+    if tokenizer_path is not None and hasattr(tokenizer_path, "encode"):
+        tokenizer = tokenizer_path
+    else:
+        tok_candidates = []
+        if tokenizer_path:
+            tok_candidates.append(Path(tokenizer_path))
+        tok_candidates.extend([out_dir_path / "tokenizer.json", ROOT_DIR / "tokenizer.json"])
+
+        for cand in tok_candidates:
+            if cand.is_file():
+                tokenizer = NetelproBPETokenizer.load(cand)
+                print(f"Loaded existing frozen tokenizer: {cand}")
+                break
+
+    # Step 2: Initialize PackedShardWriter
+    shard_writer = PackedShardWriter(
+        out_dir=out_dir_path,
+        shard_size=shard_size,
+        max_shards=max_shards,
+        tokenizer=tokenizer,
+        resume=resume,
+    )
+
+    # After constructing shard_writer, if out_dir/"dedup_state.json" exists -> deduplicator.load_state(...)
+    dedup_state_path = out_dir_path / "dedup_state.json"
+    if dedup_state_path.is_file():
+        deduplicator.load_state(dedup_state_path)
+        print(f"Loaded deduplication state: {deduplicator.seen_count:,} seen hashes.")
+
+    has_resumed_shards = len(shard_writer.shards_completed) > 0
+    if has_resumed_shards:
+        print(
+            f"Resuming corpus build at shard {shard_writer.current_shard_idx} "
+            f"({len(shard_writer.shards_completed)} completed shards found, "
+            f"{shard_writer.total_tokens:,} tokens)."
+        )
 
     initial_docs: list[str] = []
-    if tokenizer is None:
+    # When resuming (shards_completed non-empty), SKIP the initial_docs tokenizer-sample loop
+    if tokenizer is None and not has_resumed_shards:
         print(f"Collecting sample documents for BPE tokenizer training...")
         sample_bytes_needed = (
             min(sample_bytes_for_tokenizer, max_bytes * 2)
@@ -847,63 +1017,80 @@ def build_corpus(
             vocab_size=DEFAULT_VOCAB_SIZE,
             sample_bytes_target=sample_bytes_needed,
         )
-
-    # Step 2: Initialize PackedShardWriter
-    shard_writer = PackedShardWriter(
-        out_dir=out_dir_path,
-        shard_size=shard_size,
-        max_shards=max_shards,
-        tokenizer=tokenizer,
-    )
+        shard_writer.tokenizer = tokenizer
+        shard_writer.bos_id = getattr(tokenizer, "bos_token_id", 1)
+        shard_writer.eos_id = getattr(tokenizer, "eos_token_id", 2)
+        shard_writer.pad_id = getattr(tokenizer, "pad_token_id", 0)
+        shard_writer.vocab_size = getattr(tokenizer, "vocab_size", DEFAULT_VOCAB_SIZE)
+    elif tokenizer is None and has_resumed_shards:
+        tokenizer, _ = ensure_frozen_tokenizer(
+            tokenizer_path=tokenizer_path,
+            out_dir=out_dir_path,
+            sample_docs_collector=[],
+            vocab_size=DEFAULT_VOCAB_SIZE,
+        )
+        shard_writer.tokenizer = tokenizer
+        shard_writer.bos_id = getattr(tokenizer, "bos_token_id", 1)
+        shard_writer.eos_id = getattr(tokenizer, "eos_token_id", 2)
+        shard_writer.pad_id = getattr(tokenizer, "pad_token_id", 0)
+        shard_writer.vocab_size = getattr(tokenizer, "vocab_size", DEFAULT_VOCAB_SIZE)
 
     docs_processed = 0
-    tokens_processed = 0
+    tokens_processed = shard_writer.total_tokens
     last_log_time = time.perf_counter()
 
-    # Process documents collected during tokenizer training first
-    for doc in initial_docs:
-        can_continue = shard_writer.write_document(doc)
-        docs_processed += 1
-        tokens_processed = shard_writer.total_tokens
-        if not can_continue:
-            break
-
-    # Process remaining streamed documents
-    if max_shards is None or shard_writer.current_shard_idx < max_shards:
-        for src_name, raw_doc in doc_stream:
-            is_code = src_name == "code"
-            cleaned = clean_document(raw_doc, is_code=is_code, min_chars=min_doc_chars)
-            if cleaned is None:
-                continue
-
-            if deduplicator.is_duplicate(cleaned):
-                continue
-
-            can_continue = shard_writer.write_document(cleaned)
+    try:
+        # Process documents collected during tokenizer training first
+        for doc in initial_docs:
+            can_continue = shard_writer.write_document(doc)
             docs_processed += 1
             tokens_processed = shard_writer.total_tokens
-
-            now = time.perf_counter()
-            if now - last_log_time >= 5.0:
-                elapsed_so_far = now - start_time
-                d_rate = docs_processed / elapsed_so_far if elapsed_so_far > 0 else 0
-                t_rate = tokens_processed / elapsed_so_far if elapsed_so_far > 0 else 0
-                print(
-                    f"Progress: {docs_processed:,} docs ({d_rate:,.1f} docs/s) | "
-                    f"{tokens_processed:,} tokens ({t_rate:,.1f} tokens/s) | "
-                    f"Shards: {shard_writer.current_shard_idx} | "
-                    f"Elapsed: {elapsed_so_far:.1f}s"
-                )
-                last_log_time = now
-
             if not can_continue:
-                print(f"Reached max shards ({max_shards}). Stopping stream.")
                 break
 
-    manifest = shard_writer.close()
+        # Process remaining streamed documents
+        if max_shards is None or shard_writer.current_shard_idx < max_shards:
+            for src_name, raw_doc in doc_stream:
+                is_code = src_name == "code"
+                cleaned = clean_document(raw_doc, is_code=is_code, min_chars=min_doc_chars)
+                if cleaned is None:
+                    continue
+
+                if deduplicator.is_duplicate(cleaned):
+                    continue
+
+                prev_shards = len(shard_writer.shards_completed)
+                can_continue = shard_writer.write_document(cleaned)
+                docs_processed += 1
+                tokens_processed = shard_writer.total_tokens
+
+                # Persist deduplication state whenever a shard is completed
+                if len(shard_writer.shards_completed) > prev_shards:
+                    deduplicator.save_state(out_dir_path / "dedup_state.json")
+
+                now = time.perf_counter()
+                if now - last_log_time >= 5.0:
+                    elapsed_so_far = now - start_time
+                    d_rate = docs_processed / elapsed_so_far if elapsed_so_far > 0 else 0
+                    t_rate = tokens_processed / elapsed_so_far if elapsed_so_far > 0 else 0
+                    print(
+                        f"Progress: {docs_processed:,} docs ({d_rate:,.1f} docs/s) | "
+                        f"{tokens_processed:,} tokens ({t_rate:,.1f} tokens/s) | "
+                        f"Shards: {shard_writer.current_shard_idx} | "
+                        f"Elapsed: {elapsed_so_far:.1f}s"
+                    )
+                    last_log_time = now
+
+                if not can_continue:
+                    print(f"Reached max shards ({max_shards}). Stopping stream.")
+                    break
+    finally:
+        manifest = shard_writer.close()
+        deduplicator.save_state(out_dir_path / "dedup_state.json")
+
     elapsed = time.perf_counter() - start_time
     docs_rate = docs_processed / elapsed if elapsed > 0 else 0
-    tokens_rate = shard_writer.total_tokens / elapsed if elapsed > 0 else 0
+    tokens_rate = (shard_writer.total_tokens) / elapsed if elapsed > 0 else 0
 
     # Verification: check pad fraction using compile_packed.stream_stats
     total_pad_count = 0
@@ -921,7 +1108,7 @@ def build_corpus(
     metrics = {
         "status": "completed",
         "elapsed_seconds": float(elapsed),
-        "total_docs": int(docs_processed),
+        "total_docs": int(shard_writer.total_docs),
         "total_tokens": int(shard_writer.total_tokens),
         "docs_per_sec": float(docs_rate),
         "tokens_per_sec": float(tokens_rate),
@@ -1001,6 +1188,13 @@ def main(args_list: list[str] | None = None) -> None:
         default="200MB",
         help="Bytes of text to sample for BPE tokenizer training if none exists (default: 200MB).",
     )
+    parser.add_argument(
+        "--no-resume",
+        action="store_false",
+        dest="resume",
+        default=True,
+        help="Disable auto-resume and restart from shard 0.",
+    )
 
     args = parser.parse_args(args_list)
 
@@ -1015,6 +1209,7 @@ def main(args_list: list[str] | None = None) -> None:
         tokenizer_path=args.tokenizer_path,
         min_doc_chars=args.min_doc_chars,
         sample_bytes_for_tokenizer=sample_bytes,
+        resume=args.resume,
     )
 
 
