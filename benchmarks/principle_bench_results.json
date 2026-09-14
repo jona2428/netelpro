@@ -1,12 +1,10 @@
 {
  "meta": {
-  "date": "2026-09-13 04:25",
+  "date": "2026-09-14 05:04",
   "n_samples": 5,
   "temp": 0.8,
   "models": {
-   "olmoe-base": "hf.co/allenai/OLMoE-1B-7B-0924-Instruct-GGUF:olmoe-1b-7b-0924-instruct-q4_k_m.gguf",
-   "olmoe-gk": "goliath-killer:latest",
-   "qwen-base": "qwen2.5:1.5b"
+   "olmoe-gk": "goliath-killer:latest"
   }
  },
  "part_a": {
@@ -87,6 +85,5143 @@
   }
  },
  "part_b": {
-  "cells": {}
+  "cells": {
+   "qwen-base|annealing_scheduler#pool4": {
+    "family": "annealing_scheduler",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1530625677,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 27.6,
+       "len": 386
+      },
+      {
+       "k": 1,
+       "seed": 742149659,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.9,
+       "len": 386
+      },
+      {
+       "k": 2,
+       "seed": 892673953,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.8,
+       "len": 386
+      },
+      {
+       "k": 3,
+       "seed": 1110585143,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 6.7,
+       "len": 248
+      },
+      {
+       "k": 4,
+       "seed": 1549187732,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 12.6,
+       "len": 386
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 337764555,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 13.8,
+       "len": 503
+      },
+      {
+       "k": 1,
+       "seed": 1663488093,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.9,
+       "len": 481
+      },
+      {
+       "k": 2,
+       "seed": 2049933799,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.7,
+       "len": 479
+      },
+      {
+       "k": 3,
+       "seed": 220770673,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.9,
+       "len": 484
+      },
+      {
+       "k": 4,
+       "seed": 323757266,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.5,
+       "len": 486
+      }
+     ]
+    }
+   },
+   "qwen-base|apoptosis_circuit_breaker#pool4": {
+    "family": "apoptosis_circuit_breaker",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 814571648,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 20.2,
+       "len": 248
+      },
+      {
+       "k": 1,
+       "seed": 1200246806,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 6.9,
+       "len": 248
+      },
+      {
+       "k": 2,
+       "seed": 1585643948,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 7.0,
+       "len": 248
+      },
+      {
+       "k": 3,
+       "seed": 696529210,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 12.0,
+       "len": 378
+      },
+      {
+       "k": 4,
+       "seed": 937469081,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 12.3,
+       "len": 386
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 372029171,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 13.2,
+       "len": 483
+      },
+      {
+       "k": 1,
+       "seed": 1630242405,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.5,
+       "len": 494
+      },
+      {
+       "k": 2,
+       "seed": 2015549407,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.8,
+       "len": 496
+      },
+      {
+       "k": 3,
+       "seed": 254142281,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.6,
+       "len": 486
+      },
+      {
+       "k": 4,
+       "seed": 289501930,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.5,
+       "len": 509
+      }
+     ]
+    }
+   },
+   "qwen-base|chatelier_ratelimit#pool4": {
+    "family": "chatelier_ratelimit",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 313499497,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 12.8,
+       "len": 354
+      },
+      {
+       "k": 1,
+       "seed": 1705553919,
+       "ok": false,
+       "err": "semantica",
+       "detail": "6 casos no calzan con la ley pedida",
+       "secs": 9.1,
+       "len": 375
+      },
+      {
+       "k": 2,
+       "seed": 2090991173,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.1,
+       "len": 386
+      },
+      {
+       "k": 3,
+       "seed": 195481299,
+       "ok": false,
+       "err": "semantica",
+       "detail": "6 casos no calzan con la ley pedida",
+       "secs": 8.7,
+       "len": 375
+      },
+      {
+       "k": 4,
+       "seed": 365058928,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.5,
+       "len": 378
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 739112549,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.7,
+       "len": 485
+      },
+      {
+       "k": 1,
+       "seed": 1527432947,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.3,
+       "len": 488
+      },
+      {
+       "k": 2,
+       "seed": 1107531593,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.4,
+       "len": 498
+      },
+      {
+       "k": 3,
+       "seed": 889497567,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.5,
+       "len": 488
+      },
+      {
+       "k": 4,
+       "seed": 727724668,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.7,
+       "len": 473
+      }
+     ]
+    }
+   },
+   "qwen-base|coagulation_2pc#pool4": {
+    "family": "coagulation_2pc",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1961660281,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 13.1,
+       "len": 386
+      },
+      {
+       "k": 1,
+       "seed": 65781743,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      },
+      {
+       "k": 2,
+       "seed": 451079765,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      },
+      {
+       "k": 3,
+       "seed": 1843781315,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.5,
+       "len": 378
+      },
+      {
+       "k": 4,
+       "seed": 1937853280,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1586747094,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.7,
+       "len": 482
+      },
+      {
+       "k": 1,
+       "seed": 697624128,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.5,
+       "len": 469
+      },
+      {
+       "k": 2,
+       "seed": 815642618,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.2,
+       "len": 480
+      },
+      {
+       "k": 3,
+       "seed": 1201309548,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.2,
+       "len": 480
+      },
+      {
+       "k": 4,
+       "seed": 1509823183,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.3,
+       "len": 482
+      }
+     ]
+    }
+   },
+   "qwen-base|commons_uma_arbiter#pool4": {
+    "family": "commons_uma_arbiter",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 544265518,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.5,
+       "len": 248
+      },
+      {
+       "k": 1,
+       "seed": 1467475384,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      },
+      {
+       "k": 2,
+       "seed": 1316926466,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      },
+      {
+       "k": 3,
+       "seed": 964265108,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.1,
+       "len": 386
+      },
+      {
+       "k": 4,
+       "seed": 656216375,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.2,
+       "len": 386
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 652612476,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.6,
+       "len": 469
+      },
+      {
+       "k": 1,
+       "seed": 1373709290,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.2,
+       "len": 480
+      },
+      {
+       "k": 2,
+       "seed": 1223193168,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.2,
+       "len": 470
+      },
+      {
+       "k": 3,
+       "seed": 1072644806,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.1,
+       "len": 448
+      },
+      {
+       "k": 4,
+       "seed": 562812773,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.3,
+       "len": 482
+      }
+     ]
+    }
+   },
+   "qwen-base|continuity_backpressure#pool4": {
+    "family": "continuity_backpressure",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1516578692,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 13.2,
+       "len": 386
+      },
+      {
+       "k": 1,
+       "seed": 761403154,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.9,
+       "len": 378
+      },
+      {
+       "k": 2,
+       "seed": 879445672,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.6,
+       "len": 370
+      },
+      {
+       "k": 3,
+       "seed": 1131181630,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.5,
+       "len": 378
+      },
+      {
+       "k": 4,
+       "seed": 1560863645,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1680242132,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.6,
+       "len": 473
+      },
+      {
+       "k": 1,
+       "seed": 320947522,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.1,
+       "len": 467
+      },
+      {
+       "k": 2,
+       "seed": 170398968,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.4,
+       "len": 484
+      },
+      {
+       "k": 3,
+       "seed": 2100241518,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.8,
+       "len": 472
+      },
+      {
+       "k": 4,
+       "seed": 1665905101,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.1,
+       "len": 471
+      }
+     ]
+    }
+   },
+   "qwen-base|hebb_moe_router#pool4": {
+    "family": "hebb_moe_router",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 840114856,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 13.4,
+       "len": 386
+      },
+      {
+       "k": 1,
+       "seed": 1158943294,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.4,
+       "len": 248
+      },
+      {
+       "k": 2,
+       "seed": 1545421700,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.9,
+       "len": 386
+      },
+      {
+       "k": 3,
+       "seed": 723153682,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      },
+      {
+       "k": 4,
+       "seed": 897509041,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1260131005,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 10.0,
+       "len": 469
+      },
+      {
+       "k": 1,
+       "seed": 1008411179,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.3,
+       "len": 475
+      },
+      {
+       "k": 2,
+       "seed": 621966225,
+       "ok": false,
+       "err": "semantica",
+       "detail": "2 filas no calzan con la ley pedida",
+       "secs": 7.1,
+       "len": 469
+      },
+      {
+       "k": 3,
+       "seed": 1377125127,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.2,
+       "len": 477
+      },
+      {
+       "k": 4,
+       "seed": 1282528932,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.1,
+       "len": 469
+      }
+     ]
+    }
+   },
+   "qwen-base|lagrange_loadbalancer#pool4": {
+    "family": "lagrange_loadbalancer",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1761288516,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.5,
+       "len": 248
+      },
+      {
+       "k": 1,
+       "seed": 536613330,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.3,
+       "len": 386
+      },
+      {
+       "k": 2,
+       "seed": 116736104,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.1,
+       "len": 386
+      },
+      {
+       "k": 3,
+       "seed": 1911714046,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.1,
+       "len": 378
+      },
+      {
+       "k": 4,
+       "seed": 1872160093,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.9,
+       "len": 386
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1022028477,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.8,
+       "len": 479
+      },
+      {
+       "k": 1,
+       "seed": 1273879083,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.7,
+       "len": 494
+      },
+      {
+       "k": 2,
+       "seed": 1390709649,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.4,
+       "len": 479
+      },
+      {
+       "k": 3,
+       "seed": 635681543,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.4,
+       "len": 486
+      },
+      {
+       "k": 4,
+       "seed": 998715044,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.3,
+       "len": 479
+      }
+     ]
+    }
+   },
+   "qwen-base|lymph_gc#pool4": {
+    "family": "lymph_gc",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1704186007,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 13.4,
+       "len": 386
+      },
+      {
+       "k": 1,
+       "seed": 311746561,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.3,
+       "len": 248
+      },
+      {
+       "k": 2,
+       "seed": 194884027,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.5,
+       "len": 378
+      },
+      {
+       "k": 3,
+       "seed": 2090500397,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      },
+      {
+       "k": 4,
+       "seed": 1660818574,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 121004163,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.7,
+       "len": 478
+      },
+      {
+       "k": 1,
+       "seed": 1882279957,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.2,
+       "len": 471
+      },
+      {
+       "k": 2,
+       "seed": 1765278127,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.7,
+       "len": 472
+      },
+      {
+       "k": 3,
+       "seed": 507457849,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.6,
+       "len": 471
+      },
+      {
+       "k": 4,
+       "seed": 6005914,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.3,
+       "len": 490
+      }
+     ]
+    }
+   },
+   "qwen-base|mirage_decoder#pool4": {
+    "family": "mirage_decoder",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1044298151,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.5,
+       "len": 248
+      },
+      {
+       "k": 1,
+       "seed": 1228507441,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      },
+      {
+       "k": 2,
+       "seed": 1345378443,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      },
+      {
+       "k": 3,
+       "seed": 657975325,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      },
+      {
+       "k": 4,
+       "seed": 961772990,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1890481201,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 10.4,
+       "len": 479
+      },
+      {
+       "k": 1,
+       "seed": 128533671,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.6,
+       "len": 475
+      },
+      {
+       "k": 2,
+       "seed": 513807645,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.3,
+       "len": 481
+      },
+      {
+       "k": 3,
+       "seed": 1772561803,
+       "ok": false,
+       "err": "semantica",
+       "detail": "2 filas no calzan con la ley pedida",
+       "secs": 7.3,
+       "len": 466
+      },
+      {
+       "k": 4,
+       "seed": 2009313320,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 7.0,
+       "len": 447
+      }
+     ]
+    }
+   },
+   "qwen-base|mycelium_gossip#pool4": {
+    "family": "mycelium_gossip",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1055333109,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 13.1,
+       "len": 386
+      },
+      {
+       "k": 1,
+       "seed": 1239427683,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.9,
+       "len": 386
+      },
+      {
+       "k": 2,
+       "seed": 1357478873,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      },
+      {
+       "k": 3,
+       "seed": 669928271,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.4,
+       "len": 386
+      },
+      {
+       "k": 4,
+       "seed": 965402348,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 248
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 166979262,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.7,
+       "len": 475
+      },
+      {
+       "k": 1,
+       "seed": 2129974824,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.2,
+       "len": 473
+      },
+      {
+       "k": 2,
+       "seed": 1744668562,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.3,
+       "len": 489
+      },
+      {
+       "k": 3,
+       "seed": 284866308,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.5,
+       "len": 482
+      },
+      {
+       "k": 4,
+       "seed": 245244583,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.2,
+       "len": 475
+      }
+     ]
+    }
+   },
+   "qwen-base|pheromone_hnsw#pool4": {
+    "family": "pheromone_hnsw",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 670101698,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.5,
+       "len": 248
+      },
+      {
+       "k": 1,
+       "seed": 1358413908,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.4,
+       "len": 386
+      },
+      {
+       "k": 2,
+       "seed": 1241420270,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.9,
+       "len": 386
+      },
+      {
+       "k": 3,
+       "seed": 1056547192,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      },
+      {
+       "k": 4,
+       "seed": 547173595,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 386
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1585405463,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 9.8,
+       "len": 487
+      },
+      {
+       "k": 1,
+       "seed": 695758465,
+       "ok": false,
+       "err": "semantica",
+       "detail": "6 filas no calzan con la ley pedida",
+       "secs": 7.2,
+       "len": 468
+      },
+      {
+       "k": 2,
+       "seed": 812728123,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.5,
+       "len": 489
+      },
+      {
+       "k": 3,
+       "seed": 1198919597,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.8,
+       "len": 476
+      },
+      {
+       "k": 4,
+       "seed": 1494391310,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.5,
+       "len": 488
+      }
+     ]
+    }
+   },
+   "olmoe-base|annealing_scheduler#pool4": {
+    "family": "annealing_scheduler",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1530625677,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 16.8,
+       "len": 756
+      },
+      {
+       "k": 1,
+       "seed": 742149659,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.6,
+       "len": 546
+      },
+      {
+       "k": 2,
+       "seed": 892673953,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.6,
+       "len": 567
+      },
+      {
+       "k": 3,
+       "seed": 1110585143,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.8,
+       "len": 743
+      },
+      {
+       "k": 4,
+       "seed": 1549187732,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 10.7,
+       "len": 669
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 337764555,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 18.5,
+       "len": 1182
+      },
+      {
+       "k": 1,
+       "seed": 1663488093,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 6.3,
+       "len": 458
+      },
+      {
+       "k": 2,
+       "seed": 2049933799,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 10.2,
+       "len": 915
+      },
+      {
+       "k": 3,
+       "seed": 220770673,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 6.8,
+       "len": 460
+      },
+      {
+       "k": 4,
+       "seed": 323757266,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 15.5,
+       "len": 1242
+      }
+     ]
+    }
+   },
+   "olmoe-base|apoptosis_circuit_breaker#pool4": {
+    "family": "apoptosis_circuit_breaker",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 814571648,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 16.0,
+       "len": 627
+      },
+      {
+       "k": 1,
+       "seed": 1200246806,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 621
+      },
+      {
+       "k": 2,
+       "seed": 1585643948,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 748
+      },
+      {
+       "k": 3,
+       "seed": 696529210,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 11.5,
+       "len": 869
+      },
+      {
+       "k": 4,
+       "seed": 937469081,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 11.0,
+       "len": 843
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 372029171,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 18.4,
+       "len": 1160
+      },
+      {
+       "k": 1,
+       "seed": 1630242405,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 2,
+       "seed": 2015549407,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 3,
+       "seed": 254142281,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 4,
+       "seed": 289501930,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.4,
+       "len": 447
+      }
+     ]
+    }
+   },
+   "olmoe-base|chatelier_ratelimit#pool4": {
+    "family": "chatelier_ratelimit",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 313499497,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 16.2,
+       "len": 653
+      },
+      {
+       "k": 1,
+       "seed": 1705553919,
+       "ok": false,
+       "err": "compilacion",
+       "detail": "line 1, col 1: missing default row: the last row must be the all-wildcard row (_ ... _)",
+       "secs": 9.7,
+       "len": 520
+      },
+      {
+       "k": 2,
+       "seed": 2090991173,
+       "ok": false,
+       "err": "compilacion",
+       "detail": "line 1, col 1: missing default row: the last row must be the all-wildcard row (_ ... _)",
+       "secs": 9.6,
+       "len": 532
+      },
+      {
+       "k": 3,
+       "seed": 195481299,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 678
+      },
+      {
+       "k": 4,
+       "seed": 365058928,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 10.8,
+       "len": 594
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 739112549,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 14.6,
+       "len": 978
+      },
+      {
+       "k": 1,
+       "seed": 1527432947,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 2,
+       "seed": 1107531593,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.4,
+       "len": 1209
+      },
+      {
+       "k": 3,
+       "seed": 889497567,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.5,
+       "len": 1342
+      },
+      {
+       "k": 4,
+       "seed": 727724668,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      }
+     ]
+    }
+   },
+   "olmoe-base|coagulation_2pc#pool4": {
+    "family": "coagulation_2pc",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1961660281,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 16.3,
+       "len": 664
+      },
+      {
+       "k": 1,
+       "seed": 65781743,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 713
+      },
+      {
+       "k": 2,
+       "seed": 451079765,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.2,
+       "len": 462
+      },
+      {
+       "k": 3,
+       "seed": 1843781315,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 9.3,
+       "len": 531
+      },
+      {
+       "k": 4,
+       "seed": 1937853280,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 619
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1586747094,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 8.9,
+       "len": 447
+      },
+      {
+       "k": 1,
+       "seed": 697624128,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 7.1,
+       "len": 482
+      },
+      {
+       "k": 2,
+       "seed": 815642618,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 3,
+       "seed": 1201309548,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 4,
+       "seed": 1509823183,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 9.6,
+       "len": 835
+      }
+     ]
+    }
+   },
+   "olmoe-base|commons_uma_arbiter#pool4": {
+    "family": "commons_uma_arbiter",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 544265518,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 16.1,
+       "len": 659
+      },
+      {
+       "k": 1,
+       "seed": 1467475384,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 696
+      },
+      {
+       "k": 2,
+       "seed": 1316926466,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.3,
+       "len": 725
+      },
+      {
+       "k": 3,
+       "seed": 964265108,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 716
+      },
+      {
+       "k": 4,
+       "seed": 656216375,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 689
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 652612476,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 9.0,
+       "len": 447
+      },
+      {
+       "k": 1,
+       "seed": 1373709290,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 10.6,
+       "len": 923
+      },
+      {
+       "k": 2,
+       "seed": 1223193168,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.8,
+       "len": 1153
+      },
+      {
+       "k": 3,
+       "seed": 1072644806,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.5,
+       "len": 447
+      },
+      {
+       "k": 4,
+       "seed": 562812773,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 11.7,
+       "len": 1052
+      }
+     ]
+    }
+   },
+   "olmoe-base|continuity_backpressure#pool4": {
+    "family": "continuity_backpressure",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1516578692,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 15.8,
+       "len": 645
+      },
+      {
+       "k": 1,
+       "seed": 761403154,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 773
+      },
+      {
+       "k": 2,
+       "seed": 879445672,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 717
+      },
+      {
+       "k": 3,
+       "seed": 1131181630,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.4,
+       "len": 720
+      },
+      {
+       "k": 4,
+       "seed": 1560863645,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.0,
+       "len": 653
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1680242132,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 9.0,
+       "len": 447
+      },
+      {
+       "k": 1,
+       "seed": 320947522,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.5,
+       "len": 1295
+      },
+      {
+       "k": 2,
+       "seed": 170398968,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.4,
+       "len": 1199
+      },
+      {
+       "k": 3,
+       "seed": 2100241518,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.4,
+       "len": 447
+      },
+      {
+       "k": 4,
+       "seed": 1665905101,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.3,
+       "len": 447
+      }
+     ]
+    }
+   },
+   "olmoe-base|hebb_moe_router#pool4": {
+    "family": "hebb_moe_router",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 840114856,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 15.9,
+       "len": 652
+      },
+      {
+       "k": 1,
+       "seed": 1158943294,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 651
+      },
+      {
+       "k": 2,
+       "seed": 1545421700,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 10.8,
+       "len": 643
+      },
+      {
+       "k": 3,
+       "seed": 723153682,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 684
+      },
+      {
+       "k": 4,
+       "seed": 897509041,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.1,
+       "len": 623
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1260131005,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 18.3,
+       "len": 1187
+      },
+      {
+       "k": 1,
+       "seed": 1008411179,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 11.7,
+       "len": 1026
+      },
+      {
+       "k": 2,
+       "seed": 621966225,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 12.7,
+       "len": 919
+      },
+      {
+       "k": 3,
+       "seed": 1377125127,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 4,
+       "seed": 1282528932,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 16.0,
+       "len": 1200
+      }
+     ]
+    }
+   },
+   "olmoe-base|lagrange_loadbalancer#pool4": {
+    "family": "lagrange_loadbalancer",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1761288516,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 16.2,
+       "len": 754
+      },
+      {
+       "k": 1,
+       "seed": 536613330,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 719
+      },
+      {
+       "k": 2,
+       "seed": 116736104,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 630
+      },
+      {
+       "k": 3,
+       "seed": 1911714046,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 865
+      },
+      {
+       "k": 4,
+       "seed": 1872160093,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.5,
+       "len": 707
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1022028477,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 9.2,
+       "len": 447
+      },
+      {
+       "k": 1,
+       "seed": 1273879083,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.6,
+       "len": 1292
+      },
+      {
+       "k": 2,
+       "seed": 1390709649,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 3,
+       "seed": 635681543,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 4,
+       "seed": 998715044,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.9,
+       "len": 1012
+      }
+     ]
+    }
+   },
+   "olmoe-base|lymph_gc#pool4": {
+    "family": "lymph_gc",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1704186007,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 16.5,
+       "len": 612
+      },
+      {
+       "k": 1,
+       "seed": 311746561,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 6.2,
+       "len": 363
+      },
+      {
+       "k": 2,
+       "seed": 194884027,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 644
+      },
+      {
+       "k": 3,
+       "seed": 2090500397,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.8,
+       "len": 503
+      },
+      {
+       "k": 4,
+       "seed": 1660818574,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 10.8,
+       "len": 570
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 121004163,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 17.5,
+       "len": 1071
+      },
+      {
+       "k": 1,
+       "seed": 1882279957,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 2,
+       "seed": 1765278127,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 3,
+       "seed": 507457849,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 12.8,
+       "len": 919
+      },
+      {
+       "k": 4,
+       "seed": 6005914,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.0,
+       "len": 447
+      }
+     ]
+    }
+   },
+   "olmoe-base|mirage_decoder#pool4": {
+    "family": "mirage_decoder",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1044298151,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 16.0,
+       "len": 844
+      },
+      {
+       "k": 1,
+       "seed": 1228507441,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.6,
+       "len": 620
+      },
+      {
+       "k": 2,
+       "seed": 1345378443,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 652
+      },
+      {
+       "k": 3,
+       "seed": 657975325,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 10.9,
+       "len": 651
+      },
+      {
+       "k": 4,
+       "seed": 961772990,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 10.8,
+       "len": 663
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1890481201,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 18.3,
+       "len": 1177
+      },
+      {
+       "k": 1,
+       "seed": 128533671,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 16.1,
+       "len": 1196
+      },
+      {
+       "k": 2,
+       "seed": 513807645,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 10.9,
+       "len": 924
+      },
+      {
+       "k": 3,
+       "seed": 1772561803,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.4,
+       "len": 1181
+      },
+      {
+       "k": 4,
+       "seed": 2009313320,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.5,
+       "len": 1204
+      }
+     ]
+    }
+   },
+   "olmoe-base|mycelium_gossip#pool4": {
+    "family": "mycelium_gossip",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1055333109,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 16.5,
+       "len": 767
+      },
+      {
+       "k": 1,
+       "seed": 1239427683,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 592
+      },
+      {
+       "k": 2,
+       "seed": 1357478873,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 11.3,
+       "len": 573
+      },
+      {
+       "k": 3,
+       "seed": 669928271,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.3,
+       "len": 824
+      },
+      {
+       "k": 4,
+       "seed": 965402348,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 794
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 166979262,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 19.0,
+       "len": 1203
+      },
+      {
+       "k": 1,
+       "seed": 2129974824,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 2,
+       "seed": 1744668562,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 3,
+       "seed": 284866308,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 447
+      },
+      {
+       "k": 4,
+       "seed": 245244583,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.6,
+       "len": 1173
+      }
+     ]
+    }
+   },
+   "olmoe-base|pheromone_hnsw#pool4": {
+    "family": "pheromone_hnsw",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 670101698,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 16.0,
+       "len": 593
+      },
+      {
+       "k": 1,
+       "seed": 1358413908,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 11.4,
+       "len": 686
+      },
+      {
+       "k": 2,
+       "seed": 1241420270,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.9,
+       "len": 729
+      },
+      {
+       "k": 3,
+       "seed": 1056547192,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 652
+      },
+      {
+       "k": 4,
+       "seed": 547173595,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.8,
+       "len": 672
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1585405463,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 9.1,
+       "len": 447
+      },
+      {
+       "k": 1,
+       "seed": 695758465,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.2,
+       "len": 447
+      },
+      {
+       "k": 2,
+       "seed": 812728123,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 16.2,
+       "len": 1310
+      },
+      {
+       "k": 3,
+       "seed": 1198919597,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.6,
+       "len": 1213
+      },
+      {
+       "k": 4,
+       "seed": 1494391310,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 15.5,
+       "len": 1177
+      }
+     ]
+    }
+   },
+   "olmoe-gk|annealing_scheduler#pool4": {
+    "family": "annealing_scheduler",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1530625677,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 8.3,
+       "len": 30
+      },
+      {
+       "k": 1,
+       "seed": 742149659,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.2,
+       "len": 30
+      },
+      {
+       "k": 2,
+       "seed": 892673953,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.3,
+       "len": 30
+      },
+      {
+       "k": 3,
+       "seed": 1110585143,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 262
+      },
+      {
+       "k": 4,
+       "seed": 1549187732,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 275
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 337764555,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 10.6,
+       "len": 499
+      },
+      {
+       "k": 1,
+       "seed": 1663488093,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.6,
+       "len": 527
+      },
+      {
+       "k": 2,
+       "seed": 2049933799,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 3,
+       "seed": 220770673,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 4,
+       "seed": 323757266,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 6.9,
+       "len": 463
+      }
+     ]
+    }
+   },
+   "olmoe-gk|apoptosis_circuit_breaker#pool4": {
+    "family": "apoptosis_circuit_breaker",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 814571648,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 6.7,
+       "len": 77
+      },
+      {
+       "k": 1,
+       "seed": 1200246806,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 7.2,
+       "len": 406
+      },
+      {
+       "k": 2,
+       "seed": 1585643948,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 252
+      },
+      {
+       "k": 3,
+       "seed": 696529210,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 10.0,
+       "len": 606
+      },
+      {
+       "k": 4,
+       "seed": 937469081,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 6.9,
+       "len": 397
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 372029171,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 10.6,
+       "len": 503
+      },
+      {
+       "k": 1,
+       "seed": 1630242405,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 9.2,
+       "len": 608
+      },
+      {
+       "k": 2,
+       "seed": 2015549407,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 5.0,
+       "len": 430
+      },
+      {
+       "k": 3,
+       "seed": 254142281,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.0,
+       "len": 460
+      },
+      {
+       "k": 4,
+       "seed": 289501930,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 8.6,
+       "len": 601
+      }
+     ]
+    }
+   },
+   "olmoe-gk|chatelier_ratelimit#pool4": {
+    "family": "chatelier_ratelimit",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 313499497,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 12.5,
+       "len": 383
+      },
+      {
+       "k": 1,
+       "seed": 1705553919,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.6,
+       "len": 262
+      },
+      {
+       "k": 2,
+       "seed": 2090991173,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 8.1,
+       "len": 488
+      },
+      {
+       "k": 3,
+       "seed": 195481299,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.5,
+       "len": 247
+      },
+      {
+       "k": 4,
+       "seed": 365058928,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.5,
+       "len": 253
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 739112549,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 4.0,
+       "len": 30
+      },
+      {
+       "k": 1,
+       "seed": 1527432947,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.3,
+       "len": 499
+      },
+      {
+       "k": 2,
+       "seed": 1107531593,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 9.8,
+       "len": 765
+      },
+      {
+       "k": 3,
+       "seed": 889497567,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.0,
+       "len": 474
+      },
+      {
+       "k": 4,
+       "seed": 727724668,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.2,
+       "len": 460
+      }
+     ]
+    }
+   },
+   "olmoe-gk|coagulation_2pc#pool4": {
+    "family": "coagulation_2pc",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1961660281,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 10.7,
+       "len": 334
+      },
+      {
+       "k": 1,
+       "seed": 65781743,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 6.7,
+       "len": 381
+      },
+      {
+       "k": 2,
+       "seed": 451079765,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 289
+      },
+      {
+       "k": 3,
+       "seed": 1843781315,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 256
+      },
+      {
+       "k": 4,
+       "seed": 1937853280,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.7,
+       "len": 308
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1586747094,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 4.1,
+       "len": 30
+      },
+      {
+       "k": 1,
+       "seed": 697624128,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Extra data: line 16 column 3 (char 449)",
+       "secs": 17.4,
+       "len": 1169
+      },
+      {
+       "k": 2,
+       "seed": 815642618,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 9.6,
+       "len": 627
+      },
+      {
+       "k": 3,
+       "seed": 1201309548,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.0,
+       "len": 461
+      },
+      {
+       "k": 4,
+       "seed": 1509823183,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Extra data: line 16 column 3 (char 454)",
+       "secs": 15.1,
+       "len": 1013
+      }
+     ]
+    }
+   },
+   "olmoe-gk|commons_uma_arbiter#pool4": {
+    "family": "commons_uma_arbiter",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 544265518,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 10.6,
+       "len": 448
+      },
+      {
+       "k": 1,
+       "seed": 1467475384,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.4,
+       "len": 656
+      },
+      {
+       "k": 2,
+       "seed": 1316926466,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.3,
+       "len": 362
+      },
+      {
+       "k": 3,
+       "seed": 964265108,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 6.6,
+       "len": 383
+      },
+      {
+       "k": 4,
+       "seed": 656216375,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 10.1,
+       "len": 550
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 652612476,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 7.0,
+       "len": 324
+      },
+      {
+       "k": 1,
+       "seed": 1373709290,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 8.7,
+       "len": 723
+      },
+      {
+       "k": 2,
+       "seed": 1223193168,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 8.7,
+       "len": 595
+      },
+      {
+       "k": 3,
+       "seed": 1072644806,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 3.9,
+       "len": 244
+      },
+      {
+       "k": 4,
+       "seed": 562812773,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Expecting value: line 1 column 1 (char 0)",
+       "secs": 4.1,
+       "len": 308
+      }
+     ]
+    }
+   },
+   "olmoe-gk|continuity_backpressure#pool4": {
+    "family": "continuity_backpressure",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1516578692,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 6.8,
+       "len": 77
+      },
+      {
+       "k": 1,
+       "seed": 761403154,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 2.3,
+       "len": 130
+      },
+      {
+       "k": 2,
+       "seed": 879445672,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.5,
+       "len": 31
+      },
+      {
+       "k": 3,
+       "seed": 1131181630,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence netelpro sin cerrar",
+       "secs": 12.4,
+       "len": 775
+      },
+      {
+       "k": 4,
+       "seed": 1560863645,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.5,
+       "len": 31
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1680242132,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 20.7,
+       "len": 918
+      },
+      {
+       "k": 1,
+       "seed": 320947522,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.2,
+       "len": 466
+      },
+      {
+       "k": 2,
+       "seed": 170398968,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 31
+      },
+      {
+       "k": 3,
+       "seed": 2100241518,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 2.2,
+       "len": 177
+      },
+      {
+       "k": 4,
+       "seed": 1665905101,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 2.1,
+       "len": 149
+      }
+     ]
+    }
+   },
+   "olmoe-gk|hebb_moe_router#pool4": {
+    "family": "hebb_moe_router",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 840114856,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.4,
+       "len": 485
+      },
+      {
+       "k": 1,
+       "seed": 1158943294,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.5,
+       "len": 31
+      },
+      {
+       "k": 2,
+       "seed": 1545421700,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.4,
+       "len": 343
+      },
+      {
+       "k": 3,
+       "seed": 723153682,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.0,
+       "len": 570
+      },
+      {
+       "k": 4,
+       "seed": 897509041,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 256
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1260131005,
+       "ok": false,
+       "err": "estructura",
+       "detail": "rule_name != filter-rule",
+       "secs": 11.3,
+       "len": 529
+      },
+      {
+       "k": 1,
+       "seed": 1008411179,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 12.2,
+       "len": 819
+      },
+      {
+       "k": 2,
+       "seed": 621966225,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 6.9,
+       "len": 460
+      },
+      {
+       "k": 3,
+       "seed": 1377125127,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 4,
+       "seed": 1282528932,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      }
+     ]
+    }
+   },
+   "olmoe-gk|lagrange_loadbalancer#pool4": {
+    "family": "lagrange_loadbalancer",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1761288516,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 6.8,
+       "len": 30
+      },
+      {
+       "k": 1,
+       "seed": 536613330,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.4,
+       "len": 283
+      },
+      {
+       "k": 2,
+       "seed": 116736104,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 3,
+       "seed": 1911714046,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.5,
+       "len": 262
+      },
+      {
+       "k": 4,
+       "seed": 1872160093,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.5,
+       "len": 31
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1022028477,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 12.4,
+       "len": 578
+      },
+      {
+       "k": 1,
+       "seed": 1273879083,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 403
+      },
+      {
+       "k": 2,
+       "seed": 1390709649,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 7.1,
+       "len": 520
+      },
+      {
+       "k": 3,
+       "seed": 635681543,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.4,
+       "len": 502
+      },
+      {
+       "k": 4,
+       "seed": 998715044,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 8.7,
+       "len": 632
+      }
+     ]
+    }
+   },
+   "olmoe-gk|lymph_gc#pool4": {
+    "family": "lymph_gc",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1704186007,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 12.6,
+       "len": 481
+      },
+      {
+       "k": 1,
+       "seed": 311746561,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.0,
+       "len": 279
+      },
+      {
+       "k": 2,
+       "seed": 194884027,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.4,
+       "len": 351
+      },
+      {
+       "k": 3,
+       "seed": 2090500397,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 249
+      },
+      {
+       "k": 4,
+       "seed": 1660818574,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 121004163,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 11.5,
+       "len": 606
+      },
+      {
+       "k": 1,
+       "seed": 1882279957,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 2,
+       "seed": 1765278127,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 6.4,
+       "len": 406
+      },
+      {
+       "k": 3,
+       "seed": 507457849,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 6.9,
+       "len": 461
+      },
+      {
+       "k": 4,
+       "seed": 6005914,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.1,
+       "len": 403
+      }
+     ]
+    }
+   },
+   "olmoe-gk|mirage_decoder#pool4": {
+    "family": "mirage_decoder",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1044298151,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 10.3,
+       "len": 264
+      },
+      {
+       "k": 1,
+       "seed": 1228507441,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.1,
+       "len": 264
+      },
+      {
+       "k": 2,
+       "seed": 1345378443,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 8.3,
+       "len": 235
+      },
+      {
+       "k": 3,
+       "seed": 657975325,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 4,
+       "seed": 961772990,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1890481201,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 4.2,
+       "len": 30
+      },
+      {
+       "k": 1,
+       "seed": 128533671,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Expecting value: line 1 column 1 (char 0)",
+       "secs": 3.5,
+       "len": 297
+      },
+      {
+       "k": 2,
+       "seed": 513807645,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 3,
+       "seed": 1772561803,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 8.4,
+       "len": 563
+      },
+      {
+       "k": 4,
+       "seed": 2009313320,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 9.8,
+       "len": 728
+      }
+     ]
+    }
+   },
+   "olmoe-gk|mycelium_gossip#pool4": {
+    "family": "mycelium_gossip",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1055333109,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 5.6,
+       "len": 9
+      },
+      {
+       "k": 1,
+       "seed": 1239427683,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 2.4,
+       "len": 138
+      },
+      {
+       "k": 2,
+       "seed": 1357478873,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 3.2,
+       "len": 170
+      },
+      {
+       "k": 3,
+       "seed": 669928271,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 6.5,
+       "len": 416
+      },
+      {
+       "k": 4,
+       "seed": 965402348,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.6,
+       "len": 31
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 166979262,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Extra data: line 16 column 3 (char 451)",
+       "secs": 18.8,
+       "len": 1013
+      },
+      {
+       "k": 1,
+       "seed": 2129974824,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.1,
+       "len": 460
+      },
+      {
+       "k": 2,
+       "seed": 1744668562,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 2.5,
+       "len": 237
+      },
+      {
+       "k": 3,
+       "seed": 284866308,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 4,
+       "seed": 245244583,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 8.3,
+       "len": 596
+      }
+     ]
+    }
+   },
+   "olmoe-gk|pheromone_hnsw#pool4": {
+    "family": "pheromone_hnsw",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 670101698,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.6,
+       "len": 263
+      },
+      {
+       "k": 1,
+       "seed": 1358413908,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.7,
+       "len": 167
+      },
+      {
+       "k": 2,
+       "seed": 1241420270,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.3,
+       "len": 273
+      },
+      {
+       "k": 3,
+       "seed": 1056547192,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.0,
+       "len": 265
+      },
+      {
+       "k": 4,
+       "seed": 547173595,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.8,
+       "len": 58
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1585405463,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 10.4,
+       "len": 447
+      },
+      {
+       "k": 1,
+       "seed": 695758465,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 5.8,
+       "len": 369
+      },
+      {
+       "k": 2,
+       "seed": 812728123,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Expecting value: line 1 column 1 (char 0)",
+       "secs": 0.2,
+       "len": 11
+      },
+      {
+       "k": 3,
+       "seed": 1198919597,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.3,
+       "len": 461
+      },
+      {
+       "k": 4,
+       "seed": 1494391310,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 2.9,
+       "len": 218
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|annealing_scheduler#pool4": {
+    "family": "annealing_scheduler",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1530625677,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.8,
+       "len": 48
+      },
+      {
+       "k": 1,
+       "seed": 742149659,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 2,
+       "seed": 892673953,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 3,
+       "seed": 1110585143,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 262
+      },
+      {
+       "k": 4,
+       "seed": 1549187732,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.6,
+       "len": 275
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 337764555,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 8.7,
+       "len": 731
+      },
+      {
+       "k": 1,
+       "seed": 1663488093,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.7,
+       "len": 527
+      },
+      {
+       "k": 2,
+       "seed": 2049933799,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 3,
+       "seed": 220770673,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 4,
+       "seed": 323757266,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 6.9,
+       "len": 463
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|apoptosis_circuit_breaker#pool4": {
+    "family": "apoptosis_circuit_breaker",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 814571648,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 250
+      },
+      {
+       "k": 1,
+       "seed": 1200246806,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 7.1,
+       "len": 406
+      },
+      {
+       "k": 2,
+       "seed": 1585643948,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 252
+      },
+      {
+       "k": 3,
+       "seed": 696529210,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.3,
+       "len": 606
+      },
+      {
+       "k": 4,
+       "seed": 937469081,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 7.8,
+       "len": 397
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 372029171,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Invalid control character at: line 6 column 16 (char 146)",
+       "secs": 18.2,
+       "len": 1414
+      },
+      {
+       "k": 1,
+       "seed": 1630242405,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 9.2,
+       "len": 608
+      },
+      {
+       "k": 2,
+       "seed": 2015549407,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 5.0,
+       "len": 430
+      },
+      {
+       "k": 3,
+       "seed": 254142281,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.0,
+       "len": 460
+      },
+      {
+       "k": 4,
+       "seed": 289501930,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 8.5,
+       "len": 601
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|chatelier_ratelimit#pool4": {
+    "family": "chatelier_ratelimit",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 313499497,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 7.0,
+       "len": 383
+      },
+      {
+       "k": 1,
+       "seed": 1705553919,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.9,
+       "len": 262
+      },
+      {
+       "k": 2,
+       "seed": 2090991173,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 7.9,
+       "len": 488
+      },
+      {
+       "k": 3,
+       "seed": 195481299,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.5,
+       "len": 247
+      },
+      {
+       "k": 4,
+       "seed": 365058928,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.5,
+       "len": 253
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 739112549,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 1,
+       "seed": 1527432947,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.3,
+       "len": 499
+      },
+      {
+       "k": 2,
+       "seed": 1107531593,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 9.7,
+       "len": 765
+      },
+      {
+       "k": 3,
+       "seed": 889497567,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.0,
+       "len": 474
+      },
+      {
+       "k": 4,
+       "seed": 727724668,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.0,
+       "len": 460
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|coagulation_2pc#pool4": {
+    "family": "coagulation_2pc",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1961660281,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.1,
+       "len": 283
+      },
+      {
+       "k": 1,
+       "seed": 65781743,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 7.2,
+       "len": 381
+      },
+      {
+       "k": 2,
+       "seed": 451079765,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.6,
+       "len": 289
+      },
+      {
+       "k": 3,
+       "seed": 1843781315,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.1,
+       "len": 256
+      },
+      {
+       "k": 4,
+       "seed": 1937853280,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.7,
+       "len": 308
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1586747094,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Invalid control character at: line 3 column 16 (char 146)",
+       "secs": 6.7,
+       "len": 549
+      },
+      {
+       "k": 1,
+       "seed": 697624128,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Extra data: line 16 column 3 (char 449)",
+       "secs": 19.2,
+       "len": 1332
+      },
+      {
+       "k": 2,
+       "seed": 815642618,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 9.1,
+       "len": 627
+      },
+      {
+       "k": 3,
+       "seed": 1201309548,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.2,
+       "len": 461
+      },
+      {
+       "k": 4,
+       "seed": 1509823183,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Extra data: line 16 column 3 (char 454)",
+       "secs": 15.4,
+       "len": 1013
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|commons_uma_arbiter#pool4": {
+    "family": "commons_uma_arbiter",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 544265518,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.6,
+       "len": 442
+      },
+      {
+       "k": 1,
+       "seed": 1467475384,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.3,
+       "len": 656
+      },
+      {
+       "k": 2,
+       "seed": 1316926466,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.3,
+       "len": 362
+      },
+      {
+       "k": 3,
+       "seed": 964265108,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 6.6,
+       "len": 383
+      },
+      {
+       "k": 4,
+       "seed": 656216375,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.4,
+       "len": 550
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 652612476,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 7.4,
+       "len": 478
+      },
+      {
+       "k": 1,
+       "seed": 1373709290,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 9.2,
+       "len": 723
+      },
+      {
+       "k": 2,
+       "seed": 1223193168,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 8.9,
+       "len": 595
+      },
+      {
+       "k": 3,
+       "seed": 1072644806,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 3.9,
+       "len": 244
+      },
+      {
+       "k": 4,
+       "seed": 562812773,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Expecting value: line 1 column 1 (char 0)",
+       "secs": 4.0,
+       "len": 308
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|continuity_backpressure#pool4": {
+    "family": "continuity_backpressure",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1516578692,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 6.9,
+       "len": 447
+      },
+      {
+       "k": 1,
+       "seed": 761403154,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 2.3,
+       "len": 130
+      },
+      {
+       "k": 2,
+       "seed": 879445672,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.5,
+       "len": 31
+      },
+      {
+       "k": 3,
+       "seed": 1131181630,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 17.6,
+       "len": 1083
+      },
+      {
+       "k": 4,
+       "seed": 1560863645,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.5,
+       "len": 31
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1680242132,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 13.8,
+       "len": 736
+      },
+      {
+       "k": 1,
+       "seed": 320947522,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.3,
+       "len": 466
+      },
+      {
+       "k": 2,
+       "seed": 170398968,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 31
+      },
+      {
+       "k": 3,
+       "seed": 2100241518,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 2.2,
+       "len": 177
+      },
+      {
+       "k": 4,
+       "seed": 1665905101,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 2.1,
+       "len": 149
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|hebb_moe_router#pool4": {
+    "family": "hebb_moe_router",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 840114856,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 8.3,
+       "len": 485
+      },
+      {
+       "k": 1,
+       "seed": 1158943294,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.5,
+       "len": 31
+      },
+      {
+       "k": 2,
+       "seed": 1545421700,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.0,
+       "len": 343
+      },
+      {
+       "k": 3,
+       "seed": 723153682,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.0,
+       "len": 570
+      },
+      {
+       "k": 4,
+       "seed": 897509041,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 256
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1260131005,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.0,
+       "len": 460
+      },
+      {
+       "k": 1,
+       "seed": 1008411179,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 12.5,
+       "len": 819
+      },
+      {
+       "k": 2,
+       "seed": 621966225,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.4,
+       "len": 460
+      },
+      {
+       "k": 3,
+       "seed": 1377125127,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 4,
+       "seed": 1282528932,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|lagrange_loadbalancer#pool4": {
+    "family": "lagrange_loadbalancer",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1761288516,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 10.2,
+       "len": 605
+      },
+      {
+       "k": 1,
+       "seed": 536613330,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.8,
+       "len": 283
+      },
+      {
+       "k": 2,
+       "seed": 116736104,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 3,
+       "seed": 1911714046,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.5,
+       "len": 262
+      },
+      {
+       "k": 4,
+       "seed": 1872160093,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.5,
+       "len": 31
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1022028477,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 6.1,
+       "len": 457
+      },
+      {
+       "k": 1,
+       "seed": 1273879083,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.2,
+       "len": 403
+      },
+      {
+       "k": 2,
+       "seed": 1390709649,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 7.2,
+       "len": 520
+      },
+      {
+       "k": 3,
+       "seed": 635681543,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.5,
+       "len": 502
+      },
+      {
+       "k": 4,
+       "seed": 998715044,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 9.2,
+       "len": 632
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|lymph_gc#pool4": {
+    "family": "lymph_gc",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1704186007,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.9,
+       "len": 64
+      },
+      {
+       "k": 1,
+       "seed": 311746561,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.1,
+       "len": 279
+      },
+      {
+       "k": 2,
+       "seed": 194884027,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.4,
+       "len": 351
+      },
+      {
+       "k": 3,
+       "seed": 2090500397,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.6,
+       "len": 249
+      },
+      {
+       "k": 4,
+       "seed": 1660818574,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 121004163,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 8.4,
+       "len": 602
+      },
+      {
+       "k": 1,
+       "seed": 1882279957,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 2,
+       "seed": 1765278127,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 6.2,
+       "len": 406
+      },
+      {
+       "k": 3,
+       "seed": 507457849,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 6.9,
+       "len": 461
+      },
+      {
+       "k": 4,
+       "seed": 6005914,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 6.2,
+       "len": 403
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|mirage_decoder#pool4": {
+    "family": "mirage_decoder",
+    "stratum": "1_on",
+    "table_id": 1,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1044298151,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.9,
+       "len": 295
+      },
+      {
+       "k": 1,
+       "seed": 1228507441,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.2,
+       "len": 264
+      },
+      {
+       "k": 2,
+       "seed": 1345378443,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 8.4,
+       "len": 235
+      },
+      {
+       "k": 3,
+       "seed": 657975325,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 4,
+       "seed": 961772990,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1890481201,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 1,
+       "seed": 128533671,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Expecting value: line 1 column 1 (char 0)",
+       "secs": 3.7,
+       "len": 297
+      },
+      {
+       "k": 2,
+       "seed": 513807645,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.0,
+       "len": 30
+      },
+      {
+       "k": 3,
+       "seed": 1772561803,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 8.2,
+       "len": 563
+      },
+      {
+       "k": 4,
+       "seed": 2009313320,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 10.4,
+       "len": 728
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|mycelium_gossip#pool4": {
+    "family": "mycelium_gossip",
+    "stratum": "4_on",
+    "table_id": 15,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1055333109,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 9.9,
+       "len": 555
+      },
+      {
+       "k": 1,
+       "seed": 1239427683,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 2.4,
+       "len": 138
+      },
+      {
+       "k": 2,
+       "seed": 1357478873,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 3.2,
+       "len": 170
+      },
+      {
+       "k": 3,
+       "seed": 669928271,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence cases sin cerrar",
+       "secs": 6.5,
+       "len": 416
+      },
+      {
+       "k": 4,
+       "seed": 965402348,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.6,
+       "len": 31
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 166979262,
+       "ok": false,
+       "err": "estructura",
+       "detail": "la raiz no es un objeto",
+       "secs": 1.2,
+       "len": 84
+      },
+      {
+       "k": 1,
+       "seed": 2129974824,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.4,
+       "len": 460
+      },
+      {
+       "k": 2,
+       "seed": 1744668562,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 2.5,
+       "len": 237
+      },
+      {
+       "k": 3,
+       "seed": 284866308,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.1,
+       "len": 30
+      },
+      {
+       "k": 4,
+       "seed": 245244583,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 8.2,
+       "len": 596
+      }
+     ]
+    }
+   },
+   "olmoe-gk-650|pheromone_hnsw#pool4": {
+    "family": "pheromone_hnsw",
+    "stratum": "7_on",
+    "table_id": 127,
+    "netelpro": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 670101698,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.0,
+       "len": 215
+      },
+      {
+       "k": 1,
+       "seed": 1358413908,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 1.8,
+       "len": 167
+      },
+      {
+       "k": 2,
+       "seed": 1241420270,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 4.3,
+       "len": 273
+      },
+      {
+       "k": 3,
+       "seed": 1056547192,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 5.0,
+       "len": 265
+      },
+      {
+       "k": 4,
+       "seed": 547173595,
+       "ok": false,
+       "err": "sin_casos",
+       "detail": "",
+       "secs": 0.8,
+       "len": 58
+      }
+     ]
+    },
+    "json": {
+     "valid": 0,
+     "n": 5,
+     "samples": [
+      {
+       "k": 0,
+       "seed": 1585405463,
+       "ok": false,
+       "err": "estructura",
+       "detail": "signals no calzan con las pedidas",
+       "secs": 7.0,
+       "len": 447
+      },
+      {
+       "k": 1,
+       "seed": 695758465,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 5.9,
+       "len": 369
+      },
+      {
+       "k": 2,
+       "seed": 812728123,
+       "ok": false,
+       "err": "parseo",
+       "detail": "Expecting value: line 1 column 1 (char 0)",
+       "secs": 0.2,
+       "len": 11
+      },
+      {
+       "k": 3,
+       "seed": 1198919597,
+       "ok": false,
+       "err": "truncado",
+       "detail": "fence json sin cerrar",
+       "secs": 7.0,
+       "len": 461
+      },
+      {
+       "k": 4,
+       "seed": 1494391310,
+       "ok": false,
+       "err": "sin_bloque",
+       "detail": "",
+       "secs": 2.8,
+       "len": 218
+      }
+     ]
+    }
+   }
+  }
  }
 }
