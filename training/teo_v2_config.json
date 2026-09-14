@@ -1,0 +1,23 @@
+{
+  "vocab_size": 32768,
+  "d_model": 768,
+  "n_layers": 12,
+  "n_heads": 12,
+  "context": 1024,
+  "mlp": 3072,
+  "tied_embeddings": true,
+  "dropout": 0.0,
+  "lr": 0.0003,
+  "warmup_steps": 2000,
+  "min_lr": 0.00003,
+  "weight_decay": 0.1,
+  "grad_clip": 1.0,
+  "scale_factor": 1000.0,
+  "z_min": -5000,
+  "z_max": 5000,
+  "activation_fn": "relu",
+  "n_embd": 768,
+  "n_layer": 12,
+  "n_head": 12,
+  "block_size": 1024
+}

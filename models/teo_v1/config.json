@@ -1,0 +1,11 @@
+{
+  "vocab_size": 7591,
+  "block_size": 384,
+  "n_layer": 6,
+  "n_head": 8,
+  "n_embd": 256,
+  "dropout": 0.04,
+  "scale_factor": 1000.0,
+  "z_min": -5000,
+  "z_max": 5000
+}
