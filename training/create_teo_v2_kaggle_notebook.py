@@ -78,6 +78,8 @@ def build_notebook() -> dict:
                 "import os\n",
                 "if not os.path.exists('netelpro'):\n",
                 "    !git clone https://github.com/jona2428/netelpro.git\n",
+                "else:\n",
+                "    !cd /kaggle/working/netelpro && git pull origin master\n",
                 "%cd /kaggle/working/netelpro\n",
                 "\n",
                 "# Instalar requerimientos optimizados\n",
