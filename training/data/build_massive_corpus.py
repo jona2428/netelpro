@@ -407,6 +407,7 @@ def stream_cosmopedia_stem(
         print("📡 Connecting to Hugging Face: HuggingFaceTB/cosmopedia-v2...")
         ds = load_dataset(
             "HuggingFaceTB/cosmopedia-v2",
+            "cosmopedia-v2",
             split="train",
             streaming=True,
         )
@@ -477,15 +478,23 @@ def stream_systems_code_deep(
     try:
         from datasets import load_dataset
 
-        print("📡 Connecting to Hugging Face: codeparrot/github-code (Python)...")
+        print("📡 Connecting to Hugging Face: codeparrot/github-code-clean...")
+        # codeparrot/github-code (the original) relies on a custom loading
+        # script (github-code.py) which recent `datasets` versions refuse to
+        # run at all ("Dataset scripts are no longer supported"). The -clean
+        # mirror ships plain Parquet shards, streamable without a script.
+        target_langs = {"Python", "Rust", "C++", "C#", "C"}
         ds = load_dataset(
-            "codeparrot/github-code",
+            "codeparrot/github-code-clean",
             streaming=True,
             split="train",
-            languages=["Python"],
         )
         count = 0
         for row in ds:
+            lang = row.get("language")
+            if lang is not None and lang not in target_langs:
+                continue
+
             code = row.get("code", "")
             if not code or len(code) < 200:
                 continue
