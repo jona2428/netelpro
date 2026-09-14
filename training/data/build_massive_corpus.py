@@ -27,6 +27,13 @@ from typing import Any, Iterator, Sequence
 
 import numpy as np
 
+# Disable hf_transfer (HuggingFace's Rust-based accelerated downloader) BEFORE
+# any `datasets`/`huggingface_hub` import. Under network retries in sandboxed
+# cloud containers (observed on Kaggle) it has triggered a hard interpreter
+# crash ("Fatal Python error: PyGILState_Release") that no Python-level
+# try/except can catch. Falls back to the plain, slower but stable HTTP path.
+os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "0")
+
 # Ensure project root is in sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(ROOT_DIR) not in sys.path:
