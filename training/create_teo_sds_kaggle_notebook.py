@@ -213,7 +213,7 @@ def build_notebook() -> dict:
                 "    --device cuda \\\n",
                 "    --autocast \\\n",
                 "    --batch-size 4 \\\n",
-                "    --context-len 512 \\\n",
+                "    --context-len 128 \\\n",
                 "    --lr 3e-4 \\\n",
                 "    --max-steps 100000 \\\n",
                 "    --save-interval 500 \\\n",

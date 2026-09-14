@@ -385,7 +385,7 @@ def train_teo_sds(
     print(f"🚀 Training Teo-SDS (~{param_count / 1e6:.1f}M params) on {device.upper()}")
     print(f"   Layers: {config.n_layer} | d_model: {config.d_model} | d_state: {config.d_state} | d_inner: {config.d_inner}")
     print(f"   Context: {config.context} | Batch: {config.batch_size} | LR: {config.lr:.2e} -> {config.min_lr:.2e}")
-    print(f"   Warmup: {config.warmup_steps} steps | Save Interval: {save_interval} | Zero KV-Cache (O(1) inference)")
+    print(f"   Warmup: {config.warmup_steps} steps | Autocast: {use_autocast} | Save Interval: {save_interval} | Zero KV-Cache (O(1) inference)")
     print("=" * 80)
 
     while step < config.max_steps:
