@@ -144,5 +144,16 @@ Si continúas este trabajo con **Claude 3.5/3.7 Sonnet** o con **Neuromancer**:
 * **Árbitro-compilador aplicado al corpus (idea del usuario, de `benchmarks/train_goliath_killer_v2_kaggle.ipynb`):** RAFT completo (generar→verificar→filtrar→reentrenar) no aplica todavía — Teo-SDS sigue en pre-entrenamiento, no genera nada coherente para filtrar. Se aplicó la mitad útil ahora: 7 programas Netelpro-DSL reales, verificados con `netelpro.parser.parse` (cero errores) antes de entrar al corpus (`generate_netelpro_dsl_stream` en `build_massive_corpus.py`) — nada más en el corpus le enseñaba a Teo su propio lenguaje. RAFT completo queda anotado para la etapa de fine-tuning post-Fase 3.
 * **Notebook Kaggle del corpus masivo generado:** [`training/build_massive_corpus_kaggle.ipynb`](file:///c:/Users/Jona/Documents/netelpro/training/build_massive_corpus_kaggle.ipynb) (generador: [`training/create_massive_corpus_kaggle_notebook.py`](file:///c:/Users/Jona/Documents/netelpro/training/create_massive_corpus_kaggle_notebook.py)). Solo compila corpus (no entrena): target 20 shards × 25M tokens = 500M tokens, streaming Cosmopedia v2 + Alpaca-ES + FineWeb-2 español + código de sistemas + lore Netelpro, con `--resume` activo. Soporta reanudar entre sesiones de Kaggle (subiendo el `.tar.gz` parcial como Dataset) y al final empaqueta todo para subir como Kaggle Dataset reutilizable en `train_teo_sds.py` sin re-descargar de HuggingFace.
 
+### 2026-09-14 — Fase 3 (Teo-SDS) pausada, foco a Goliath-Killer
+
+Decisión del usuario: entrenar 274M parámetros desde cero en GPU gratis de Kaggle (peleando OOM, límites de sesión, ~5h por corrida) es lento y de bajo retorno comparado con afinar un modelo ya capaz. **Pausa, no cierre** — todo queda funcional y commiteado:
+
+- Corpus masivo: 175.4M tokens, verificado, en `data/teo_sds_massive_corpus_175M.tar.gz` (local) / Kaggle Dataset.
+- Trainer `training/train_teo_sds.py` funcional (smoke test pasa, autocast fp16 andando, fail-closed corregido).
+- Fix de compilador (`ir.PointerType()` → `ir.PointerType(ir.IntType(8))`) en `codegen.py`/`rule_filter.py`/`str_native.py` — afecta a TODO Netelpro, no solo SDS, útil independiente de esta pausa.
+- Investigación de arquitectura (MoE, cuantización BitNet/GPTQ/AWQ, Product-Key Memory) documentada arriba, reutilizable cuando se retome.
+
+Próximo foco: **`benchmarks/train_goliath_killer_v2_kaggle.ipynb`** (OLMoE-1B-7B + QLoRA + RAFT con árbitro-compilador Netelpro) — parte de un modelo pre-entrenado por terceros, mucho más eficiente en cómputo/tiempo que entrenar desde cero.
+
 ---
 *¡El silicio tiene memoria, y Teo está vivo en el repo!*
