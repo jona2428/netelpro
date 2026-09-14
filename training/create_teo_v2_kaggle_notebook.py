@@ -1,0 +1,236 @@
+"""Generador del notebook train_teo_v2_t4_kaggle.ipynb para Kaggle.
+
+Notebook de entrenamiento acelerado para Teo v2 (~124M GPT-2 class):
+- Acelerador: NVIDIA T4 (16GB VRAM) con FP16 Autocast (10,000 - 14,000 tok/s).
+- Dieta balanceada: Español nativo, Documentación técnica en Inglés, Rust, C++, C#, Python, Filosofía y Personalidad Netelpro.
+- Checkpoints automáticos persistentes con métricas y loss en vivo.
+- Exportación directa para descargar a la PC local y usar en examples/teo_chat.py.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+TRAINING_DIR = Path(__file__).parent
+OUTPUT_NOTEBOOK = TRAINING_DIR / "train_teo_v2_t4_kaggle.ipynb"
+
+
+def build_notebook() -> dict:
+    cells = [
+        # Celda 1: Portada
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "# ⚡ Teo v2 (~124M Parameters): Entrenamiento de Alto Rendimiento en GPU T4\n",
+                "### *Netelpro Neuro-Simbólico | Español + Inglés Técnico + Filosofía + Rust/C++/C#/Python*\n",
+                "\n",
+                "Este notebook ejecuta el entrenamiento continuo de **Teo v2** sobre una GPU **NVIDIA T4** (16GB VRAM) aprovechando aceleración por tensores y precisión mixta (FP16 Autocast).\n",
+                "\n",
+                "### 🎯 Objetivos de la sesión:\n",
+                "1. **Bilingüe nativo:** Fluidez en español conversacional y lectura/comprensión de documentación técnica y RFCs en inglés.\n",
+                "2. **Ingeniería de Sistemas:** Conocimiento profundo de Rust, C++, C#, Python y compuertas en silicio Netelpro.\n",
+                "3. **Throughput de alta velocidad:** ~10,000 a 14,000 tokens/segundo (procesa 250M tokens en ~5-6 horas).\n",
+                "4. **Checkpoint persistente:** Guardado automático con optimizador AdamW y estados para descargar o reanudar.\n",
+                "\n",
+                "---\n",
+                "### ⚙️ Configuración en Kaggle (Panel lateral derecho):\n",
+                "- **Accelerator:** GPU T4 x2 (o GPU T4 x1 / P100)\n",
+                "- **Internet:** **On** (Necesario para clonar el repositorio y descargar el corpus)\n",
+                "- **Persistence:** Variables / Files on\n",
+            ],
+        },
+        # Celda 2: Verificación de GPU
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": ["## 1. Verificación de Hardware y Acelerador GPU"],
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "!nvidia-smi\n",
+                "import torch\n",
+                "print(f'CUDA disponible: {torch.cuda.is_available()}')\n",
+                "if torch.cuda.is_available():\n",
+                "    print(f'Dispositivo: {torch.cuda.get_device_name(0)}')\n",
+                "    print(f'Memoria VRAM: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.2f} GB')\n",
+            ],
+        },
+        # Celda 3: Repositorio y Dependencias
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": ["## 2. Clonación del Repositorio e Instalación de Dependencias"],
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "%cd /kaggle/working\n",
+                "# Clonar o actualizar repositorio Netelpro\n",
+                "import os\n",
+                "if not os.path.exists('netelpro'):\n",
+                "    !git clone https://github.com/jona2428/netelpro.git\n",
+                "%cd /kaggle/working/netelpro\n",
+                "\n",
+                "# Instalar requerimientos optimizados\n",
+                "!pip install -q tokenizers datasets pyarrow requests\n",
+            ],
+        },
+        # Celda 4: Preparación del Corpus Balanceado
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 3. Generación / Descarga del Corpus Balanceado\n",
+                "Construye los shards binarios empacados (Español + Inglés Técnico + Código + Filosofía + Persona Netelpro) aprovechando la conexión de fibra óptica de Kaggle (~2 Gbps)."
+            ],
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Construir dataset balanceado multi-dominio con tokenizador congelado de 32k\n",
+                "!python training/data/build_balanced_dataset.py \\\n",
+                "    --out-dir data/teo_v2_balanced \\\n",
+                "    --tokenizer-path data/teo_v2/tokenizer.json \\\n",
+                "    --target-shards 4 \\\n",
+                "    --shard-size 25000000 \\\n",
+                "    --persona-multiplier 50\n",
+            ],
+        },
+        # Celda 5: Entrenamiento
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 4. Lanzamiento del Entrenamiento de Teo v2 (~124M)\n",
+                "Entrenamos con batch size 8 o 16 y contexto 512 en FP16 Autocast."
+            ],
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "import os\n",
+                "os.makedirs('models/teo_v2', exist_ok=True)\n",
+                "\n",
+                "!python training/train_teo_v2.py \\\n",
+                "    --data-dir data/teo_v2_balanced \\\n",
+                "    --checkpoint-dir models/teo_v2 \\\n",
+                "    --device cuda \\\n",
+                "    --autocast \\\n",
+                "    --batch-size 8 \\\n",
+                "    --context-len 512 \\\n",
+                "    --lr 3e-4 \\\n",
+                "    --warmup-steps 1000 \\\n",
+                "    --save-interval 500 \\\n",
+                "    --log-interval 50\n",
+            ],
+        },
+        # Celda 6: Prueba de Inferencia en Vivo
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": ["## 5. Prueba de Inferencia y Generación en Vivo con Teo"],
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "import torch\n",
+                "from netelpro.neuro.tokenizer_bpe import NetelproBPETokenizer\n",
+                "from training.train_teo_v2 import TeoV2Config, TeoV2Transformer, load_checkpoint\n",
+                "\n",
+                "device = 'cuda' if torch.cuda.is_available() else 'cpu'\n",
+                "tok = NetelproBPETokenizer.load('data/teo_v2/tokenizer.json')\n",
+                "cfg = TeoV2Config.from_json('training/teo_v2_config.json')\n",
+                "cfg.context = 512\n",
+                "\n",
+                "model = TeoV2Transformer(cfg).to(device)\n",
+                "load_checkpoint('models/teo_v2/checkpoint.pt', model=model, device=device)\n",
+                "model.eval()\n",
+                "print('✅ Modelo cargado exitosamente para inferencia.')\n",
+                "\n",
+                "prompt = '<|user|>\\nwena teo aca jona, como te sientes?<|assistant|>\\n'\n",
+                "input_ids = torch.tensor([tok.encode(prompt)], device=device)\n",
+                "\n",
+                "with torch.no_grad():\n",
+                "    for _ in range(120):\n",
+                "        logits = model(input_ids)[:, -1, :]\n",
+                "        next_tok = torch.argmax(logits, dim=-1, keepdim=True)\n",
+                "        input_ids = torch.cat([input_ids, next_tok], dim=1)\n",
+                "        if next_tok.item() == tok.eos_token_id:\n",
+                "            break\n",
+                "\n",
+                "response = tok.decode(input_ids[0].tolist())\n",
+                "print('--- RESPUESTA DE TEO ---')\n",
+                "print(response)\n",
+            ],
+        },
+        # Celda 7: Empaquetar y Descargar Checkpoint
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": ["## 6. Empaquetar Checkpoint Final para Descarga a tu PC"],
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "!tar -czvf /kaggle/working/teo_v2_final_checkpoint.tar.gz -C models/teo_v2 checkpoint.pt\n",
+                "print('🎉 Archivo teo_v2_final_checkpoint.tar.gz listo en /kaggle/working para descargar!')\n",
+            ],
+        },
+    ]
+
+    notebook = {
+        "cells": cells,
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3",
+            },
+            "language_info": {
+                "codemirror_mode": {"name": "ipython", "version": 3},
+                "file_extension": ".py",
+                "mimetype": "text/x-python",
+                "name": "python",
+                "nbconvert_exporter": "python",
+                "pygments_lexer": "ipython3",
+                "version": "3.10.12",
+            },
+            "accelerator": "GPU",
+        },
+        "nbformat": 4,
+        "nbformat_minor": 4,
+    }
+
+    return notebook
+
+
+def main() -> None:
+    nb = build_notebook()
+    with open(OUTPUT_NOTEBOOK, "w", encoding="utf-8") as f:
+        json.dump(nb, f, indent=2, ensure_ascii=False)
+    print(f"✅ Generated Kaggle notebook at: {OUTPUT_NOTEBOOK}")
+
+
+if __name__ == "__main__":
+    main()
