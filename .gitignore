@@ -10,7 +10,11 @@ build/
 .worktrees/
 
 # Teo v2: corpus binario y checkpoints regenerables (miles de MB)
-/data/
+data/**/*.bin
+data/**/archive_*
+data/**/*.log
+data/**/dedup_state.json
+data/**/shard_*.meta.json
 models/teo_v2/
 *.onnx
 *.onnx.data
