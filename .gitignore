@@ -20,3 +20,4 @@ models/teo_v2/
 *.onnx.data
 training/data/*.bin
 training/data/teo_v2_corpus/
+*token*.txt

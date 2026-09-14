@@ -21,9 +21,14 @@ if HAS_TORCH:
     import torch.nn as nn
     import torch.nn.functional as F
     _ModuleBase = nn.Module
+    _no_grad = torch.no_grad
 else:
     class _ModuleBase:  # type: ignore
         pass
+    def _no_grad():  # type: ignore
+        def decorator(fn):
+            return fn
+        return decorator
 
 
 @dataclass
@@ -233,7 +238,7 @@ class NetelproTransformer(_ModuleBase):
 
         return logits, loss, certificate
 
-    @torch.no_grad()
+    @_no_grad()
     def generate(
         self,
         idx: torch.Tensor,

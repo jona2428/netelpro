@@ -8,7 +8,6 @@ version = "0.8.0"
 description = "A programming language designed for LLMs — honest by construction: mechanical verification, explicit holes, no silent gaps."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Proprietary" }
 license-files = ["LICENSE"]
 dependencies = ["llvmlite>=0.49"]
 authors = [{ name = "Jonathan", email = "wolfman.agro@gmail.com" }]

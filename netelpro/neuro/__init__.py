@@ -19,6 +19,7 @@ from netelpro.neuro.tokenizer import NetelproTokenizer
 from netelpro.neuro.minillm import NetelproMiniLLM
 from netelpro.neuro.trivium import NetelproTriviumEngine, TriviumAuditRecord
 from netelpro.neuro.memory import NetelproBinaryMemoryBank
+from netelpro.neuro.dynamic_state import NetelproSDSConfig, NetelproSDSModel
 
 __all__ = [
     "NetelproNeuron",
@@ -40,4 +41,6 @@ __all__ = [
     "NetelproTriviumEngine",
     "TriviumAuditRecord",
     "NetelproBinaryMemoryBank",
+    "NetelproSDSConfig",
+    "NetelproSDSModel",
 ]
