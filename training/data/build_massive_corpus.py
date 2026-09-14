@@ -355,6 +355,84 @@ def stream_english_instructions(
 
 
 # ---------------------------------------------------------------------------
+# Netelpro-DSL Verified Example Bank (compiler-as-arbiter)
+# ---------------------------------------------------------------------------
+#
+# Nothing else in this corpus teaches Teo-SDS its own native language — the
+# lore/reasoning samples explain Netelpro in prose, or show Rust/C++/Python,
+# never actual Netelpro-DSL source. Every program below is validated by the
+# real compiler frontend (netelpro.parser.parse) before being allowed into
+# the corpus: if it doesn't parse clean, it's a bug in this list, not a
+# training example. Same principle as the user's RAFT/compiler-arbiter idea
+# in benchmarks/train_goliath_killer_v2_kaggle.ipynb, applied where it fits
+# the current pretraining stage: filtering curated data, not rejecting
+# model generations (the model can't generate anything coherent yet).
+
+NETELPRO_DSL_PROGRAMS: list[dict[str, str]] = [
+    {
+        "prompt": "Escribí un programa Netelpro que sume dos números.",
+        "code": "(defn add (x y) (+ x y))",
+    },
+    {
+        "prompt": "Escribí un programa Netelpro que calcule el máximo entre dos números.",
+        "code": "(defn max2 (a b) (if (> a b) a b))",
+    },
+    {
+        "prompt": "Escribí un programa Netelpro con recursión de cola que sume del 1 al n.",
+        "code": (
+            "(defn sum-to (n acc)\n"
+            "  (if (< n 1) acc (sum-to (- n 1) (+ acc n))))"
+        ),
+    },
+    {
+        "prompt": "Escribí un programa Netelpro que verifique si un número es par.",
+        "code": "(defn is-even (n) (== (rem n 2) 0))",
+    },
+    {
+        "prompt": "Escribí un programa Netelpro que declare capacidad de I/O e imprima un saludo.",
+        "code": '(grant io)\n(print "Hola desde Netelpro")',
+    },
+    {
+        "prompt": "Escribí un programa Netelpro con una función que aún no está implementada, usando sorry.",
+        "code": '(defn future-feature (x) (sorry "pendiente de Fase 5"))',
+    },
+    {
+        "prompt": "Escribí un programa Netelpro que calcule el largo de una lista con recursión.",
+        "code": (
+            "(defn my-length (xs)\n"
+            "  (if (is-nil xs) 0 (+ 1 (my-length (tail xs)))))"
+        ),
+    },
+]
+
+
+def generate_netelpro_dsl_stream(multiplier: int = 100) -> Iterator[str]:
+    """Yields compiler-verified Netelpro-DSL programs as Q&A turns.
+
+    Every program is parsed with the real frontend before being emitted; a
+    program that fails to parse raises immediately (a bug in this list, not
+    something silently fed to training).
+    """
+    from netelpro.parser import parse as netelpro_parse
+
+    verified: list[dict[str, str]] = []
+    for item in NETELPRO_DSL_PROGRAMS:
+        result = netelpro_parse(item["code"])
+        if result.errors:
+            raise RuntimeError(
+                f"NETELPRO_DSL_PROGRAMS entry failed to compile: {item['code']!r} "
+                f"-> {[str(e) for e in result.errors]}"
+            )
+        verified.append(item)
+
+    for _ in range(multiplier):
+        random.shuffle(verified)
+        for item in verified:
+            response = f"```netelpro\n{item['code']}\n```"
+            yield format_qa_turn(item["prompt"], response)
+
+
+# ---------------------------------------------------------------------------
 # Formatters & Generators
 # ---------------------------------------------------------------------------
 
@@ -616,6 +694,7 @@ def build_massive_corpus(
     # Generators
     reasoning_gen = generate_reasoning_and_persona_stream(multiplier=persona_multiplier)
     translation_gen = generate_translation_stream(multiplier=persona_multiplier)
+    netelpro_dsl_gen = generate_netelpro_dsl_stream(multiplier=persona_multiplier)
     cosmo_gen = stream_cosmopedia_stem(max_samples=50000, offline=offline)
     conv_gen = stream_openassistant_conversations(max_samples=50000, offline=offline)
     english_conv_gen = stream_english_instructions(max_samples=50000, offline=offline)
@@ -631,6 +710,7 @@ def build_massive_corpus(
         ("reasoning_lore", reasoning_gen),
         ("translation_pairs", translation_gen),
         ("translation_pairs", translation_gen),
+        ("netelpro_dsl", netelpro_dsl_gen),
         ("conversations", conv_gen),
         ("conversations", conv_gen),
         ("conversations", conv_gen),
@@ -663,7 +743,7 @@ def build_massive_corpus(
                 if not doc:
                     continue
 
-                if domain not in ("reasoning_lore", "translation_pairs") and deduplicator.is_duplicate(doc):
+                if domain not in ("reasoning_lore", "translation_pairs", "netelpro_dsl") and deduplicator.is_duplicate(doc):
                     continue
 
                 prev_shards = len(shard_writer.shards_completed)
