@@ -222,7 +222,7 @@ def _get_or_declare_memcpy(module: ir.Module) -> ir.Function:
     if name in module.globals:
         return module.get_global(name)
 
-    ptr_ty = ir.PointerType()
+    ptr_ty = ir.PointerType(ir.IntType(8))
     memcpy_ty = ir.FunctionType(
         ir.VoidType(),
         [ptr_ty, ptr_ty, ir.IntType(64), ir.IntType(1)],
@@ -236,7 +236,7 @@ def _get_or_declare_strlen(module: ir.Module) -> ir.Function:
     if name in module.globals:
         return module.get_global(name)
 
-    ptr_ty = ir.PointerType()
+    ptr_ty = ir.PointerType(ir.IntType(8))
     strlen_ty = ir.FunctionType(ir.IntType(64), [ptr_ty])
     return ir.Function(module, strlen_ty, name=name)
 
@@ -299,7 +299,7 @@ def emit_arena_alloc(
     arena_gv = _get_or_emit_arena(module)
 
     i64 = ir.IntType(64)
-    ptr_ty = ir.PointerType()
+    ptr_ty = ir.PointerType(ir.IntType(8))
 
     if isinstance(nbytes, int):
         nbytes_val = ir.Constant(i64, nbytes)
@@ -372,12 +372,12 @@ def emit_strlit(builder: ir.IRBuilder, py_str: str) -> ir.Value:
     dst_ptr = emit_arena_alloc(builder, nbytes)
 
     memcpy_fn = _get_or_declare_memcpy(module)
-    is_null = builder.icmp_unsigned("==", dst_ptr, ir.Constant(ir.PointerType(), None))
+    is_null = builder.icmp_unsigned("==", dst_ptr, ir.Constant(ir.PointerType(ir.IntType(8)), None))
     with builder.if_else(is_null) as (then_null, otherwise_ok):
         with then_null:
             pass
         with otherwise_ok:
-            src_ptr = builder.bitcast(const_gv, ir.PointerType())
+            src_ptr = builder.bitcast(const_gv, ir.PointerType(ir.IntType(8)))
             builder.call(
                 memcpy_fn,
                 [
@@ -431,7 +431,7 @@ def emit_str_cat(
     if mod is None:
         raise ValueError("module must be provided or builder must have builder.module")
 
-    ptr_ty = ir.PointerType()
+    ptr_ty = ir.PointerType(ir.IntType(8))
     null_const = ir.Constant(ptr_ty, None)
 
     # Null input guard
@@ -522,7 +522,7 @@ def emit_int_to_str(
     i64 = ir.IntType(64)
     i8 = ir.IntType(8)
     i1 = ir.IntType(1)
-    ptr_ty = ir.PointerType()
+    ptr_ty = ir.PointerType(ir.IntType(8))
 
     if isinstance(raw_val, int):
         val_i64 = ir.Constant(i64, raw_val)

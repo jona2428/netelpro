@@ -181,7 +181,7 @@ def test_jit_strlit_emission() -> None:
     mod = ir.Module(name="test_strlit_mod")
     emit_arena_globals(mod)
 
-    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(), []), "emit_lit_test")
+    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(ir.IntType(8)), []), "emit_lit_test")
     b = ir.IRBuilder(fn.append_basic_block("entry"))
     emit_arena_reset(b)
     ptr = emit_strlit(b, "Hello from JIT!")
@@ -203,7 +203,7 @@ def test_jit_str_cat_emission() -> None:
     mod = ir.Module(name="test_str_cat_mod")
     emit_arena_globals(mod)
 
-    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(), []), "emit_cat_test")
+    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(ir.IntType(8)), []), "emit_cat_test")
     b = ir.IRBuilder(fn.append_basic_block("entry"))
     emit_arena_reset(b)
     p1 = emit_strlit(b, "Netelpro ")
@@ -227,7 +227,7 @@ def test_jit_int_to_str_minus_42() -> None:
     mod = ir.Module(name="test_i2s_neg42_mod")
     emit_arena_globals(mod)
 
-    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(), []), "emit_neg42_test")
+    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(ir.IntType(8)), []), "emit_neg42_test")
     b = ir.IRBuilder(fn.append_basic_block("entry"))
     emit_arena_reset(b)
     p = emit_int_to_str(b, -42, mod)
@@ -260,7 +260,7 @@ def test_jit_int_to_str_all_vectors(val: int) -> None:
     mod = ir.Module(name=f"test_i2s_param_mod_{abs(val)}")
     emit_arena_globals(mod)
 
-    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(), [ir.IntType(64)]), "int_to_str_param")
+    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(ir.IntType(8)), [ir.IntType(64)]), "int_to_str_param")
     b = ir.IRBuilder(fn.append_basic_block("entry"))
     emit_arena_reset(b)
     p = emit_int_to_str(b, fn.args[0], mod)
@@ -282,7 +282,7 @@ def test_jit_arena_overflow_yields_null_and_raises_error() -> None:
     mod = ir.Module(name="test_overflow_mod")
     emit_arena_globals(mod)
 
-    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(), []), "overflow_test")
+    fn = ir.Function(mod, ir.FunctionType(ir.PointerType(ir.IntType(8)), []), "overflow_test")
     b = ir.IRBuilder(fn.append_basic_block("entry"))
     emit_arena_reset(b)
 
@@ -319,14 +319,14 @@ def test_jit_per_call_reset_protocol() -> None:
     emit_arena_globals(mod)
 
     # Function 1: resets arena and writes a 32-byte literal
-    fn1 = ir.Function(mod, ir.FunctionType(ir.PointerType(), []), "call_1")
+    fn1 = ir.Function(mod, ir.FunctionType(ir.PointerType(ir.IntType(8)), []), "call_1")
     b1 = ir.IRBuilder(fn1.append_basic_block("entry"))
     emit_arena_reset(b1)
     p1 = emit_strlit(b1, "First Call: 0123456789abcdef01234")
     b1.ret(p1)
 
     # Function 2: resets arena and writes a different literal
-    fn2 = ir.Function(mod, ir.FunctionType(ir.PointerType(), []), "call_2")
+    fn2 = ir.Function(mod, ir.FunctionType(ir.PointerType(ir.IntType(8)), []), "call_2")
     b2 = ir.IRBuilder(fn2.append_basic_block("entry"))
     emit_arena_reset(b2)
     p2 = emit_strlit(b2, "Second Call: Reused Offset Zero!!")

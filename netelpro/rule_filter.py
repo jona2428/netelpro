@@ -236,7 +236,7 @@ class RuleFilter:
                 )
 
             self._compiled = compiled
-            if llvm_fn.function_type.return_type == ir.PointerType():
+            if llvm_fn.function_type.return_type == ir.PointerType(ir.IntType(8)):
                 # v0.5 builder: Str products cross as c_char_p.
                 self._restype: type[ctypes._SimpleCData] = ctypes.c_char_p
             elif llvm_fn.function_type.return_type == ir.IntType(1):
@@ -519,7 +519,7 @@ class RuleBuilder(RuleFilter):
                 if fn.name == "build-rule":
                     llvm_fn = fn
                     break
-        if llvm_fn is None or llvm_fn.function_type.return_type != ir.PointerType():
+        if llvm_fn is None or llvm_fn.function_type.return_type != ir.PointerType(ir.IntType(8)):
             raise RuleFilterError(
                 "'build-rule' must return Str (it exists to produce rule text)",
                 line=builder_defn.line,
