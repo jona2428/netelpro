@@ -281,6 +281,7 @@ def train_teo_sds(
     grad_clip: float | None = None,
     log_interval: int = 50,
     save_interval: int = 1000,
+    autocast: bool = False,
     device: str | None = None,
     seed: int = 42,
     num_threads: int | None = None,
@@ -315,6 +316,9 @@ def train_teo_sds(
     if device == "cpu":
         threads = num_threads or min(8, os.cpu_count() or 4)
         torch.set_num_threads(threads)
+
+    use_autocast = autocast and (device == "cuda")
+    scaler = torch.amp.GradScaler("cuda") if use_autocast else None
 
     torch.manual_seed(seed)
     np_rng = np.random.default_rng(seed)
@@ -420,11 +424,21 @@ def train_teo_sds(
 
         optimizer.zero_grad(set_to_none=True)
 
-        _, loss, _certificate = model(inputs, targets=targets, control_flags=1)
-        assert loss is not None
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
-        optimizer.step()
+        if use_autocast:
+            with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
+                _, loss, _certificate = model(inputs, targets=targets, control_flags=1)
+            assert loss is not None
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            _, loss, _certificate = model(inputs, targets=targets, control_flags=1)
+            assert loss is not None
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+            optimizer.step()
 
         loss_val = float(loss.item())
         last_loss = loss_val
@@ -623,6 +637,7 @@ def main() -> None:
     parser.add_argument("--grad-clip", type=float, default=None, help="Maximum gradient norm.")
     parser.add_argument("--log-interval", type=int, default=50, help="Logging step interval.")
     parser.add_argument("--save-interval", type=int, default=1000, help="Checkpoint step interval.")
+    parser.add_argument("--autocast", action="store_true", help="Enable fp16 mixed precision on GPU.")
     parser.add_argument("--device", default=None, help="Device ('cpu', 'cuda').")
     parser.add_argument("--smoke-test", action="store_true", help="Run 200-step CPU smoke test verification.")
 
@@ -651,6 +666,7 @@ def main() -> None:
         min_lr=args.min_lr,
         weight_decay=args.weight_decay,
         grad_clip=args.grad_clip,
+        autocast=args.autocast,
         log_interval=args.log_interval,
         save_interval=args.save_interval,
         device=args.device,
