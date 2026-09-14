@@ -1,0 +1,35 @@
+{
+  "tokenizer_type": "NetelproBPETokenizer",
+  "vocab_size": 32768,
+  "created_at": "2026-09-14T06:10:27.966901+00:00",
+  "special_tokens": {
+    "<|pad|>": 0,
+    "<|bos|>": 1,
+    "<|eos|>": 2,
+    "<|unk|>": 3,
+    "<|user|>": 4,
+    "<|assistant|>": 5,
+    "<|thought|>": 6,
+    "<|endthought|>": 7,
+    "<|contract|>": 8,
+    "<|endcontract|>": 9,
+    "<|audit|>": 10
+  },
+  "special_token_ids": {
+    "<|pad|>": 0,
+    "<|bos|>": 1,
+    "<|eos|>": 2,
+    "<|unk|>": 3,
+    "<|user|>": 4,
+    "<|assistant|>": 5,
+    "<|thought|>": 6,
+    "<|endthought|>": 7,
+    "<|contract|>": 8,
+    "<|endcontract|>": 9,
+    "<|audit|>": 10
+  },
+  "pad_token_id": 0,
+  "bos_token_id": 1,
+  "eos_token_id": 2,
+  "unk_token_id": 3
+}
