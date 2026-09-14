@@ -21,3 +21,8 @@ models/teo_v2/
 training/data/*.bin
 training/data/teo_v2_corpus/
 *token*.txt
+
+# Corpus masivo empaquetado descargado de Kaggle (cientos de MB, supera el
+# límite de 100MB de GitHub) — se regenera con training/data/build_massive_corpus.py
+data/*.tar.gz
+models/teo_sds/
