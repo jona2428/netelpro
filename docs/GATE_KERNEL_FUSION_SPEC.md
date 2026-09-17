@@ -485,9 +485,14 @@ generation slower than it already was. What's still open, honestly: only
 two range widths were tested; the 0.5 threshold is an interpolation, not
 a sweep, so a range near that boundary hasn't been measured directly and
 could in principle land on the wrong side of the dispatch. A future
-session could sweep more widths to tighten the threshold, or measure on
-a P100 to check the no-tensor-cores caveat from §9 — neither blocks using
-what's here today.
+session could sweep more widths to tighten the threshold — neither blocks
+using what's here today.
+
+**P100 no longer testable (2026-09-17, noted same day):** Kaggle removed
+P100 from its accelerator options. §9's no-tensor-cores caveat for P100
+is now untestable on free-tier Kaggle — dropped from the open-questions
+list above rather than left as a misleading actionable item. T4 remains
+the real, available target.
 
 ---
 
