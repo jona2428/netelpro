@@ -335,3 +335,45 @@ def test_gate_report_verified_rate_is_zero_when_nothing_was_verified():
     assert rep["verified_rate_pct"] == 0.0, (
         "100% compile with 0% verified is the exact confusion this gate had"
     )
+
+
+# ---------------------------------------------------------------------------
+# Fence-specificity: "netelpro" is a literal prefix of "netelpro-cases"
+#
+# Measured 2026-09-17: with only the cases fence present, the permissive
+# fallback inside extract_block returned the literal string "-cases\n(0) -> 0"
+# as if it were a contract, and the compiler rejected it with
+# "invalid token '-cases'" -- a diagnostic pointing at the compiler instead of
+# at the real cause (no contract was ever emitted).
+# ---------------------------------------------------------------------------
+
+
+def test_extract_block_does_not_confuse_the_cases_fence_with_the_contract_fence():
+    """The exact defect: a cases-only generation must not yield a contract."""
+    cases_only = "```netelpro-cases\n(0,0,0) -> 0\n(1,1,1) -> 1\n```"
+    assert extract_block(cases_only, fence="netelpro") is None
+    assert extract_block(cases_only, fence="netelpro-cases") is not None
+    # ...and the contract fence must not be mistaken for a cases fence.
+    assert extract_block(VALID_SAMPLE, fence="netelpro").startswith("(truth-table")
+    assert extract_block(VALID_SAMPLE, fence="netelpro-cases").startswith("(1,1,1)")
+
+
+def test_cases_only_generation_reports_the_missing_contract_not_a_compile_error():
+    """The failure must name the real cause: no contract was emitted."""
+    cases_only = "```netelpro-cases\n(0,0,0) -> 0\n(1,1,1) -> 1\n```"
+    verdict = compile_verdict(cases_only, require_cases=True, min_cases=1)
+    assert verdict.ok is False
+    assert verdict.compiled is False
+    assert verdict.verified is False
+    assert "no contract" in verdict.error
+    assert "invalid token" not in verdict.error, (
+        "a compiler error here misdirects: the contract fence was never opened"
+    )
+
+
+def test_explicit_cases_argument_still_works_without_any_fence():
+    """The fence guard must not break the programmatic path (cases=...)."""
+    verdict = compile_verdict(CONTRACT_WITHOUT_CASES, cases=[((0, 0), 0), ((1, 1), 1)])
+    assert verdict.ok is True
+    assert verdict.compiled is True
+    assert verdict.verified is True

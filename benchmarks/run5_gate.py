@@ -42,16 +42,28 @@ def extract_block(text: str, fence: str = "netelpro") -> Optional[str]:
     If no fences are present in text, and fence is 'netelpro', checks if the text
     itself is raw Lisp/Netelpro code starting with '(' and returns it stripped.
     Returns None if text is empty or no block could be extracted.
+
+    The opening fence is matched SPECIFICALLY, never by substring: ``netelpro``
+    is a literal prefix of ``netelpro-cases``, so a permissive pattern (or a
+    ``"```netelpro" in text`` guard) cannot tell the two fences apart. Measured
+    2026-09-17: with only the cases fence present, the permissive fallback
+    returned the literal string ``'-cases\\n(0) -> 0...'`` as if it were a
+    contract, and the compiler rejected it with ``invalid token '-cases'`` --
+    a diagnostic that sends the reader looking for a compiler bug instead of
+    the real cause (the contract was never emitted). The ``(?![\\w-])``
+    lookahead is what forbids the contract fence from matching the cases fence.
     """
     if not text or not text.strip():
         return None
 
-    pattern = rf"```{re.escape(fence)}\s*\n(.*?)```"
+    # `\s*` before the closing fence already tolerates trailing blank lines;
+    # the opening side must not swallow a longer fence name.
+    pattern = rf"```{re.escape(fence)}(?![\w-])\s*\n(.*?)```"
     matches = re.findall(pattern, text, re.DOTALL)
     if matches:
         return matches[-1].strip()
 
-    pattern_loose = rf"```{re.escape(fence)}\s*(.*?)```"
+    pattern_loose = rf"```{re.escape(fence)}(?![\w-])\s*(.*?)```"
     matches_loose = re.findall(pattern_loose, text, re.DOTALL)
     if matches_loose:
         return matches_loose[-1].strip()
@@ -156,13 +168,26 @@ def compile_verdict(
     if not text_or_contract or not text_or_contract.strip():
         return CompileVerdict(ok=False, error="empty output", contract=None)
 
-    # If markdown fences present, extract the netelpro block
-    if "```netelpro" in text_or_contract:
+    # If markdown fences present, extract the netelpro block. The guard must be
+    # fence-specific: a bare substring test for "```netelpro" also matches
+    # "```netelpro-cases" (see extract_block's docstring), which would route a
+    # cases-only generation into the contract branch.
+    has_contract_fence = re.search(r"```netelpro(?![\w-])", text_or_contract) is not None
+    has_cases_fence = "```netelpro-cases" in text_or_contract
+    if has_contract_fence:
         contract = extract_block(text_or_contract, fence="netelpro")
         if not contract:
             return CompileVerdict(
                 ok=False, error="unclosed or empty ```netelpro``` block", contract=None
             )
+    elif has_cases_fence:
+        # Cases fence but no contract fence: the contract was never emitted.
+        # Reporting this as a compilation failure is a lie about the cause.
+        return CompileVerdict(
+            ok=False,
+            error="no contract: only a ```netelpro-cases``` block was found",
+            contract=None,
+        )
     elif "```" in text_or_contract:
         contract = extract_block(text_or_contract, fence="lisp") or extract_block(
             text_or_contract, fence=""
@@ -186,7 +211,7 @@ def compile_verdict(
 
     # Check cases if provided or present
     extracted_cases = cases
-    if extracted_cases is None and ("```netelpro-cases" in text_or_contract or verify_cases):
+    if extracted_cases is None and (has_cases_fence or verify_cases):
         extracted_cases = extract_cases(text_or_contract)
 
     mismatches: List[Any] = []
