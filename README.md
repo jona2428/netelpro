@@ -139,7 +139,19 @@ Evaluated under identical local execution environments across the 30 standardize
 
 *Full comparative reports and raw test runs are versioned under [`benchmarks/`](benchmarks/).*
 
-### Universal Python Guard (`netelpro.guard`)
+### Runtime enforcement: two separate layers
+
+Netelpro ships two distinct enforcement mechanisms. They solve different problems
+and run at different times — conflating them overstates what either one does on
+its own.
+
+**Layer A — post-hoc text audit (`netelpro.guard.HonestyGuard`).** Runs *after*
+a full agent turn is generated. Regex-based claim detection over the finished
+text decides whether it asserts verification ("he revisado...", "tests
+pasaron...") without matching tool evidence, then a Netelpro rule compiled to
+native code (`RuleFilter`) makes the pass/fail call. This catches *verification
+theater in prose* — it does not touch generation and cannot prevent an action,
+only flag the claim about it after the fact.
 
 ```python
 from netelpro.guard import HonestyGuard
@@ -148,6 +160,47 @@ guard = HonestyGuard()
 # Raises HonestyViolationError if the turn claims verification without tool evidence
 verified_text = guard.enforce(agent_response, tool_results=results)
 ```
+
+**Layer B — real-time token/action gate (`netelpro.neuro.NetelproLogitsProcessor`
+/ `NetelproStreamProcessor`).** Runs *during* generation, at every autoregressive
+step, before sampling. It implements HuggingFace's standard `LogitsProcessor`
+interface: at each step it evaluates a compiled Netelpro contract
+(`netelpro/neuro/rules/action_boundary.sl` by default — a declared
+`[allowed_min, allowed_max]` range plus a `safety_state` kill switch) against
+every candidate token/action ID and masks the disallowed ones to `-inf` before
+the model ever samples. A token outside the declared contract is not filtered
+out of the output — it never had a nonzero probability of being chosen. This is
+the mechanism that maps to "an undeclared action gets cut instantly": the
+contract is compiled to native code once, then evaluated per token via `ctypes`
+— it is not a Python heuristic re-run on every step.
+
+The mapping from a real-world action (delete a file, call an API) to a
+token/action ID and to the declared range is the caller's responsibility — the
+gate is fail-closed on the range it's given, but it has no way to know whether
+that range covers every action that matters. Writing the right contract is a
+modeling problem, not something the compiler checks for you.
+
+**See it work against a real checkpoint**, not a mock — `examples/contract_gate_demo.py`
+runs the pretrained model in `models/netelpro_mini_v1` under a wide-open
+contract, then narrows it live and shows, token by token, the model's raw
+top candidate next to what the gate actually let through:
+
+```bash
+python -m examples.contract_gate_demo
+```
+
+```text
+PHASE 2 -- contract narrowed to [0, 74) live, mid-conversation.
+  [BLOCKED] step   1 | model wanted id=77   "r" (NOT in contract range) -> never sampled; gate forced id=62   "c"
+  [ok]      step   2 | id=68   "i"
+PHASE 3 -- safety_state=0: emergency freeze (the kill switch).
+  [BLOCKED] step   1 | model wanted id=72   "m" (NOT in contract range) -> never sampled; gate forced id=0    "<|pad|>"
+```
+
+`NetelproMiniLLM` already wires `NetelproStreamProcessor` into every
+`stream_chat()` call (see `netelpro/neuro/minillm.py`) — the demo exercises
+that same production path with a deliberately narrow contract so the
+intervention is visible instead of implicit.
 
 ## Documentation & Research
 
