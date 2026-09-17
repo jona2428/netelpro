@@ -76,7 +76,7 @@ def export_teo() -> None:
         dynamo=False,
     )
 
-    print(f"✅ Exportación completada exitosamente:")
+    print("✅ Exportación completada exitosamente:")
     print(f"   • Archivo ONNX: {onnx_out}")
     print(f"   • Tamaño: {onnx_out.stat().st_size / (1024*1024):.2f} MB")
     print("=" * 80)

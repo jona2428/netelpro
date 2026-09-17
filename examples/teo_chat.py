@@ -5,22 +5,20 @@ Inferencia nativa con aceleración iGPU UMA (DirectML) y streaming en tiempo rea
 
 from __future__ import annotations
 
-import os
 import re
 import sys
 import time
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Generator
 
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from netelpro.neuro.minillm import NetelproMiniLLM
 from netelpro.neuro.tokenizer import NetelproTokenizer
-from netelpro.neuro.memory import NetelproBinaryMemoryBank
 
 try:
-    import torch
+    import torch  # noqa: F401
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False

@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict, dataclass
 import json
-import math
 import os
 from pathlib import Path
 import random
@@ -389,7 +388,7 @@ def train_teo_sds(
     print("=" * 80)
 
     while step < config.max_steps:
-        t_step_start = time.perf_counter()
+        time.perf_counter()
 
         current_lr = get_lr(
             step,

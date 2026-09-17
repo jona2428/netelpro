@@ -36,8 +36,6 @@ if str(ROOT_DIR) not in sys.path:
 
 from netelpro.neuro.tokenizer_bpe import (
     NetelproBPETokenizer,
-    SPECIAL_TOKENS,
-    SPECIAL_TOKEN_TO_ID,
 )
 from training.data.compile_packed import (
     load_stream,
@@ -514,7 +512,7 @@ class PackedShardWriter:
 
         framed = [self.bos_id] + list(raw_ids) + [self.eos_id]
         if self.pad_id is not None:
-            assert self.pad_id not in framed, f"Pad id found in framed document!"
+            assert self.pad_id not in framed, "Pad id found in framed document!"
 
         return framed
 
@@ -903,7 +901,7 @@ def build_corpus(
     max_bytes = parse_byte_size(max_bytes_per_source)
     resolved_sources = parse_sources(sources)
 
-    print(f"--- Netelpro teo_v2 Corpus Builder ---")
+    print("--- Netelpro teo_v2 Corpus Builder ---")
     print(f"Sources:              {resolved_sources}")
     print(f"Shard Size:           {shard_size:,} tokens (uint16)")
     print(f"Max Shards:           {max_shards or 'unlimited'}")
@@ -991,7 +989,7 @@ def build_corpus(
     initial_docs: list[str] = []
     # When resuming (shards_completed non-empty), SKIP the initial_docs tokenizer-sample loop
     if tokenizer is None and not has_resumed_shards:
-        print(f"Collecting sample documents for BPE tokenizer training...")
+        print("Collecting sample documents for BPE tokenizer training...")
         sample_bytes_needed = (
             min(sample_bytes_for_tokenizer, max_bytes * 2)
             if max_bytes
@@ -1093,7 +1091,6 @@ def build_corpus(
     tokens_rate = (shard_writer.total_tokens) / elapsed if elapsed > 0 else 0
 
     # Verification: check pad fraction using compile_packed.stream_stats
-    total_pad_count = 0
     for shard_info in shard_writer.shards_completed:
         shard_path = out_dir_path / shard_info["file_name"]
         if shard_path.is_file():
@@ -1127,7 +1124,7 @@ def build_corpus(
     print(f"   - Packed shards:       {len(shard_writer.shards_completed)}")
     print(f"   - Unique docs:         {deduplicator.seen_count:,}")
     print(f"   - Duplicates dropped:  {deduplicator.duplicate_count:,}")
-    print(f"   - Pad fraction:        0.000000 (verified)")
+    print("   - Pad fraction:        0.000000 (verified)")
     print(f"   - Destination:         {out_dir_path}")
     print("=" * 60)
 

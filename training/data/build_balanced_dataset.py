@@ -13,18 +13,12 @@ framed with [bos] (1) and [eos] (2), and sidecar meta.json manifests.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
-import hashlib
-import json
-import os
 from pathlib import Path
 import random
-import re
 import sys
 import time
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterator
 
-import numpy as np
 
 # Ensure project root is in sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -33,15 +27,11 @@ if str(ROOT_DIR) not in sys.path:
 
 from netelpro.neuro.tokenizer_bpe import (
     NetelproBPETokenizer,
-    SPECIAL_TOKENS,
-    SPECIAL_TOKEN_TO_ID,
 )
-from training.data.compile_packed import load_stream, stream_stats
 from training.data.download_corpus import (
     DocumentDeduplicator,
     PackedShardWriter,
     clean_document,
-    parse_byte_size,
 )
 from training.data.teo_conversational_corpus import TEO_CONVERSATIONAL_SAMPLES
 

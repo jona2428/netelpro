@@ -6,8 +6,6 @@ gramaticalmente fluidos en español, eliminando el balbuceo de caracteres.
 
 from __future__ import annotations
 
-import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -46,7 +44,7 @@ def train_fluency():
         from training.data.fluency_corpus import save_fluency_corpus
         save_fluency_corpus(fluency_path)
 
-    print(f"📥 Cargando corpus de fluidez...")
+    print("📥 Cargando corpus de fluidez...")
     inputs, targets = load_dataset(fluency_path, tokenizer, max_len=minillm.config.block_size)
     print(f"📊 Muestras a entrenar: {len(inputs)}")
 

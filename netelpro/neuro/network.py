@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
 from netelpro.neuro.certificate import AuditCertificate, LayerAuditRecord
 from netelpro.neuro.neuron import NetelproLayer

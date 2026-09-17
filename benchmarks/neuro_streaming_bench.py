@@ -6,7 +6,6 @@ de generación streaming continua sobre un vocabulario de 32,000 tokens.
 
 from __future__ import annotations
 
-import os
 import sys
 import time
 from pathlib import Path
@@ -87,7 +86,7 @@ def run_streaming_benchmark(
     print(f"  • Latencia Mínima:               {min_us:.2f} µs")
     print(f"  • Latencia Máxima:               {max_us:.2f} µs")
     print(f"  • Tokens ilegales podados/paso:  {pruned_counts[0]:,} tokens")
-    print(f"  • Violaciones fuera de contrato: 0 (100% Fail-Closed Garantizado)")
+    print("  • Violaciones fuera de contrato: 0 (100% Fail-Closed Garantizado)")
     print("=" * 70)
 
     report_md = f"""# Reporte de Desempeño: Streaming en Tiempo Real con Neurona Netelpro

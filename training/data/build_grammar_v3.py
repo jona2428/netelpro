@@ -25,14 +25,13 @@ Context & Design:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import keyword
 import random
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 # Ensure repository root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -40,17 +39,13 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from netelpro.parser import parse
-from netelpro.rule_filter import RuleFilterError, compile_filter
+from netelpro.rule_filter import compile_filter
 from builders.truth_table_builder import oracle_cases
 from benchmarks.principle_bench import (
-    NETELPRO_SPEC,
     bits_for_row,
     build_prompt,
     grade_netelpro,
-    netelpro_cases_block,
     netelpro_contract,
-    on_set_desc,
-    verdict_for_row,
 )
 from benchmarks.vtb_ood_runner import HONESTY_SYSTEM_PROMPT
 

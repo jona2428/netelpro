@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-import numpy as np
-import pytest
 
 # Ensure project root is on sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -19,7 +17,6 @@ from training.data.build_balanced_dataset import (
     CURATED_NETELPRO_SYSTEMS,
     build_balanced_dataset,
     format_dialogue,
-    generate_persona_documents,
 )
 
 

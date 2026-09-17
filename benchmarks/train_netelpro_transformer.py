@@ -7,7 +7,6 @@ Certificados Formales de Auditoría frente a perturbaciones adversarias.
 
 from __future__ import annotations
 
-import os
 import sys
 import time
 from pathlib import Path
@@ -20,7 +19,6 @@ from netelpro.neuro.ste import HAS_TORCH
 
 if HAS_TORCH:
     import torch
-    import torch.nn as nn
     import torch.optim as optim
 
 
@@ -133,7 +131,7 @@ def run_training_experiment():
     _, _, cert_inhibit = model(prompt, control_flags=0)
     print(f"  • Estado Normal:     {final_cert.records[0].active_neurons} neuronas disparadas")
     print(f"  • Estado Adversario: {cert_inhibit.records[0].active_neurons} neuronas disparadas (100% CORTADAS A CERO)")
-    print(f"  • Garantía Formal:   Inhibición Inmediata en Silicio sin Desborde Numérico")
+    print("  • Garantía Formal:   Inhibición Inmediata en Silicio sin Desborde Numérico")
     print("=" * 75)
 
     # Save Report

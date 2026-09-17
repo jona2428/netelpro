@@ -7,9 +7,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
-import pytest
 import torch
-import torch.nn as nn
 
 # Ensure project root is on sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +18,6 @@ from training.data.compile_packed import get_batch, load_stream, stream_stats
 from training.train_teo_v2 import (
     TeoV2Config,
     TeoV2Transformer,
-    build_synthetic_corpus,
     configure_optimizers,
     get_lr,
     load_checkpoint,

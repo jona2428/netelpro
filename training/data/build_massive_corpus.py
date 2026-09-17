@@ -14,18 +14,13 @@ framed with [bos] (1) and [eos] (2), with full resume persistence.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
-import hashlib
-import json
 import os
 from pathlib import Path
 import random
-import re
 import sys
 import time
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterator
 
-import numpy as np
 
 # Disable hf_transfer (HuggingFace's Rust-based accelerated downloader) BEFORE
 # any `datasets`/`huggingface_hub` import. Under network retries in sandboxed
@@ -41,10 +36,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from netelpro.neuro.tokenizer_bpe import (
     NetelproBPETokenizer,
-    SPECIAL_TOKENS,
-    SPECIAL_TOKEN_TO_ID,
 )
-from training.data.compile_packed import load_stream, stream_stats
 from training.data.download_corpus import (
     DocumentDeduplicator,
     PackedShardWriter,

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-import pytest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
@@ -17,7 +16,6 @@ from training.data.build_massive_corpus import (
     ADVANCED_REASONING_SAMPLES,
     build_massive_corpus,
     format_qa_turn,
-    generate_reasoning_and_persona_stream,
 )
 
 

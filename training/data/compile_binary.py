@@ -65,7 +65,7 @@ if __name__ == "__main__":
     src = Path(__file__).parent / "mega_train.jsonl"
     dst = Path(__file__).parent / "mega_train.bin"
     n_samples, b_size, n_bytes = compile_corpus_to_bin(src, dst, block_size=384)
-    print(f"✅ Compilación binaria completada:")
+    print("✅ Compilación binaria completada:")
     print(f"   - Muestras procesadas: {n_samples}")
     print(f"   - Tamaño de bloque: {b_size} tokens")
     print(f"   - Archivo binario: {dst} ({n_bytes:,} bytes / {n_bytes / 1024:.2f} KB)")

@@ -5,7 +5,7 @@ from pathlib import Path
 import time
 import pytest
 
-from netelpro.neuro.tokenizer_bpe import NetelproBPETokenizer, SPECIAL_TOKENS, SPECIAL_TOKEN_TO_ID
+from netelpro.neuro.tokenizer_bpe import NetelproBPETokenizer, SPECIAL_TOKENS
 
 
 def test_special_tokens_exact_ids():

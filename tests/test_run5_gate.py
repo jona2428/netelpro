@@ -13,7 +13,6 @@ import json
 from pathlib import Path
 import pytest
 from benchmarks.run5_gate import (
-    CompileVerdict,
     compile_verdict,
     extract_block,
     extract_cases,

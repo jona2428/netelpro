@@ -7,7 +7,7 @@ using a deterministic compiled Netelpro Gate.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Optional
 
 from netelpro.gate import Gate
 from netelpro.neuro.native_kernel import NetelproVectorKernel

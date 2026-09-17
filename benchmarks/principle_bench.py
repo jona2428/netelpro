@@ -54,7 +54,7 @@ import urllib.error
 import urllib.request
 import zlib
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ENGINE_ROOT = REPO_ROOT
@@ -680,7 +680,7 @@ def write_report(results: Dict[str, Any]) -> str:
                 row.append(f"{s[a]['mean']} (x{s[a]['ratio_vs_json_indent']})")
             lines.append("| " + " | ".join(row) + " |")
         lines.append("")
-        lines.append(f"Caracteres medios: " + ", ".join(
+        lines.append("Caracteres medios: " + ", ".join(
             f"{a}={part_a['chars_mean'][a]}" for a in arts))
         lines.append("")
     part_b = results.get("part_b")

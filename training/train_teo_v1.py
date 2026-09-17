@@ -9,7 +9,6 @@ y la identidad conversacional de Teo con Jona.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
@@ -55,7 +54,7 @@ def load_binary_dataset(
 def export_teo_onnx(model: NetelproMiniLLM, output_onnx_path: Path) -> bool:
     """Exporta el modelo Teo v1 a un grafo computacional ONNX para aceleración DirectML."""
     try:
-        print(f"📦 Exportando Teo v1 a grafo computacional ONNX (DirectML UMA)...", flush=True)
+        print("📦 Exportando Teo v1 a grafo computacional ONNX (DirectML UMA)...", flush=True)
         model.eval()
 
         class FastInferenceWrapper(nn.Module):
@@ -179,7 +178,7 @@ def train_teo_v1(
     indices = torch.arange(num_samples)
 
     start_train_time = time.perf_counter()
-    print(f"\n🚀 Iniciando entrenamiento causal de gradientes...", flush=True)
+    print("\n🚀 Iniciando entrenamiento causal de gradientes...", flush=True)
 
     for epoch in range(1, epochs + 1):
         t_epoch_start = time.perf_counter()

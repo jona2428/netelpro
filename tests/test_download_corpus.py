@@ -15,16 +15,13 @@ import hashlib
 import json
 from pathlib import Path
 import pytest
-import numpy as np
 
 from training.data.download_corpus import (
-    DEFAULT_MIN_DOC_CHARS,
     DocumentDeduplicator,
     PackedShardWriter,
     build_corpus,
     clean_document,
     is_boilerplate_line,
-    normalize_text_for_dedup,
     parse_byte_size,
     parse_sources,
 )

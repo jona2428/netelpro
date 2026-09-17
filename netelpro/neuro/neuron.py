@@ -10,7 +10,7 @@ import math
 from pathlib import Path
 from typing import Any, Sequence
 
-from netelpro.gate import Gate, GateError
+from netelpro.gate import Gate
 from netelpro.neuro.native_kernel import NetelproVectorKernel
 from netelpro.neuro.ste import HAS_TORCH, NetelproActivationSTE
 

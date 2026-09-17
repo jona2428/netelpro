@@ -22,7 +22,7 @@ from pathlib import Path
 import random
 import sys
 import time
-from typing import Any, Iterator, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -753,8 +753,6 @@ def train_teo_v2(
     print("=" * 80)
 
     while step < config.max_steps:
-        t_step_start = time.perf_counter()
-
         # Update learning rate
         current_lr = get_lr(
             step,

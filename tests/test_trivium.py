@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-import pytest
 
 from netelpro.gate import Gate
-from netelpro.neuro.trivium import NetelproTriviumEngine, TriviumAuditRecord
+from netelpro.neuro.trivium import NetelproTriviumEngine
 from training.data.trivium_corpus import create_trivium_corpus
 
 

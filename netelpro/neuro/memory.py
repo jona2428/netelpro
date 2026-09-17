@@ -10,13 +10,12 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from netelpro.neuro.ste import HAS_TORCH
 
 if HAS_TORCH:
     import torch
-    import torch.nn as nn
     import torch.nn.functional as F
 
 

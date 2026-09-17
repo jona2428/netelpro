@@ -56,7 +56,6 @@ def main():
             print(f"  pattern in train={pat_train[p]}x heldout={pat_ho[p]}x")
 
     # Gate de compilador: 12 muestras del heldout, mezcla aleatoria con seed.
-    from netelpro.rule_filter import compile_filter
     import sys
     sys.path.insert(0, str(REPO))
     from benchmarks.run5_gate import extract_block, compile_verdict

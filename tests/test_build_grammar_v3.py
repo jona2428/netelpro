@@ -22,18 +22,15 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Set
 
-import pytest
 
 from benchmarks.principle_bench import (
     FRESH_POOL_4,
     build_prompt,
     grade_netelpro,
-    task_list,
 )
 from benchmarks.vtb_ood_runner import HONESTY_SYSTEM_PROMPT
 from netelpro.rule_filter import compile_filter
 from training.data.build_grammar_v3 import (
-    FIXED_TIMESTAMP,
     SYSTEM_PROMPT,
     build_grammar_datasets,
     synthesize_rule_definitions,
@@ -223,7 +220,7 @@ def test_determinism() -> None:
         dir1 = Path(td1)
         dir2 = Path(td2)
 
-        res1 = build_grammar_datasets(
+        build_grammar_datasets(
             output_dir=dir1,
             n_train_target=20,
             n_heldout_target=10,
@@ -232,7 +229,7 @@ def test_determinism() -> None:
             v2_path=V2_FILE,
         )
 
-        res2 = build_grammar_datasets(
+        build_grammar_datasets(
             output_dir=dir2,
             n_train_target=20,
             n_heldout_target=10,

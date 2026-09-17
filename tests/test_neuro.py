@@ -8,8 +8,6 @@ and LLM logit pruning.
 from __future__ import annotations
 
 import math
-import pytest
-from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -18,7 +16,6 @@ import torch.optim as optim
 from netelpro.neuro import (
     NetelproNeuron,
     NetelproLayer,
-    NetelproActivationSTE,
     NetelproLogitsGate,
 )
 

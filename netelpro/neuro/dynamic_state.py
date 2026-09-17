@@ -7,14 +7,12 @@ stability through hardware-bounded state gating.
 
 from __future__ import annotations
 
-import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence, Tuple
 
 from netelpro.neuro.certificate import AuditCertificate, LayerAuditRecord
-from netelpro.neuro.neuron import NetelproLayer
 from netelpro.neuro.ste import HAS_TORCH
 
 if HAS_TORCH:
@@ -190,7 +188,7 @@ class NetelproSDSCell(_ModuleBase):
             new_state: Updated bounded state of shape (B, d_inner, d_state)
             new_conv_state: Updated conv buffer of shape (B, d_inner, d_conv)
         """
-        B = x_t.size(0)
+        x_t.size(0)
 
         # 1. Project input
         xz = self.in_proj(x_t)  # (B, 2 * d_inner)

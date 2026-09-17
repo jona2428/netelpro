@@ -7,7 +7,6 @@ Straight-Through Estimator (STE) y compuertas formales en silicio.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
@@ -80,7 +79,7 @@ def train_mega_llm(
 
     bin_path = Path(bin_file) if bin_file else Path(__file__).parent / "data" / "mega_train.bin"
     if not bin_path.exists():
-        print(f"⚙️ Compilando dataset de texto a binario puro...")
+        print("⚙️ Compilando dataset de texto a binario puro...")
         from training.data.compile_binary import compile_corpus_to_bin
         src = Path(__file__).parent / "data" / "mega_train.jsonl"
         compile_corpus_to_bin(src, bin_path, block_size=block_size)
@@ -142,7 +141,7 @@ def train_mega_llm(
     indices = torch.arange(num_samples)
 
     start_train_time = time.perf_counter()
-    print(f"\n🚀 Iniciando optimización de gradientes en CPU (Vectorizado SIMD)...")
+    print("\n🚀 Iniciando optimización de gradientes en CPU (Vectorizado SIMD)...")
 
     for epoch in range(1, epochs + 1):
         t_epoch_start = time.perf_counter()

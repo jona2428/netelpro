@@ -12,7 +12,6 @@ allowing fast SIMD gradient convergence and sub-1GB RAM footprint.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -99,10 +98,10 @@ def main() -> None:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
     print(f"✅ Archivo JSONL: {jsonl_out} ({jsonl_out.stat().st_size / 1024:.1f} KB)")
-    print(f"⚙️ Compilando a binario puro (.bin uint16, bloque 384)...")
+    print("⚙️ Compilando a binario puro (.bin uint16, bloque 384)...")
 
     n_samples, b_size, n_bytes = compile_corpus_to_bin(jsonl_out, bin_out, block_size=384)
-    print(f"🚀 Compilación binaria lista:")
+    print("🚀 Compilación binaria lista:")
     print(f"   • Muestras: {n_samples:,}")
     print(f"   • Bloque:   {b_size} tokens")
     print(f"   • Tamaño:   {n_bytes:,} bytes ({n_bytes / 1024:.1f} KB)")

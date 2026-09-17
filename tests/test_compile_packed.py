@@ -5,13 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-import sys
 
 import numpy as np
 import pytest
 
 from training.data.compile_packed import (
-    FallbackTokenizer,
     compile_corpus_packed,
     get_batch,
     load_stream,
@@ -51,7 +49,7 @@ def test_end_to_end(tmp_path: Path, active_tokenizer):
         (corpus_dir / f"doc_{i}.txt").write_text(doc, encoding="utf-8")
 
     out_bin = tmp_path / "compiled.bin"
-    meta = compile_corpus_packed(
+    compile_corpus_packed(
         input_path=corpus_dir,
         out_bin=out_bin,
         tokenizer=active_tokenizer,

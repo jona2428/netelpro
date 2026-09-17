@@ -29,7 +29,7 @@ netelpro = "netelpro.__main__:main"
 netelpro-mcp = "netelpro.mcp_server:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "numpy>=1.26", "torch>=2.2", "tokenizers>=0.19"]
 
 [tool.setuptools.packages.find]
 include = ["netelpro*"]
@@ -54,6 +54,12 @@ extend-exclude = ["*.ipynb"]
 ignore = ["E741"]
 
 [tool.ruff.lint.per-file-ignores]
-# Tests insert the repo root into sys.path before importing the package:
+# Tests and standalone scripts insert the repo root into sys.path before
+# importing the package (they run directly, not as installed modules):
 # imports after statements are the structural pattern, not an accident.
 "tests/*" = ["E402"]
+"training/**/*.py" = ["E402"]
+"benchmarks/**/*.py" = ["E402"]
+"examples/**/*.py" = ["E402"]
+"scripts/**/*.py" = ["E402"]
+"models/**/*.py" = ["E402"]

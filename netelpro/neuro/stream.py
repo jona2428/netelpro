@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Callable, Generator, Iterable, Optional, Sequence
+from typing import Any, Callable, Generator, Optional, Sequence
 
 from netelpro.gate import Gate
 from netelpro.neuro.logits_processor import NetelproLogitsProcessor

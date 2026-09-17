@@ -19,7 +19,6 @@ import torch
 
 from netelpro.gate import Gate
 from netelpro.neuro import (
-    NetelproNeuron,
     NetelproLayer,
     NetelproLogitsProcessor,
     NetelproVectorKernel,
@@ -52,7 +51,7 @@ def run_latency_benchmark() -> None:
     single_call_ns = single_call_us * 1000.0
     throughput_single = N_CALLS / (t1 - t0)
 
-    print(f"1. Decision Nativa Individual (200,000 iteraciones):")
+    print("1. Decision Nativa Individual (200,000 iteraciones):")
     print(f"   -> Latencia: {single_call_us:.3f} ?s ({single_call_ns:.1f} ns por decision)")
     print(f"   -> Throughput: {throughput_single:,.0f} decisiones / segundo")
     print()

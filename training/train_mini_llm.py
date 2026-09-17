@@ -8,7 +8,6 @@ y serializa el modelo preentrenado con soporte de checkpointing completo.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -23,7 +22,6 @@ from netelpro.neuro.ste import HAS_TORCH
 
 if HAS_TORCH:
     import torch
-    import torch.nn as nn
     import torch.optim as optim
     from torch.optim.lr_scheduler import CosineAnnealingLR
 

@@ -54,12 +54,12 @@ class AuditCertificate:
 
     def summary(self) -> str:
         lines = [
-            f"=== Netelpro Formal Audit Certificate ===",
+            "=== Netelpro Formal Audit Certificate ===",
             f"Layers Audited: {len(self.records)} | Total Neurons: {self.total_neurons_audited}",
             f"Active: {self.total_neurons_audited - self.total_suppressed} | Fail-Closed Suppressed: {self.total_suppressed}",
             f"Gate Evaluation Latency: {self.total_latency_us:.2f} ?s",
             f"Formal Compliance: {'100% VERIFIED' if self.is_fully_compliant else 'VIOLATION DETECTED'}",
-            f"------------------------------------------",
+            "------------------------------------------",
         ]
         for r in self.records:
             lines.append(

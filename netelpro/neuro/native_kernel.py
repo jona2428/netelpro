@@ -7,7 +7,7 @@ throughput for multi-neuron batches and LLM vocabularies.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
 from netelpro.gate import Gate
 from netelpro.neuro.ste import HAS_TORCH

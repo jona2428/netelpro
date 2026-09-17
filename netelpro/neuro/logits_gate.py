@@ -7,7 +7,7 @@ violating tokens or action indices to -inf (probability 0.0) before sampling.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from netelpro.gate import Gate
 from netelpro.neuro.ste import HAS_TORCH
@@ -54,7 +54,6 @@ class NetelproLogitsGate:
             vocab_size = logits.size(-1)
 
             # Evaluate mask for vocabulary indices
-            valid_indices = []
             for idx in range(vocab_size):
                 allow, _ = self.gate.check(idx, allowed_min, allowed_max, safety_state)
                 if not allow:

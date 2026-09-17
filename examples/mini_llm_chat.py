@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import time
 from pathlib import Path
 
 # Add project root
@@ -251,7 +250,7 @@ def main():
             print(f"• Vocabulario Nativo: {minillm.config.vocab_size} tokens")
             print(f"• Ventana de Contexto: {minillm.config.block_size} tokens")
             print(f"• Historial de Memoria: {len(conversation_history)} turnos activos")
-            print(f"• Motor del Trívium: Activo (LLVM Fallacy Gate)")
+            print("• Motor del Trívium: Activo (LLVM Fallacy Gate)")
             print(f"• Estado de Silicio: {'Normal (1)' if control_flag == 1 else 'Inhibido (0)'}\n")
             continue
 

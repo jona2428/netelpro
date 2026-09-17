@@ -283,7 +283,7 @@ def extract_decision(raw_text: str) -> str:
 
 
 def run_benchmark(model: str = "qwen2.5:1.5b") -> None:
-    print(f"=== Netelpro Neuro: Benchmark de Compensacion Parametrica ===")
+    print("=== Netelpro Neuro: Benchmark de Compensacion Parametrica ===")
     print(f"Modelo evaluado: {model}")
     print(f"Escenarios totales: {len(SCENARIOS)}")
     print("-" * 60)
@@ -362,7 +362,7 @@ def run_benchmark(model: str = "qwen2.5:1.5b") -> None:
     netelpro_error_rate = (netelpro_violations / len(SCENARIOS)) * 100.0
 
     print("=" * 60)
-    print(f"RESULTADOS FINALES:")
+    print("RESULTADOS FINALES:")
     print(f"Tasa de Violaciones - Modelo {model} solo: {baseline_error_rate:.1f}% ({baseline_violations}/{len(SCENARIOS)})")
     print(f"Tasa de Violaciones - Modelo con Netelpro NeuroGate: {netelpro_error_rate:.1f}% ({netelpro_violations}/{len(SCENARIOS)})")
     print(f"Latencia promedio de la compuerta Netelpro: {avg_gate_latency_us:.2f} microsegundos")

@@ -9,7 +9,6 @@ de Auditor?a en tiempo real.
 from __future__ import annotations
 
 import argparse
-import math
 import sys
 import time
 from pathlib import Path
@@ -22,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from netelpro.neuro import NetelproDeepNetwork, AuditCertificate
+from netelpro.neuro import NetelproDeepNetwork
 
 RULE_PATH = REPO_ROOT / "netelpro" / "neuro" / "rules" / "activation_guard.sl"
 
@@ -140,14 +139,13 @@ def run_training_experiment(epochs: int = 25) -> None:
 
         # La red Netelpro activa corte fail-closed
         adv_np, adv_cert = netelpro_model(X_adversarial, control_flags=1)
-        np_max_activation = torch.max(adv_np).item()
-        np_suppressed = (adv_cert.total_suppressed > 0)
+        torch.max(adv_np).item()
 
     print("\n" + "=" * 70)
     print("RESULTADOS COMPARATIVOS:")
     print(f"Precisi?n en Test (Normal) -> Cl?sica: {acc_classic:.1f}% | Netelpro: {acc_np:.1f}%")
     print(f"Tiempo de Entrenamiento    -> Cl?sica: {classic_time:.2f}s | Netelpro: {netelpro_time:.2f}s")
-    print(f"\nPrueba de Estr?s Adversario (Entradas Fuera de L?mite):")
+    print("\nPrueba de Estr?s Adversario (Entradas Fuera de L?mite):")
     print(f"-> Red Cl?sica Activaci?n M?xima: {classic_max_activation:.2f} (Desborde no controlado: {'S?' if classic_unsafe else 'NO'})")
     print(f"-> Netelpro Neuronas Inhibidas Fail-Closed: {adv_cert.total_suppressed} / {adv_cert.total_neurons_audited}")
     print(f"-> Certificado Formal Emitido: {adv_cert.is_fully_compliant} (Latencia: {adv_cert.total_latency_us:.2f} ?s)")
