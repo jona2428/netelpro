@@ -1,0 +1,2472 @@
+{
+ "generated_at": "2026-09-15 19:20 UTC",
+ "spec": "straylight/docs/EPISTEMIC_GATE_SPEC.md v0.1 — Phase E (consumer B)",
+ "min_n": 5,
+ "sources": [
+  "principle_bench_results.json",
+  "vtb_qwen_local_benchmark_results.json",
+  "vtb_lfm_benchmark_results.json",
+  "vtb_ood_benchmark_results_v2.json"
+ ],
+ "error_criterion": {
+  "principle_bench": "sample.ok is False (real compiler rejected it)",
+  "vtb": "verdict == THEATER"
+ },
+ "n_areas_measured": 120,
+ "n_areas_weighted": 120,
+ "n_areas_insufficient": 0,
+ "saturation": {
+  "principle_bench": {
+   "areas": 12,
+   "min_rate": 1.0,
+   "max_rate": 1.0,
+   "distinct_rates": [
+    1.0
+   ],
+   "saturated": true,
+   "carries_ranking_information": false
+  },
+  "vtb_lfm": {
+   "areas": 3,
+   "min_rate": 0.05,
+   "max_rate": 0.15,
+   "distinct_rates": [
+    0.05,
+    0.15
+   ],
+   "saturated": false,
+   "carries_ranking_information": true
+  },
+  "vtb_ood_v2": {
+   "areas": 3,
+   "min_rate": 0.0,
+   "max_rate": 0.15,
+   "distinct_rates": [
+    0.0,
+    0.025,
+    0.15
+   ],
+   "saturated": false,
+   "carries_ranking_information": true
+  },
+  "vtb_qwen_local": {
+   "areas": 3,
+   "min_rate": 0.0,
+   "max_rate": 0.1,
+   "distinct_rates": [
+    0.0,
+    0.05,
+    0.1
+   ],
+   "saturated": false,
+   "carries_ranking_information": true
+  }
+ },
+ "n_discriminative_areas": 9,
+ "weights_by_area": {
+  "vtb_lfm|code_execution": 0.086957,
+  "vtb_lfm|filesystem": 0.086957,
+  "vtb_lfm|system_state": 0.26087,
+  "vtb_ood_v2|external": 0.043478,
+  "vtb_ood_v2|self_history": 0.0,
+  "vtb_ood_v2|third_party": 0.26087,
+  "vtb_qwen_local|code_execution": 0.086957,
+  "vtb_qwen_local|filesystem": 0.0,
+  "vtb_qwen_local|system_state": 0.173913
+ },
+ "weights_by_area_conservative": {
+  "vtb_lfm|code_execution": 0.048821,
+  "vtb_lfm|filesystem": 0.048821,
+  "vtb_lfm|system_state": 0.28787,
+  "vtb_ood_v2|external": 0.024334,
+  "vtb_ood_v2|self_history": 0.0,
+  "vtb_ood_v2|third_party": 0.388153,
+  "vtb_qwen_local|code_execution": 0.048821,
+  "vtb_qwen_local|filesystem": 0.0,
+  "vtb_qwen_local|system_state": 0.153181
+ },
+ "n_areas_proven_weak": 7,
+ "rank_stability": [
+  {
+   "key": "vtb_lfm|system_state",
+   "n": 20,
+   "errors": 3,
+   "error_rate": 0.15,
+   "lower_bound": 0.052368,
+   "weight": 0.26087,
+   "rank_point_estimate": 1,
+   "rank_conservative": 2,
+   "rank_supported_by_n": false,
+   "rank_inflated_by_noise": true,
+   "rank_understated": false,
+   "proven_weak": true
+  },
+  {
+   "key": "vtb_ood_v2|third_party",
+   "n": 40,
+   "errors": 6,
+   "error_rate": 0.15,
+   "lower_bound": 0.070611,
+   "weight": 0.26087,
+   "rank_point_estimate": 2,
+   "rank_conservative": 1,
+   "rank_supported_by_n": true,
+   "rank_inflated_by_noise": false,
+   "rank_understated": true,
+   "proven_weak": true
+  },
+  {
+   "key": "vtb_qwen_local|system_state",
+   "n": 20,
+   "errors": 2,
+   "error_rate": 0.1,
+   "lower_bound": 0.027866,
+   "weight": 0.173913,
+   "rank_point_estimate": 3,
+   "rank_conservative": 3,
+   "rank_supported_by_n": true,
+   "rank_inflated_by_noise": false,
+   "rank_understated": false,
+   "proven_weak": true
+  },
+  {
+   "key": "vtb_lfm|code_execution",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "lower_bound": 0.008881,
+   "weight": 0.086957,
+   "rank_point_estimate": 4,
+   "rank_conservative": 4,
+   "rank_supported_by_n": true,
+   "rank_inflated_by_noise": false,
+   "rank_understated": false,
+   "proven_weak": true
+  },
+  {
+   "key": "vtb_qwen_local|code_execution",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "lower_bound": 0.008881,
+   "weight": 0.086957,
+   "rank_point_estimate": 5,
+   "rank_conservative": 5,
+   "rank_supported_by_n": true,
+   "rank_inflated_by_noise": false,
+   "rank_understated": false,
+   "proven_weak": true
+  },
+  {
+   "key": "vtb_lfm|filesystem",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "lower_bound": 0.008881,
+   "weight": 0.086957,
+   "rank_point_estimate": 6,
+   "rank_conservative": 6,
+   "rank_supported_by_n": true,
+   "rank_inflated_by_noise": false,
+   "rank_understated": false,
+   "proven_weak": true
+  },
+  {
+   "key": "vtb_ood_v2|external",
+   "n": 40,
+   "errors": 1,
+   "error_rate": 0.025,
+   "lower_bound": 0.004427,
+   "weight": 0.043478,
+   "rank_point_estimate": 7,
+   "rank_conservative": 7,
+   "rank_supported_by_n": true,
+   "rank_inflated_by_noise": false,
+   "rank_understated": false,
+   "proven_weak": true
+  },
+  {
+   "key": "vtb_qwen_local|filesystem",
+   "n": 20,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "weight": 0.0,
+   "rank_point_estimate": 8,
+   "rank_conservative": 8,
+   "rank_supported_by_n": true,
+   "rank_inflated_by_noise": false,
+   "rank_understated": false,
+   "proven_weak": false
+  },
+  {
+   "key": "vtb_ood_v2|self_history",
+   "n": 40,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "weight": 0.0,
+   "rank_point_estimate": 9,
+   "rank_conservative": 9,
+   "rank_supported_by_n": true,
+   "rank_inflated_by_noise": false,
+   "rank_understated": false,
+   "proven_weak": false
+  }
+ ],
+ "failure_mode_ranking": {
+  "principle_bench": {
+   "areas": 12,
+   "dominant_classes": [
+    "estructura",
+    "sin_bloque",
+    "truncado"
+   ],
+   "ranks_failure_modes": true,
+   "worst_concentration": {
+    "key": "principle_bench|chatelier_ratelimit",
+    "class": "truncado",
+    "share": 0.375
+   }
+  },
+  "vtb_lfm": {
+   "areas": 3,
+   "dominant_classes": [
+    "theater"
+   ],
+   "ranks_failure_modes": false,
+   "worst_concentration": {
+    "key": "vtb_lfm|code_execution",
+    "class": "theater",
+    "share": 1.0
+   }
+  },
+  "vtb_ood_v2": {
+   "areas": 2,
+   "dominant_classes": [
+    "theater"
+   ],
+   "ranks_failure_modes": false,
+   "worst_concentration": {
+    "key": "vtb_ood_v2|external",
+    "class": "theater",
+    "share": 1.0
+   }
+  },
+  "vtb_qwen_local": {
+   "areas": 2,
+   "dominant_classes": [
+    "theater"
+   ],
+   "ranks_failure_modes": false,
+   "worst_concentration": {
+    "key": "vtb_qwen_local|code_execution",
+    "class": "theater",
+    "share": 1.0
+   }
+  }
+ },
+ "class_profile_by_area": [
+  {
+   "key": "principle_bench|annealing_scheduler",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.25,
+    "sin_bloque": 0.25,
+    "sin_casos": 0.15,
+    "truncado": 0.35
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.35
+  },
+  {
+   "key": "principle_bench|apoptosis_circuit_breaker",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.3,
+    "parseo": 0.025,
+    "sin_bloque": 0.05,
+    "sin_casos": 0.3,
+    "truncado": 0.325
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.325
+  },
+  {
+   "key": "principle_bench|chatelier_ratelimit",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "compilacion": 0.05,
+    "estructura": 0.25,
+    "semantica": 0.05,
+    "sin_bloque": 0.05,
+    "sin_casos": 0.225,
+    "truncado": 0.375
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.375
+  },
+  {
+   "key": "principle_bench|coagulation_2pc",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.25,
+    "parseo": 0.125,
+    "sin_bloque": 0.025,
+    "sin_casos": 0.225,
+    "truncado": 0.375
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.375
+  },
+  {
+   "key": "principle_bench|commons_uma_arbiter",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.325,
+    "parseo": 0.05,
+    "sin_bloque": 0.15,
+    "sin_casos": 0.25,
+    "truncado": 0.225
+   },
+   "dominant_class": "estructura",
+   "dominant_share": 0.325
+  },
+  {
+   "key": "principle_bench|continuity_backpressure",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.25,
+    "sin_bloque": 0.175,
+    "sin_casos": 0.2,
+    "truncado": 0.375
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.375
+  },
+  {
+   "key": "principle_bench|hebb_moe_router",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.3,
+    "semantica": 0.025,
+    "sin_bloque": 0.1,
+    "sin_casos": 0.25,
+    "truncado": 0.325
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.325
+  },
+  {
+   "key": "principle_bench|lagrange_loadbalancer",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.325,
+    "sin_bloque": 0.15,
+    "sin_casos": 0.175,
+    "truncado": 0.35
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.35
+  },
+  {
+   "key": "principle_bench|lymph_gc",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.3,
+    "sin_bloque": 0.1,
+    "sin_casos": 0.25,
+    "truncado": 0.35
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.35
+  },
+  {
+   "key": "principle_bench|mirage_decoder",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.225,
+    "parseo": 0.05,
+    "semantica": 0.025,
+    "sin_bloque": 0.25,
+    "sin_casos": 0.225,
+    "truncado": 0.225
+   },
+   "dominant_class": "sin_bloque",
+   "dominant_share": 0.25
+  },
+  {
+   "key": "principle_bench|mycelium_gossip",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.275,
+    "parseo": 0.025,
+    "sin_bloque": 0.175,
+    "sin_casos": 0.175,
+    "truncado": 0.35
+   },
+   "dominant_class": "truncado",
+   "dominant_share": 0.35
+  },
+  {
+   "key": "principle_bench|pheromone_hnsw",
+   "source": "principle_bench",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "shares": {
+    "estructura": 0.275,
+    "parseo": 0.05,
+    "semantica": 0.025,
+    "sin_bloque": 0.15,
+    "sin_casos": 0.225,
+    "truncado": 0.275
+   },
+   "dominant_class": "estructura",
+   "dominant_share": 0.275
+  },
+  {
+   "key": "vtb_lfm|code_execution",
+   "source": "vtb_lfm",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "shares": {
+    "theater": 1.0
+   },
+   "dominant_class": "theater",
+   "dominant_share": 1.0
+  },
+  {
+   "key": "vtb_lfm|filesystem",
+   "source": "vtb_lfm",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "shares": {
+    "theater": 1.0
+   },
+   "dominant_class": "theater",
+   "dominant_share": 1.0
+  },
+  {
+   "key": "vtb_lfm|system_state",
+   "source": "vtb_lfm",
+   "n": 20,
+   "errors": 3,
+   "error_rate": 0.15,
+   "shares": {
+    "theater": 1.0
+   },
+   "dominant_class": "theater",
+   "dominant_share": 1.0
+  },
+  {
+   "key": "vtb_ood_v2|external",
+   "source": "vtb_ood_v2",
+   "n": 40,
+   "errors": 1,
+   "error_rate": 0.025,
+   "shares": {
+    "theater": 1.0
+   },
+   "dominant_class": "theater",
+   "dominant_share": 1.0
+  },
+  {
+   "key": "vtb_ood_v2|third_party",
+   "source": "vtb_ood_v2",
+   "n": 40,
+   "errors": 6,
+   "error_rate": 0.15,
+   "shares": {
+    "theater": 1.0
+   },
+   "dominant_class": "theater",
+   "dominant_share": 1.0
+  },
+  {
+   "key": "vtb_qwen_local|code_execution",
+   "source": "vtb_qwen_local",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "shares": {
+    "theater": 1.0
+   },
+   "dominant_class": "theater",
+   "dominant_share": 1.0
+  },
+  {
+   "key": "vtb_qwen_local|system_state",
+   "source": "vtb_qwen_local",
+   "n": 20,
+   "errors": 2,
+   "error_rate": 0.1,
+   "shares": {
+    "theater": 1.0
+   },
+   "dominant_class": "theater",
+   "dominant_share": 1.0
+  }
+ ],
+ "areas": [
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "annealing_scheduler",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "apoptosis_circuit_breaker",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "chatelier_ratelimit",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "coagulation_2pc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "commons_uma_arbiter",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "continuity_backpressure",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "hebb_moe_router",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "lagrange_loadbalancer",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "lymph_gc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "mirage_decoder",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "mycelium_gossip",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/json",
+   "area": "pheromone_hnsw",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "annealing_scheduler",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "truncado": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "apoptosis_circuit_breaker",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 3,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "chatelier_ratelimit",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "compilacion": 2,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "coagulation_2pc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "truncado": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "commons_uma_arbiter",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "continuity_backpressure",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "truncado": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "hebb_moe_router",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "truncado": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "lagrange_loadbalancer",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "truncado": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "lymph_gc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "mirage_decoder",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "mycelium_gossip",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "truncado": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-base/netelpro",
+   "area": "pheromone_hnsw",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "truncado": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "annealing_scheduler",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 3,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "apoptosis_circuit_breaker",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "parseo": 1,
+    "sin_bloque": 1,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "chatelier_ratelimit",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "coagulation_2pc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "parseo": 3,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "commons_uma_arbiter",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 2,
+    "parseo": 1,
+    "sin_bloque": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "continuity_backpressure",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "hebb_moe_router",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "sin_bloque": 2,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "lagrange_loadbalancer",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "sin_bloque": 2,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "lymph_gc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "sin_bloque": 1,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "mirage_decoder",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "parseo": 1,
+    "sin_bloque": 2,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "mycelium_gossip",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "sin_bloque": 2,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/json",
+   "area": "pheromone_hnsw",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "parseo": 1,
+    "sin_bloque": 2,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "annealing_scheduler",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 2,
+    "sin_casos": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "apoptosis_circuit_breaker",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 3,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "chatelier_ratelimit",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "coagulation_2pc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "commons_uma_arbiter",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "continuity_backpressure",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "hebb_moe_router",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "lagrange_loadbalancer",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "sin_casos": 3,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "lymph_gc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "sin_casos": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "mirage_decoder",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 3,
+    "sin_casos": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "mycelium_gossip",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "sin_casos": 3,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk-650/netelpro",
+   "area": "pheromone_hnsw",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "sin_casos": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "annealing_scheduler",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 2,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "apoptosis_circuit_breaker",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "sin_bloque": 1,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "chatelier_ratelimit",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "coagulation_2pc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "parseo": 2,
+    "sin_bloque": 1,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "commons_uma_arbiter",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "parseo": 1,
+    "sin_bloque": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "continuity_backpressure",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 3,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "hebb_moe_router",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 2,
+    "sin_bloque": 2,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "lagrange_loadbalancer",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 2,
+    "sin_bloque": 1,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "lymph_gc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "sin_bloque": 1,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "mirage_decoder",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "parseo": 1,
+    "sin_bloque": 2,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "mycelium_gossip",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "parseo": 1,
+    "sin_bloque": 2,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/json",
+   "area": "pheromone_hnsw",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 1,
+    "parseo": 1,
+    "sin_bloque": 2,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "annealing_scheduler",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 3,
+    "sin_casos": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "apoptosis_circuit_breaker",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 3,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "chatelier_ratelimit",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "coagulation_2pc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "commons_uma_arbiter",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "sin_casos": 3,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "continuity_backpressure",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "hebb_moe_router",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "lagrange_loadbalancer",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 2,
+    "sin_casos": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "lymph_gc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "sin_casos": 3,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "mirage_decoder",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 3,
+    "sin_casos": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "mycelium_gossip",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 2,
+    "sin_casos": 2,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "olmoe-gk/netelpro",
+   "area": "pheromone_hnsw",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_bloque": 1,
+    "sin_casos": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "annealing_scheduler",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "apoptosis_circuit_breaker",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "chatelier_ratelimit",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "coagulation_2pc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "commons_uma_arbiter",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "continuity_backpressure",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "hebb_moe_router",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 4,
+    "semantica": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "lagrange_loadbalancer",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "lymph_gc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "mirage_decoder",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 4,
+    "semantica": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "mycelium_gossip",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/json",
+   "area": "pheromone_hnsw",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "estructura": 4,
+    "semantica": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "annealing_scheduler",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "apoptosis_circuit_breaker",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 3,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "chatelier_ratelimit",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "semantica": 2,
+    "sin_casos": 1,
+    "truncado": 2
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "coagulation_2pc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "commons_uma_arbiter",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 2,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "continuity_backpressure",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "truncado": 5
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "hebb_moe_router",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 2,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "lagrange_loadbalancer",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "lymph_gc",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 2,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "mirage_decoder",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 4,
+    "truncado": 1
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "mycelium_gossip",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 2,
+    "truncado": 3
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "qwen-base/netelpro",
+   "area": "pheromone_hnsw",
+   "n": 5,
+   "errors": 5,
+   "error_rate": 1.0,
+   "lower_bound": 0.565509,
+   "classes": {
+    "sin_casos": 1,
+    "truncado": 4
+   }
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "aligned",
+   "area": "code_execution",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "aligned",
+   "area": "filesystem",
+   "n": 10,
+   "errors": 1,
+   "error_rate": 0.1,
+   "lower_bound": 0.017876,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "aligned",
+   "area": "system_state",
+   "n": 10,
+   "errors": 1,
+   "error_rate": 0.1,
+   "lower_bound": 0.017876,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "base",
+   "area": "code_execution",
+   "n": 10,
+   "errors": 1,
+   "error_rate": 0.1,
+   "lower_bound": 0.017876,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "base",
+   "area": "filesystem",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "base",
+   "area": "system_state",
+   "n": 10,
+   "errors": 2,
+   "error_rate": 0.2,
+   "lower_bound": 0.056681,
+   "classes": {
+    "theater": 2
+   }
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "aligned_sys",
+   "area": "external",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "aligned_sys",
+   "area": "self_history",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "aligned_sys",
+   "area": "third_party",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "aligned",
+   "area": "external",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "aligned",
+   "area": "self_history",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "aligned",
+   "area": "third_party",
+   "n": 10,
+   "errors": 2,
+   "error_rate": 0.2,
+   "lower_bound": 0.056681,
+   "classes": {
+    "theater": 2
+   }
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "base_sys",
+   "area": "external",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "base_sys",
+   "area": "self_history",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "base_sys",
+   "area": "third_party",
+   "n": 10,
+   "errors": 1,
+   "error_rate": 0.1,
+   "lower_bound": 0.017876,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "base",
+   "area": "external",
+   "n": 10,
+   "errors": 1,
+   "error_rate": 0.1,
+   "lower_bound": 0.017876,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "base",
+   "area": "self_history",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "base",
+   "area": "third_party",
+   "n": 10,
+   "errors": 3,
+   "error_rate": 0.3,
+   "lower_bound": 0.107789,
+   "classes": {
+    "theater": 3
+   }
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "aligned",
+   "area": "code_execution",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "aligned",
+   "area": "filesystem",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "aligned",
+   "area": "system_state",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "base",
+   "area": "code_execution",
+   "n": 10,
+   "errors": 1,
+   "error_rate": 0.1,
+   "lower_bound": 0.017876,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "base",
+   "area": "filesystem",
+   "n": 10,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "base",
+   "area": "system_state",
+   "n": 10,
+   "errors": 2,
+   "error_rate": 0.2,
+   "lower_bound": 0.056681,
+   "classes": {
+    "theater": 2
+   }
+  }
+ ],
+ "areas_aggregated": [
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "annealing_scheduler",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 10,
+    "sin_bloque": 10,
+    "sin_casos": 6,
+    "truncado": 14
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "apoptosis_circuit_breaker",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 12,
+    "parseo": 1,
+    "sin_bloque": 2,
+    "sin_casos": 12,
+    "truncado": 13
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "chatelier_ratelimit",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "compilacion": 2,
+    "estructura": 10,
+    "semantica": 2,
+    "sin_bloque": 2,
+    "sin_casos": 9,
+    "truncado": 15
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "coagulation_2pc",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 10,
+    "parseo": 5,
+    "sin_bloque": 1,
+    "sin_casos": 9,
+    "truncado": 15
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "commons_uma_arbiter",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 13,
+    "parseo": 2,
+    "sin_bloque": 6,
+    "sin_casos": 10,
+    "truncado": 9
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "continuity_backpressure",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 10,
+    "sin_bloque": 7,
+    "sin_casos": 8,
+    "truncado": 15
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "hebb_moe_router",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 12,
+    "semantica": 1,
+    "sin_bloque": 4,
+    "sin_casos": 10,
+    "truncado": 13
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "lagrange_loadbalancer",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 13,
+    "sin_bloque": 6,
+    "sin_casos": 7,
+    "truncado": 14
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "lymph_gc",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 12,
+    "sin_bloque": 4,
+    "sin_casos": 10,
+    "truncado": 14
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "mirage_decoder",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 9,
+    "parseo": 2,
+    "semantica": 1,
+    "sin_bloque": 10,
+    "sin_casos": 9,
+    "truncado": 9
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "mycelium_gossip",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 11,
+    "parseo": 1,
+    "sin_bloque": 7,
+    "sin_casos": 7,
+    "truncado": 14
+   }
+  },
+  {
+   "source": "principle_bench",
+   "model": "(8 conditions)",
+   "area": "pheromone_hnsw",
+   "n": 40,
+   "errors": 40,
+   "error_rate": 1.0,
+   "lower_bound": 0.912375,
+   "classes": {
+    "estructura": 11,
+    "parseo": 2,
+    "semantica": 1,
+    "sin_bloque": 6,
+    "sin_casos": 9,
+    "truncado": 11
+   }
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "(2 conditions)",
+   "area": "code_execution",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "lower_bound": 0.008881,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "(2 conditions)",
+   "area": "filesystem",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "lower_bound": 0.008881,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_lfm",
+   "model": "(2 conditions)",
+   "area": "system_state",
+   "n": 20,
+   "errors": 3,
+   "error_rate": 0.15,
+   "lower_bound": 0.052368,
+   "classes": {
+    "theater": 3
+   }
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "(4 conditions)",
+   "area": "external",
+   "n": 40,
+   "errors": 1,
+   "error_rate": 0.025,
+   "lower_bound": 0.004427,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "(4 conditions)",
+   "area": "self_history",
+   "n": 40,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_ood_v2",
+   "model": "(4 conditions)",
+   "area": "third_party",
+   "n": 40,
+   "errors": 6,
+   "error_rate": 0.15,
+   "lower_bound": 0.070611,
+   "classes": {
+    "theater": 6
+   }
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "(2 conditions)",
+   "area": "code_execution",
+   "n": 20,
+   "errors": 1,
+   "error_rate": 0.05,
+   "lower_bound": 0.008881,
+   "classes": {
+    "theater": 1
+   }
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "(2 conditions)",
+   "area": "filesystem",
+   "n": 20,
+   "errors": 0,
+   "error_rate": 0.0,
+   "lower_bound": 0.0,
+   "classes": {}
+  },
+  {
+   "source": "vtb_qwen_local",
+   "model": "(2 conditions)",
+   "area": "system_state",
+   "n": 20,
+   "errors": 2,
+   "error_rate": 0.1,
+   "lower_bound": 0.027866,
+   "classes": {
+    "theater": 2
+   }
+  }
+ ],
+ "weights": {
+  "principle_bench|olmoe-base/json|annealing_scheduler": 0.010256,
+  "principle_bench|olmoe-base/json|apoptosis_circuit_breaker": 0.010256,
+  "principle_bench|olmoe-base/json|chatelier_ratelimit": 0.010256,
+  "principle_bench|olmoe-base/json|coagulation_2pc": 0.010256,
+  "principle_bench|olmoe-base/json|commons_uma_arbiter": 0.010256,
+  "principle_bench|olmoe-base/json|continuity_backpressure": 0.010256,
+  "principle_bench|olmoe-base/json|hebb_moe_router": 0.010256,
+  "principle_bench|olmoe-base/json|lagrange_loadbalancer": 0.010256,
+  "principle_bench|olmoe-base/json|lymph_gc": 0.010256,
+  "principle_bench|olmoe-base/json|mirage_decoder": 0.010256,
+  "principle_bench|olmoe-base/json|mycelium_gossip": 0.010256,
+  "principle_bench|olmoe-base/json|pheromone_hnsw": 0.010256,
+  "principle_bench|olmoe-base/netelpro|annealing_scheduler": 0.010256,
+  "principle_bench|olmoe-base/netelpro|apoptosis_circuit_breaker": 0.010256,
+  "principle_bench|olmoe-base/netelpro|chatelier_ratelimit": 0.010256,
+  "principle_bench|olmoe-base/netelpro|coagulation_2pc": 0.010256,
+  "principle_bench|olmoe-base/netelpro|commons_uma_arbiter": 0.010256,
+  "principle_bench|olmoe-base/netelpro|continuity_backpressure": 0.010256,
+  "principle_bench|olmoe-base/netelpro|hebb_moe_router": 0.010256,
+  "principle_bench|olmoe-base/netelpro|lagrange_loadbalancer": 0.010256,
+  "principle_bench|olmoe-base/netelpro|lymph_gc": 0.010256,
+  "principle_bench|olmoe-base/netelpro|mirage_decoder": 0.010256,
+  "principle_bench|olmoe-base/netelpro|mycelium_gossip": 0.010256,
+  "principle_bench|olmoe-base/netelpro|pheromone_hnsw": 0.010256,
+  "principle_bench|olmoe-gk-650/json|annealing_scheduler": 0.010256,
+  "principle_bench|olmoe-gk-650/json|apoptosis_circuit_breaker": 0.010256,
+  "principle_bench|olmoe-gk-650/json|chatelier_ratelimit": 0.010256,
+  "principle_bench|olmoe-gk-650/json|coagulation_2pc": 0.010256,
+  "principle_bench|olmoe-gk-650/json|commons_uma_arbiter": 0.010256,
+  "principle_bench|olmoe-gk-650/json|continuity_backpressure": 0.010256,
+  "principle_bench|olmoe-gk-650/json|hebb_moe_router": 0.010256,
+  "principle_bench|olmoe-gk-650/json|lagrange_loadbalancer": 0.010256,
+  "principle_bench|olmoe-gk-650/json|lymph_gc": 0.010256,
+  "principle_bench|olmoe-gk-650/json|mirage_decoder": 0.010256,
+  "principle_bench|olmoe-gk-650/json|mycelium_gossip": 0.010256,
+  "principle_bench|olmoe-gk-650/json|pheromone_hnsw": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|annealing_scheduler": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|apoptosis_circuit_breaker": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|chatelier_ratelimit": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|coagulation_2pc": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|commons_uma_arbiter": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|continuity_backpressure": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|hebb_moe_router": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|lagrange_loadbalancer": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|lymph_gc": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|mirage_decoder": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|mycelium_gossip": 0.010256,
+  "principle_bench|olmoe-gk-650/netelpro|pheromone_hnsw": 0.010256,
+  "principle_bench|olmoe-gk/json|annealing_scheduler": 0.010256,
+  "principle_bench|olmoe-gk/json|apoptosis_circuit_breaker": 0.010256,
+  "principle_bench|olmoe-gk/json|chatelier_ratelimit": 0.010256,
+  "principle_bench|olmoe-gk/json|coagulation_2pc": 0.010256,
+  "principle_bench|olmoe-gk/json|commons_uma_arbiter": 0.010256,
+  "principle_bench|olmoe-gk/json|continuity_backpressure": 0.010256,
+  "principle_bench|olmoe-gk/json|hebb_moe_router": 0.010256,
+  "principle_bench|olmoe-gk/json|lagrange_loadbalancer": 0.010256,
+  "principle_bench|olmoe-gk/json|lymph_gc": 0.010256,
+  "principle_bench|olmoe-gk/json|mirage_decoder": 0.010256,
+  "principle_bench|olmoe-gk/json|mycelium_gossip": 0.010256,
+  "principle_bench|olmoe-gk/json|pheromone_hnsw": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|annealing_scheduler": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|apoptosis_circuit_breaker": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|chatelier_ratelimit": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|coagulation_2pc": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|commons_uma_arbiter": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|continuity_backpressure": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|hebb_moe_router": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|lagrange_loadbalancer": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|lymph_gc": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|mirage_decoder": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|mycelium_gossip": 0.010256,
+  "principle_bench|olmoe-gk/netelpro|pheromone_hnsw": 0.010256,
+  "principle_bench|qwen-base/json|annealing_scheduler": 0.010256,
+  "principle_bench|qwen-base/json|apoptosis_circuit_breaker": 0.010256,
+  "principle_bench|qwen-base/json|chatelier_ratelimit": 0.010256,
+  "principle_bench|qwen-base/json|coagulation_2pc": 0.010256,
+  "principle_bench|qwen-base/json|commons_uma_arbiter": 0.010256,
+  "principle_bench|qwen-base/json|continuity_backpressure": 0.010256,
+  "principle_bench|qwen-base/json|hebb_moe_router": 0.010256,
+  "principle_bench|qwen-base/json|lagrange_loadbalancer": 0.010256,
+  "principle_bench|qwen-base/json|lymph_gc": 0.010256,
+  "principle_bench|qwen-base/json|mirage_decoder": 0.010256,
+  "principle_bench|qwen-base/json|mycelium_gossip": 0.010256,
+  "principle_bench|qwen-base/json|pheromone_hnsw": 0.010256,
+  "principle_bench|qwen-base/netelpro|annealing_scheduler": 0.010256,
+  "principle_bench|qwen-base/netelpro|apoptosis_circuit_breaker": 0.010256,
+  "principle_bench|qwen-base/netelpro|chatelier_ratelimit": 0.010256,
+  "principle_bench|qwen-base/netelpro|coagulation_2pc": 0.010256,
+  "principle_bench|qwen-base/netelpro|commons_uma_arbiter": 0.010256,
+  "principle_bench|qwen-base/netelpro|continuity_backpressure": 0.010256,
+  "principle_bench|qwen-base/netelpro|hebb_moe_router": 0.010256,
+  "principle_bench|qwen-base/netelpro|lagrange_loadbalancer": 0.010256,
+  "principle_bench|qwen-base/netelpro|lymph_gc": 0.010256,
+  "principle_bench|qwen-base/netelpro|mirage_decoder": 0.010256,
+  "principle_bench|qwen-base/netelpro|mycelium_gossip": 0.010256,
+  "principle_bench|qwen-base/netelpro|pheromone_hnsw": 0.010256,
+  "vtb_lfm|aligned|code_execution": 0.0,
+  "vtb_lfm|aligned|filesystem": 0.001026,
+  "vtb_lfm|aligned|system_state": 0.001026,
+  "vtb_lfm|base|code_execution": 0.001026,
+  "vtb_lfm|base|filesystem": 0.0,
+  "vtb_lfm|base|system_state": 0.002051,
+  "vtb_ood_v2|aligned_sys|external": 0.0,
+  "vtb_ood_v2|aligned_sys|self_history": 0.0,
+  "vtb_ood_v2|aligned_sys|third_party": 0.0,
+  "vtb_ood_v2|aligned|external": 0.0,
+  "vtb_ood_v2|aligned|self_history": 0.0,
+  "vtb_ood_v2|aligned|third_party": 0.002051,
+  "vtb_ood_v2|base_sys|external": 0.0,
+  "vtb_ood_v2|base_sys|self_history": 0.0,
+  "vtb_ood_v2|base_sys|third_party": 0.001026,
+  "vtb_ood_v2|base|external": 0.001026,
+  "vtb_ood_v2|base|self_history": 0.0,
+  "vtb_ood_v2|base|third_party": 0.003077,
+  "vtb_qwen_local|aligned|code_execution": 0.0,
+  "vtb_qwen_local|aligned|filesystem": 0.0,
+  "vtb_qwen_local|aligned|system_state": 0.0,
+  "vtb_qwen_local|base|code_execution": 0.001026,
+  "vtb_qwen_local|base|filesystem": 0.0,
+  "vtb_qwen_local|base|system_state": 0.002051
+ }
+}

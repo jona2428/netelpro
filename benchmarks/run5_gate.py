@@ -95,6 +95,12 @@ class CompileVerdict:
     cases: Optional[List[Tuple[Tuple[int, ...], int]]] = None
     mismatches: Optional[List[Any]] = None
     rule_filter: Any = None
+    #: The contract compiled. Independent of whether any case was checked:
+    #: "it compiled" and "it was verified" are different claims (measured
+    #: 2026-09-16: the gate used to report the first one as if it were both).
+    compiled: bool = False
+    #: At least one case was extracted AND every one matched the compiled rule.
+    verified: bool = False
 
     def __bool__(self) -> bool:
         return self.ok
@@ -115,6 +121,8 @@ def compile_verdict(
     text_or_contract: str,
     cases: Optional[List[Tuple[Tuple[int, ...], int]]] = None,
     verify_cases: bool = False,
+    require_cases: bool = False,
+    min_cases: int = 1,
 ) -> CompileVerdict:
     """Compile contract and optionally verify cases with the real Netelpro compiler.
 
@@ -129,6 +137,18 @@ def compile_verdict(
                       Defaults to False (pure compilation check), but automatically
                       activates if explicit cases are provided or if netelpro-cases
                       fence is detected in text.
+        require_cases: If True, a generation with no verification cases FAILS even
+                       when the contract compiles. This is the mode the run #5 exit
+                       gate uses, because the eval that decides whether the grammar
+                       was learned (principle_bench.grade_netelpro) rejects a
+                       contract with no cases -- a gate that accepted one would be
+                       measuring something the eval does not measure (measured
+                      2026-09-16: 106/360 principle-bench failures were exactly
+                       `sin_casos`, the single largest error class).
+        min_cases: With ``require_cases``, the minimum number of verification cases
+                   the generation must declare. The eval's own bar for a 3-parameter
+                   truth-table is 8 (the full product); pass 8 to hold the exit gate
+                   to the eval's standard instead of the weaker "at least one".
 
     Returns:
         CompileVerdict instance.
@@ -181,6 +201,8 @@ def compile_verdict(
                     cases=extracted_cases,
                     mismatches=mismatches,
                     rule_filter=rf,
+                    compiled=True,
+                    verified=False,
                 )
         except Exception as exc:
             return CompileVerdict(
@@ -190,7 +212,26 @@ def compile_verdict(
                 cases=extracted_cases,
                 mismatches=[],
                 rule_filter=rf,
+                compiled=True,
+                verified=False,
             )
+
+    if require_cases and len(extracted_cases or []) < min_cases:
+        found = len(extracted_cases or [])
+        return CompileVerdict(
+            ok=False,
+            error=(
+                "no verification cases: contract compiled but nothing was verified"
+                if found == 0
+                else f"only {found} verification case(s), {min_cases} required"
+            ),
+            contract=contract,
+            cases=extracted_cases,
+            mismatches=[],
+            rule_filter=rf,
+            compiled=True,
+            verified=False,
+        )
 
     return CompileVerdict(
         ok=True,
@@ -199,6 +240,8 @@ def compile_verdict(
         cases=extracted_cases,
         mismatches=[],
         rule_filter=rf,
+        compiled=True,
+        verified=bool(extracted_cases),
     )
 
 
@@ -206,6 +249,8 @@ def gate_report(
     results: List[Union[CompileVerdict, Dict[str, Any], str, bool]],
     min_rate: float = 0.0,
     raise_on_zero: bool = False,
+    require_cases: bool = False,
+    min_cases: int = 1,
 ) -> Dict[str, Any]:
     """Generate summary report and compile rate from gate sample verdicts.
 
@@ -213,6 +258,11 @@ def gate_report(
         results: List of CompileVerdict instances, dicts with 'ok', or raw strings to evaluate.
         min_rate: Minimum compile rate required to pass (0.0 means > 0).
         raise_on_zero: If True and compile_rate == 0.0, raises RuntimeError("GATE_FAILED: ...").
+        require_cases: Forwarded to ``compile_verdict`` for raw-string results, and
+                       used to report the verified rate alongside the compile rate.
+                       Both are always reported: a single number that merges them
+                       cannot be audited (a contract can compile and verify nothing).
+        min_cases: Forwarded to ``compile_verdict`` (minimum declared cases).
 
     Returns:
         Dict with keys:
@@ -221,6 +271,9 @@ def gate_report(
             failed: int
             compile_rate: float (0.0 to 1.0)
             compile_rate_pct: float (0.0 to 100.0)
+            verified: int (samples that checked at least one case)
+            verified_rate: float (0.0 to 1.0)
+            verified_rate_pct: float (0.0 to 100.0)
             passed_gate: bool
             per_sample: list of dicts
             report_text: formatted string summary
@@ -232,13 +285,19 @@ def gate_report(
         elif isinstance(item, dict):
             ok = bool(item.get("ok", False))
             err = item.get("error")
-            verdicts.append(
-                CompileVerdict(ok=ok, error=err, contract=item.get("contract"))
-            )
+            verdicts.append(CompileVerdict(
+                ok=ok,
+                error=err,
+                contract=item.get("contract"),
+                compiled=bool(item.get("compiled", ok)),
+                verified=bool(item.get("verified", False)),
+            ))
         elif isinstance(item, bool):
-            verdicts.append(CompileVerdict(ok=item))
+            verdicts.append(CompileVerdict(ok=item, compiled=item, verified=item))
         elif isinstance(item, str):
-            verdicts.append(compile_verdict(item))
+            verdicts.append(
+                compile_verdict(item, require_cases=require_cases, min_cases=min_cases)
+            )
         else:
             verdicts.append(CompileVerdict(ok=bool(item)))
 
@@ -247,6 +306,9 @@ def gate_report(
     failed = total - passed
     compile_rate = (passed / total) if total > 0 else 0.0
     compile_rate_pct = compile_rate * 100.0
+    n_verified = sum(1 for v in verdicts if v.verified)
+    verified_rate = (n_verified / total) if total > 0 else 0.0
+    verified_rate_pct = verified_rate * 100.0
     passed_gate = compile_rate > min_rate if min_rate == 0.0 else compile_rate >= min_rate
 
     lines = [
@@ -255,6 +317,8 @@ def gate_report(
         "=" * 65,
         f"Total Samples: {total} | Passed: {passed} | Failed: {failed}",
         f"Compile Rate:  {compile_rate_pct:.1f}% ({passed}/{total})",
+        f"Verified Rate: {verified_rate_pct:.1f}% ({n_verified}/{total}) "
+        f"— samples that checked >=1 case against the compiled rule",
         f"Gate Status:   {'PASSED ✅' if passed_gate else 'FAILED ❌'}",
         "-" * 65,
         f"{'Sample':<8} {'Status':<10} {'Details / Error'}",
@@ -270,6 +334,8 @@ def gate_report(
             "ok": v.ok,
             "error": v.error,
             "contract": v.contract,
+            "compiled": v.compiled,
+            "verified": v.verified,
         })
     lines.append("=" * 65)
     report_text = "\n".join(lines)
@@ -286,6 +352,9 @@ def gate_report(
         "failed": failed,
         "compile_rate": compile_rate,
         "compile_rate_pct": compile_rate_pct,
+        "verified": n_verified,
+        "verified_rate": verified_rate,
+        "verified_rate_pct": verified_rate_pct,
         "passed_gate": passed_gate,
         "per_sample": per_sample_info,
         "report_text": report_text,

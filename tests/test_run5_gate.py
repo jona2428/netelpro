@@ -20,6 +20,39 @@ from benchmarks.run5_gate import (
     gate_report,
 )
 
+# 4. Valid contract, COMPLETE product coverage, but NO ```netelpro-cases``` block.
+#    This is the shape the run #5 gate used to accept as a pass while the eval that
+#    decides whether the grammar was learned rejects it (error class `sin_casos`,
+#    the largest one measured in the principle bench: 106/360).
+CONTRACT_WITHOUT_CASES = """```netelpro
+(truth-table filter-rule
+  (a-ok : (Int 0 1))
+  (b-ok : (Int 0 1))
+  ((0 0) -> 0)
+  ((0 1) -> 0)
+  ((1 0) -> 0)
+  ((1 1) -> 1)
+  ((_ _) -> 0))
+```"""
+
+# 5. Same contract, but only ONE declared case (eval's bar for a 2-parameter
+#    truth-table is the full product: 4).
+CONTRACT_ONE_CASE = CONTRACT_WITHOUT_CASES + """
+```netelpro-cases
+(1,1) -> 1
+```
+"""
+
+# 6. Same contract with the full product declared.
+CONTRACT_FULL_CASES = CONTRACT_WITHOUT_CASES + """
+```netelpro-cases
+(0,0) -> 0
+(0,1) -> 0
+(1,0) -> 0
+(1,1) -> 1
+```
+"""
+
 # 1. Valid sample: canonically formatted netelpro truth-table contract and cases
 VALID_SAMPLE = """```netelpro
 (truth-table filter-rule
@@ -208,3 +241,97 @@ def test_run5_notebook_is_valid_nbformat_json():
     assert "GATE_FAILED" in combined_code
     assert "q4_k_m" in combined_code
     assert "HF_TOKEN" in combined_code
+
+    # The exit gate must demand verification, not just compilation: the eval that
+    # decides whether the grammar was learned rejects a contract with no cases.
+    assert "require_cases=True" in combined_code, (
+        "the run #5 gate must require cases; compiling is not verifying"
+    )
+    assert "min_cases=8" in combined_code, (
+        "the gate must hold the eval's bar: arity-3 truth-tables need the full product (8)"
+    )
+    assert 'report["verified_rate"]' in combined_code, (
+        "the abort gate must read the verified rate, not only the compile rate"
+    )
+
+
+# ── compile vs verify: the gate must not merge two different claims ──────────
+
+
+def test_contract_without_cases_compiles_but_is_not_verified():
+    """The gate must separate 'it compiled' from 'it was verified'.
+
+    Measured 2026-09-16: a contract with full product coverage and NO cases block
+    returned ok=True. The eval that decides whether the grammar was learned
+    (principle_bench.grade_netelpro) rejects exactly that shape, and it is the
+    largest error class in the bench (106/360 `sin_casos`). A gate that passes
+    what the eval fails cannot be used to claim the grammar was injected.
+    """
+    verdict = compile_verdict(CONTRACT_WITHOUT_CASES)
+    assert verdict.ok is True, "default mode stays backward compatible"
+    assert verdict.compiled is True
+    assert verdict.verified is False, "nothing was checked, so nothing is verified"
+    assert verdict.cases is None
+
+
+def test_require_cases_rejects_a_contract_that_verified_nothing():
+    """With require_cases, a compiled-but-unverified generation is a FAILURE."""
+    verdict = compile_verdict(CONTRACT_WITHOUT_CASES, require_cases=True)
+    assert verdict.ok is False
+    assert verdict.compiled is True, "the honest part: it really did compile"
+    assert verdict.verified is False
+    assert verdict.error is not None
+    assert "no verification cases" in verdict.error
+
+
+def test_min_cases_holds_the_gate_to_the_evals_bar():
+    """One declared case is not the eval's bar: a 2-param truth-table needs 4."""
+    weak = compile_verdict(CONTRACT_ONE_CASE, require_cases=True, min_cases=4)
+    assert weak.ok is False
+    assert "only 1 verification case" in weak.error
+
+    full = compile_verdict(CONTRACT_FULL_CASES, require_cases=True, min_cases=4)
+    assert full.ok is True
+    assert full.verified is True
+
+
+def test_wrong_cases_are_rejected_even_with_require_cases_off():
+    """Declared cases that contradict the compiled rule always fail."""
+    wrong = CONTRACT_WITHOUT_CASES + """
+```netelpro-cases
+(0,1) -> 1
+(1,0) -> 1
+```
+"""
+    verdict = compile_verdict(wrong)
+    assert verdict.ok is False
+    assert verdict.compiled is True
+    assert verdict.verified is False
+    assert "case mismatches" in verdict.error
+
+
+def test_gate_report_reports_compile_and_verified_rates_separately():
+    """The report must not hide an unverified pass behind one merged number."""
+    rep = gate_report(
+        [CONTRACT_WITHOUT_CASES, CONTRACT_FULL_CASES],
+        require_cases=True,
+        min_cases=4,
+    )
+    assert rep["total"] == 2
+    assert rep["passed"] == 1
+    assert rep["compile_rate_pct"] == 50.0
+    assert rep["verified_rate_pct"] == 50.0
+    assert rep["verified"] == 1
+    assert "Verified Rate" in rep["report_text"]
+    # per-sample provenance: both flags are exposed, not just the merged verdict
+    flags = [(s["compiled"], s["verified"]) for s in rep["per_sample"]]
+    assert flags == [(True, False), (True, True)]
+
+
+def test_gate_report_verified_rate_is_zero_when_nothing_was_verified():
+    """A run that compiles everything but verifies nothing must show 0% verified."""
+    rep = gate_report([CONTRACT_WITHOUT_CASES], require_cases=False)
+    assert rep["compile_rate_pct"] == 100.0
+    assert rep["verified_rate_pct"] == 0.0, (
+        "100% compile with 0% verified is the exact confusion this gate had"
+    )
