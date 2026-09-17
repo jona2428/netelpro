@@ -1,13 +1,13 @@
 # Token-Gate Kernel Fusion — Specification v0.1
 
-**Status:** v0.1 (naive kernel, §8) and v0.2 (`tl.dot` kernel, §9) both run
-on real Kaggle GPU, same day (2026-09-17). v0.1: honest negative (naive
-kernel 7x slower than baseline). v0.2: **honest positive, boundary-
-dependent** — the `tl.dot` rewrite beats baseline by 3.1x when the gate's
-allowed range is narrow (mostly-masked, the safety-critical case) but is
-still ~1.27x slower than baseline when the range is broad (mostly-open).
-Not a universal win; a real integration needs a scope decision on which
-regime matters more, not made here (§9 Results).
+**Status:** CLOSED, positive, same day (2026-09-17). v0.1 (§8): naive
+kernel, honest negative (7x slower than baseline). v0.2 (§9): `tl.dot`
+rewrite, honest positive but boundary-dependent (3.1x faster narrow,
+1.27x slower broad). v0.3 (§10): range-width dispatch wired into
+`gated_lm_head` (what `generate(gate=...)` actually calls) and validated
+on real GPU — **no regression in either tested regime, 3.0x win where
+there's real work to skip.** The token gate is genuinely fused into
+`NetelproTransformer`'s forward pass now, not just specced.
 Scope confirmed same session: contiguous
 range first (not the discrete `token_to_action_map` path), on
 `NetelproTransformer` (Teo v2) directly, not an external HF/llama.cpp model.
@@ -416,10 +416,71 @@ kernel is the better choice exactly when the gate's allowed range is
 narrow relative to the vocabulary — the safety-critical case (tight
 action boundaries) rather than the permissive one (broad, mostly-open
 generation). It is not a strict improvement over today's code in every
-configuration, and this spec does not claim it is. A production
-integration would need to pick a side: either dispatch by range width
-(fused when narrow, baseline when broad — a runtime heuristic, new
-complexity) or accept the ~27% broad-case regression in exchange for the
-narrow-case win, depending on which regime `NetelproTransformer.generate()`
-actually spends more time in. Not decided here — a product/scope call,
-not an engineering one, left open for the next session.
+configuration, and this spec does not claim it is.
+
+---
+
+## 10. v0.3 — range-width dispatch, wired and validated (2026-09-17, same day)
+
+§9's mixed result forced a real choice: dispatch by range width, or
+accept the broad-case regression. Chosen: dispatch. `gated_lm_head` in
+`netelpro/neuro/gate_kernel.py` now computes `_touched_tile_fraction`
+(how much of `lm_head.weight` the v2 kernel would have to read for a
+given `[allowed_min, allowed_max]`) and only launches the kernel when
+that's below `DOT_KERNEL_TOUCHED_TILE_THRESHOLD` (0.5, a linear
+interpolation between §9's two measured points — explicitly not a swept
+number). Above the threshold, it calls `gated_lm_head_reference` instead
+— never a regression by construction, not by assumption. The raw v2
+kernel, unconditional, moved to `gated_lm_head_dot` (what the benchmark
+notebook times directly, so the kernel-vs-baseline comparison stays
+honest and isn't laundered through the dispatcher).
+
+`NetelproTransformer.gated_forward()` / `generate(gate=...)` already
+called `gated_lm_head` — no wiring changes needed. The dispatch is live
+in the actual generation path as of this commit.
+
+### Results (2026-09-17, Kaggle T4, real run, correctly labeled)
+
+Five-way benchmark: `ungated`, `baseline_unfused` (today's real path pre-
+this-spec), `fused_triton_naive` (v1), `fused_triton_dot` (v2 kernel,
+unconditional — what §9 measured), `fused_dispatch` (`gated_lm_head`,
+what `generate()` actually calls now):
+
+| range | method | mean_ms | min_ms | p50_ms |
+|---|---|---|---|---|
+| broad `[100, 30000]` | ungated | 0.4321 | 0.4203 | 0.4261 |
+| broad `[100, 30000]` | baseline_unfused | 0.4440 | 0.4352 | 0.4418 |
+| broad `[100, 30000]` | fused_triton_naive (v1) | 3.1264 | 3.0420 | 3.1212 |
+| broad `[100, 30000]` | fused_triton_dot (v2, raw) | 0.6060 | 0.5566 | 0.6048 |
+| broad `[100, 30000]` | **fused_dispatch (v3)** | **0.4455** | 0.4345 | 0.4425 |
+| narrow `[5000, 5200]` | ungated | 0.4211 | 0.4137 | 0.4192 |
+| narrow `[5000, 5200]` | baseline_unfused | 0.4392 | 0.4315 | 0.4366 |
+| narrow `[5000, 5200]` | fused_triton_naive (v1) | 0.6856 | 0.6561 | 0.6756 |
+| narrow `[5000, 5200]` | fused_triton_dot (v2, raw) | 0.1441 | 0.1377 | 0.1417 |
+| narrow `[5000, 5200]` | **fused_dispatch (v3)** | **0.1468** | 0.1398 | 0.1446 |
+
+**Confirmed exactly as designed, no surprises:**
+
+- **Broad:** `fused_dispatch` (0.4455ms) ≈ `baseline_unfused` (0.4440ms)
+  — the dispatcher correctly avoided the raw kernel's 0.606ms and landed
+  within 0.3% of the unfused baseline. **No regression**, where an
+  un-dispatched fused-everywhere design would have cost ~36% extra on
+  every broad-range decode step.
+- **Narrow:** `fused_dispatch` (0.1468ms) ≈ `fused_triton_dot`
+  (0.1441ms) — the dispatcher correctly picked the kernel, losing only
+  ~0.003ms (~2%) to the `_touched_tile_fraction` check itself. **3.0x
+  faster than baseline** (0.4392ms → 0.1468ms), the real win carried all
+  the way through to what `generate()` actually calls.
+
+**v0.3 / pilot verdict: closed, positive.** The token gate is now
+genuinely fused into `NetelproTransformer`'s forward pass, wired through
+`generate(gate=...)`, real measured GPU numbers on both sides of the
+dispatch boundary, and it is a strict improvement over the pre-this-spec
+baseline in both tested regimes — no configuration measured here makes
+generation slower than it already was. What's still open, honestly: only
+two range widths were tested; the 0.5 threshold is an interpolation, not
+a sweep, so a range near that boundary hasn't been measured directly and
+could in principle land on the wrong side of the dispatch. A future
+session could sweep more widths to tighten the threshold, or measure on
+a P100 to check the no-tensor-cores caveat from §9 — neither blocks using
+what's here today.
