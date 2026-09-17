@@ -41,3 +41,4 @@ Neither of those answers: does `detect_claims()` generalize to a real model's ow
 - Deterministic procedural benchmark (hand-written, no LLM): [`benchmarks/vtb_procedural.py`](vtb_procedural.py) / [`benchmarks/vtb_procedural_summary.md`](vtb_procedural_summary.md)
 - Prior real-model replay (alethic construct, correct 0/6 by design): [`benchmarks/gate_integration_report.md`](gate_integration_report.md)
 - This run's script: [`examples/honesty_guard_qwen_live_demo.py`](../examples/honesty_guard_qwen_live_demo.py)
+- Follow-up (24 trials, human-labeled, real detector gaps found): [`benchmarks/honesty_guard_qwen_rate_report.md`](honesty_guard_qwen_rate_report.md)
