@@ -205,3 +205,37 @@ experiment, not a hypothetical one: this run is the evidence that it's
 needed, at least for semantic (not syntactic) failures.
 
 Not yet run. Left for the next session on this spec.
+
+## 8. Follow-up: temperature escalation breaks the frozen repeat, doesn't reach a pass
+
+Implemented §7's next experiment: `temperature_for_attempt()` escalates
+linearly (default: 0.2 base, +0.25/attempt, capped at 1.3) instead of a
+fixed 0.2 for every retry.
+
+Re-ran `gcd_pair`, same model, 6-attempt budget:
+
+- Attempts 1-2 (temp 0.20, 0.45): same frozen wrong answer as §7 —
+  low temperature is still too similar to itself to escape the repeat.
+- Attempts 3-5 (temp 0.70-1.20): stopped repeating the same wrong logic —
+  but instead produced **runaway recursion** (hit the 1,000,000-step
+  execution budget, `verify_program`'s interpreter correctly killed it
+  rather than hanging) three attempts running, a different failure mode,
+  not progress toward correctness.
+- Attempt 6 (temp 1.30, the cap): degenerated into **invalid syntax** — an
+  unclosed paren. Too much randomness broke output that was reliably
+  well-formed at lower temperatures.
+
+Honest reading: escalation did what it was supposed to do narrowly — it
+stopped the model from reproducing the exact same wrong program — but
+traded "confidently wrong" for "runaway or malformed," and never converged
+to a pass within 6 attempts on this task. This is evidence against a naive
+linear escalation being sufficient on its own for `gcd_pair` specifically,
+not evidence that escalation is worthless — it visibly changed behavior,
+just not toward the target. Two candidate next moves, neither tried yet:
+(a) a narrower escalation range (this run may have jumped too far, too
+fast, skipping over a temperature band that might actually help), or (b)
+a stronger primer for this specific task shape — mutual two-argument
+recursion with the base case on the SECOND argument — since gcd's harder
+part may be structural (which argument shrinks, and how) rather than
+vocabulary, which is a different kind of hole than either fix so far
+addressed.

@@ -95,14 +95,29 @@ def build_prompt(task_desc: str, signature: str, prior_attempt: str | None, prio
     )
 
 
-def format_verdict(attempt: int, result: VerifyResult) -> str:
+def temperature_for_attempt(attempt_n: int, base: float, step: float, cap: float) -> float:
+    """Escalates sampling temperature across retries.
+
+    Finding this answers (INFERENCE_REPAIR_LOOP_SPEC.md section 7): at a
+    fixed low temperature, consecutive attempts were similar enough to each
+    other that feedback-in-prompt fixed syntax errors but never moved the
+    model off a repeated SEMANTIC mistake -- 5 attempts, same wrong logic,
+    same failing case, verbatim. Escalating temperature gives each retry a
+    genuinely different sample to check, instead of a near-repeat of the
+    last one; if this doesn't help either, it's still a fact worth having,
+    not a fact to avoid finding out.
+    """
+    return min(cap, base + (attempt_n - 1) * step)
+
+
+def format_verdict(attempt: int, temperature: float, result: VerifyResult) -> str:
     if not result.compiled:
-        return f"  attempt {attempt}: DID NOT COMPILE -- {result.error}"
+        return f"  attempt {attempt} (temp={temperature:.2f}): DID NOT COMPILE -- {result.error}"
     if result.passed:
-        return f"  attempt {attempt}: PASSED all {result.cases_total} cases"
+        return f"  attempt {attempt} (temp={temperature:.2f}): PASSED all {result.cases_total} cases"
     return (
-        f"  attempt {attempt}: compiled, but {result.cases_passed}/{result.cases_total} "
-        f"cases passed -- {result.error}"
+        f"  attempt {attempt} (temp={temperature:.2f}): compiled, but "
+        f"{result.cases_passed}/{result.cases_total} cases passed -- {result.error}"
     )
 
 
@@ -112,6 +127,10 @@ def main() -> None:
     parser.add_argument("--task", default="sum_range", help="Module name under rlvr.tasks")
     parser.add_argument("--max-retries", type=int, default=4)
     parser.add_argument("--max-tokens", type=int, default=200)
+    parser.add_argument("--base-temperature", type=float, default=0.2)
+    parser.add_argument("--temperature-step", type=float, default=0.25,
+                         help="Added to base-temperature per retry attempt (0 = disabled, matches section 6/7 behavior)")
+    parser.add_argument("--temperature-cap", type=float, default=1.3)
     args = parser.parse_args()
 
     model_path = Path(args.model)
@@ -146,14 +165,17 @@ def main() -> None:
             break
 
         attempt_n += 1
+        temperature = temperature_for_attempt(
+            attempt_n, args.base_temperature, args.temperature_step, args.temperature_cap
+        )
         prompt = build_prompt(task.DESCRIPTION_ES, task.SIGNATURE, prior_attempt, prior_error)
-        out = llm(prompt, max_tokens=args.max_tokens, temperature=0.2, stop=["```"])
+        out = llm(prompt, max_tokens=args.max_tokens, temperature=temperature, stop=["```"])
         raw = out["choices"][0]["text"]
         candidate = (extract_block(raw, fence="netelpro") or raw).strip()
 
         result = verify_program(candidate, task, num_cases=10, seed=0)
         results.append(result)
-        print(format_verdict(attempt_n, result))
+        print(format_verdict(attempt_n, temperature, result))
 
         if result.passed:
             final_candidate = candidate
