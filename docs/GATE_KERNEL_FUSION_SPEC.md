@@ -354,6 +354,25 @@ answered here — v0.1's mistake was claiming a mechanism worked before
 measuring it; v0.2 doesn't repeat that. Results land in the next Kaggle
 run, appended below, not assumed.
 
+**Correction found on the first real run (2026-09-17): the correctness
+check's tolerance formula was wrong, not the kernel.** First Kaggle run
+of the correctness cell reported `dot_match=False` with `max_abs_diff`
+0.0004–0.0007 but `max_rel_diff` up to 0.3998 (40%). The absolute error
+matches the predicted fp16-rounding magnitude almost exactly (§9's own
+estimate: term magnitude ≈ `0.02 × 1`, summed over 768 terms with
+independent fp16 rounding ≈ `sqrt(768) × 0.02 × 0.001 ≈ 0.0004`) — the
+kernel's actual numerics were fine. The bug was `rel_diff = abs_diff /
+ref.abs().clamp_min(1e-3)`: dividing a tiny absolute error by a
+reference value that happens to be near zero (e.g. `ref ≈ 0.0018`) turns
+a 0.0007 rounding error into a nonsense "40% relative error" — a standard
+relative-error trap, not a masking or indexing bug in
+`_fused_gated_lm_head_kernel_dot`. Fixed by switching the notebook's
+check to the combined `torch.allclose` criterion
+(`abs_diff <= atol + rtol·|ref|`, `atol=1e-2, rtol=0.05`), which doesn't
+blow up near zero. Recorded here because it's a real, reportable mistake
+in this pilot's own test harness, not swept past silently — same
+standard the spec holds the kernel to.
+
 ### Results
 
 *(empty — filled in after the Kaggle run.)*
