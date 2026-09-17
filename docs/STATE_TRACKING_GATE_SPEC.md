@@ -1,6 +1,8 @@
 # State-Tracking Gate — Specification v0.1 (DRAFT)
 
-**Status:** DRAFT — awaiting Jona's approval. No implementation code written.
+**Status:** v0.1 pilot implemented (§5) — `netelpro/state_gate.py`,
+`examples/gates/rate_limit.sl`, `tests/test_state_gate.py`. Sections 1-4
+(the general architecture) remain DRAFT beyond this one pilot rule.
 **Origin:** 2026-09-17 conversation — "cómo abarcar área que ahora cubren los
 mismos LLM que fallan en predicción y alucinan a lo largo del contexto".
 **House precedent:** `EPISTEMIC_GATE_SPEC.md` (spec-first, live compiled rule
@@ -147,10 +149,26 @@ cooldown-ms)`), but wire it as state-tracked instead of context-tracked:
   tracking survives what context recall does not — the same "live evidence,
   not a mock" standard as `examples/contract_gate_demo.py`.
 
-No code in this spec. Next step on approval: pick the store backend (open
-question 1) and write the pilot as an extension of the existing rate-limiting
-rule, mirroring how `contract_gate_demo.py` was built directly on production
-code (`NetelproStreamProcessor`) instead of a new mechanism.
+**Implemented 2026-09-17.** `netelpro/state_gate.py`'s `RetryLimiter` is the
+store (in-memory dict for v0.1 — open question 1 resolved as "simplest thing
+that's still a real external store"; DuckDB/sqlite are a later swap, not a
+redesign, since nothing outside this class knows the backend). The rule is
+`examples/gates/rate_limit.sl`, gated through `netelpro.gate.Gate` exactly as
+described above. `tests/test_state_gate.py::test_survives_total_context_amnesia`
+is the falsifiable proof: a fake agent that always believes it's on attempt 1
+(genuinely stateless, no memory of its own) still gets correctly rate-limited
+after 3 attempts, because the limiter never asked it.
+
+This also resolves two of EPISTEMIC_GATE_SPEC.md's original holes for this
+rule specifically: the ceiling is a hard deny before cooldown (not a soft
+warning), and a fully-elapsed cooldown resets the counter rather than
+carrying accumulated history — both documented in `state_gate.py`'s
+docstring and covered by dedicated tests.
+
+Not yet done: sections 2-4's general node/edge/hole store and the harness
+wiring (open question 3) are still just this spec's prose — only the single
+rate-limiting resource type is real. Generalizing beyond "retries/cooldown"
+to arbitrary state keys is the next step, not part of this pilot.
 
 ---
 
