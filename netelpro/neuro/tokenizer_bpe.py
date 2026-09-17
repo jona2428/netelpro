@@ -245,7 +245,7 @@ class NetelproBPETokenizer:
 
     def decode(self, token_ids: Sequence[int], skip_special_tokens: bool = False) -> str:
         """Decodes sequence of token IDs back into text."""
-        if not token_ids:
+        if len(token_ids) == 0:
             return ""
         if hasattr(token_ids, "tolist"):
             ids = token_ids.tolist()

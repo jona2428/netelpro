@@ -52,6 +52,13 @@ class AuditCertificate:
         """True if every neuron in every layer adhered strictly to formal gate invariants."""
         return True
 
+    @property
+    def verified(self) -> bool:
+        """Alias for is_fully_compliant -- the `.verified` name used by the
+        guard/gate decision types elsewhere (HonestyGuard.GuardDecision,
+        run5_gate.CompileVerdict) for the same "audit succeeded" concept."""
+        return self.is_fully_compliant
+
     def summary(self) -> str:
         lines = [
             "=== Netelpro Formal Audit Certificate ===",

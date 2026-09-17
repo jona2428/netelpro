@@ -59,11 +59,16 @@ def test_conversation_memory_sliding_window():
     ]
     new_msg = "¿Cuál es la síntesis de todo?"
 
-    # Small block_size should force trimming Turno 1 and Turno 2 while preserving Turno 3
-    prompt_small = build_conversation_prompt(history, new_msg, tok, block_size=100)
+    # Small block_size should force trimming Turno 1 and Turno 2 while preserving Turno 3.
+    # Measured with NetelproTokenizer: full history is 86 tokens, Turno2+Turno3+new is
+    # 61, Turno3+new alone is 38 -- 100 never forced a trim at all (86 <= 100), so the
+    # window silently returned the untrimmed prompt. 50 sits strictly below the 2-turn
+    # candidate and above the 1-turn one, so only the sliding-window branch can pass.
+    prompt_small = build_conversation_prompt(history, new_msg, tok, block_size=50)
     assert new_msg in prompt_small
     assert "Turno 3" in prompt_small
     assert "Turno 1" not in prompt_small
+    assert "Turno 2" not in prompt_small
 
     # Large block_size should preserve all turns
     prompt_large = build_conversation_prompt(history, new_msg, tok, block_size=512)
