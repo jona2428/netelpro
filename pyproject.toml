@@ -30,6 +30,9 @@ netelpro-mcp = "netelpro.mcp_server:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "numpy>=1.26", "torch>=2.2", "tokenizers>=0.19"]
+# Only needed for examples/contract_gate_llama_cpp_demo.py -- a real native
+# build (llama.cpp), not part of the core install or the test suite.
+llama-cpp = ["llama-cpp-python"]
 
 [tool.setuptools.packages.find]
 include = ["netelpro*"]

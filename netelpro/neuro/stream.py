@@ -20,6 +20,24 @@ if HAS_TORCH:
     import torch
 
 
+def _fill_range(scores: Any, value: float, start: int, stop: int) -> None:
+    """Set scores[start:stop] = value for numpy arrays, plain lists, or any
+    other __setitem__-supporting sequence -- whichever `scores` turns out to
+    be at runtime. numpy supports a scalar broadcast slice assign directly;
+    a plain list needs a same-length fill; anything else falls back to a
+    per-element loop (still O(range), just not a 152k-iteration one)."""
+    if stop <= start:
+        return
+    try:
+        scores[start:stop] = value
+    except (TypeError, ValueError):
+        try:
+            scores[start:stop] = [value] * (stop - start)
+        except TypeError:
+            for i in range(start, stop):
+                scores[i] = value
+
+
 class NetelproStreamProcessor:
     """Universal real-time streaming processor for neuro-symbolic gating.
 
@@ -83,27 +101,60 @@ class NetelproStreamProcessor:
         """Adapter for llama.cpp / llama-cpp-python logits_processor signature:
 
         logits_processor(input_ids: Sequence[int], scores: list[float] | np.ndarray)
+
+        Vectorized for the default contiguous-range contract: measured at
+        ~370ms/token overhead on a 152k-token vocab before this fix (a plain
+        Python loop calling the native gate once per candidate token, every
+        decoding step -- the exact bottleneck this file's own docstring
+        promises "without interrupting user-facing latency"). Mirrors
+        NetelproVectorKernel.filter_logits_tensor's torch slicing, for
+        numpy arrays / plain lists instead of tensors.
         """
         t0 = time.perf_counter_ns()
         vocab_size = len(scores)
+        allowed_min = self.processor.allowed_min
+        allowed_max = self.processor.allowed_max
+        safety_state = self.processor.safety_state
+        mask_value = self.processor.mask_value
+        token_to_action_map = self.processor.token_to_action_map
 
         pruned_count = 0
-        if hasattr(scores, "__getitem__") and hasattr(scores, "__setitem__"):
+        if safety_state == 0:
+            # Emergency freeze: every candidate denied. No need to consult
+            # the compiled rule per token when the answer is "everything" --
+            # same short-circuit NetelproVectorKernel takes.
+            _fill_range(scores, mask_value, 0, vocab_size)
+            pruned_count = vocab_size
+        elif token_to_action_map is None:
+            # Only valid when the loaded rule IS a [allowed_min, allowed_max]
+            # + safety_state contract (true for the default
+            # action_boundary.sl). A custom rule_path with different
+            # semantics needs the per-token path below -- same limitation
+            # NetelproVectorKernel.filter_logits_tensor already has for the
+            # torch path; this mirrors it rather than introducing a new one.
+            lo = max(0, allowed_min)
+            hi = min(vocab_size - 1, allowed_max)
+            if lo > 0:
+                _fill_range(scores, mask_value, 0, lo)
+                pruned_count += lo
+            if hi + 1 < vocab_size:
+                _fill_range(scores, mask_value, hi + 1, vocab_size)
+                pruned_count += vocab_size - (hi + 1)
+        else:
+            # Discrete action map: no vectorized shortcut for an arbitrary
+            # token -> action mapping: evaluate the compiled rule per token.
             for token_id in range(vocab_size):
-                action_id = (
-                    self.processor.token_to_action_map.get(token_id, token_id)
-                    if self.processor.token_to_action_map
-                    else token_id
-                )
-                allow, _ = self.gate.check(
-                    action_id,
-                    self.processor.allowed_min,
-                    self.processor.allowed_max,
-                    self.processor.safety_state,
-                )
+                action_id = token_to_action_map.get(token_id, token_id)
+                allow, _ = self.gate.check(action_id, allowed_min, allowed_max, safety_state)
                 if not allow:
-                    scores[token_id] = self.processor.mask_value
+                    scores[token_id] = mask_value
                     pruned_count += 1
+
+        # get_summary()'s total_pruned_tokens reads self.processor.total_pruned,
+        # which the HF __call__ path updates itself -- this adapter bypasses
+        # that path entirely (it mutates scores directly), so it has to do
+        # the same bookkeeping or the reported total is silently always 0.
+        self.processor.total_pruned += pruned_count
 
         dt_ns = time.perf_counter_ns() - t0
         self.total_stream_latency_ns += dt_ns

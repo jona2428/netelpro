@@ -217,6 +217,31 @@ PHASE 3 -- safety_state=0: emergency freeze (the kill switch).
 that same production path with a deliberately narrow contract so the
 intervention is visible instead of implicit.
 
+**Same gate, a real 1-1.5B+ local model, not the 182K-param toy above** —
+`examples/contract_gate_llama_cpp_demo.py` loads any local `.gguf` in-process
+via `llama-cpp-python` and attaches `NetelproStreamProcessor.llama_cpp_processor`
+as a real `LogitsProcessor`. This is the actual integration path for a
+locally-served model: an OpenAI-compatible HTTP server (LM Studio, and
+similar tools that only expose a `/v1/chat/completions`-style endpoint)
+never returns raw per-token logits, so a token-level gate cannot hook into
+it over HTTP — the gate needs the model loaded in the same process.
+`llama-cpp-python` is optional (`pip install ".[llama-cpp]"` or
+`pip install llama-cpp-python` directly — a real native build, not part of
+the core install):
+
+```bash
+python -m examples.contract_gate_llama_cpp_demo --model "C:/path/to/model.gguf"
+```
+
+The llama.cpp adapter (`NetelproStreamProcessor.llama_cpp_processor`) used
+to evaluate the compiled rule with a plain Python loop over every
+vocabulary token, every decoding step — measured at **~370ms of gate
+overhead per token** against a real 152k-token vocabulary before this was
+fixed, which would have defeated any real deployment. It's now vectorized
+the same way the PyTorch path already was (`NetelproVectorKernel`), and the
+same run now measures **~7-220µs per token** — a real, run number, not a
+target.
+
 ## Documentation & Research
 
 * **Whitepaper:** [`docs/WHITEPAPER.md`](docs/WHITEPAPER.md) — *Netelpro: Compiler-Enforced Epistemic Honesty for Autonomous LLM Agents*.

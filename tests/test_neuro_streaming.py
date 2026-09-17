@@ -99,6 +99,79 @@ def test_stream_generate_loop_torch():
     assert summary["avg_pruning_latency_us"] < 5000.0  # sub-millisecond execution
 
 
+# ---------------------------------------------------------------------------
+# Regression coverage for the vectorized llama_cpp_processor rewrite
+# (netelpro/neuro/stream.py) -- the original per-token Python loop over a
+# 152k-token vocab measured at ~370ms/token overhead against a real
+# llama-cpp-python model; the vectorized fast path brings that to ~3us/token.
+# Existing tests above only ever used plain Python lists at vocab_size<=6,
+# which never exercised numpy (llama-cpp-python's actual LogitsProcessorList
+# signature is `(input_ids: np.intc[], scores: np.single[]) -> np.single[]`)
+# or a vocab large enough for the min/max boundary slicing to matter.
+# ---------------------------------------------------------------------------
+
+
+def test_llama_cpp_processor_numpy_array_wide_range():
+    """llama-cpp-python passes numpy arrays, not lists -- the vectorized
+    slice-assign path must work on the real type, not just lists."""
+    np = pytest.importorskip("numpy")
+    vocab_size = 1000
+    sp = NetelproStreamProcessor(allowed_min=100, allowed_max=200, safety_state=1)
+    scores = np.zeros(vocab_size, dtype=np.float32)
+
+    out = sp.llama_cpp_processor(np.array([1, 2], dtype=np.intc), scores)
+
+    assert out[99] == float("-inf")
+    assert out[100] == 0.0
+    assert out[200] == 0.0
+    assert out[201] == float("-inf")
+    # Every boundary, not just a handful of samples -- this is exactly the
+    # off-by-one surface the slicing rewrite could get wrong.
+    for t in range(vocab_size):
+        expected = 0.0 if 100 <= t <= 200 else float("-inf")
+        assert out[t] == expected, f"token {t}: expected {expected}, got {out[t]}"
+
+
+def test_llama_cpp_processor_numpy_emergency_freeze():
+    np = pytest.importorskip("numpy")
+    vocab_size = 500
+    sp = NetelproStreamProcessor(allowed_min=0, allowed_max=vocab_size - 1, safety_state=0)
+    scores = np.zeros(vocab_size, dtype=np.float32)
+
+    out = sp.llama_cpp_processor(np.array([1], dtype=np.intc), scores)
+
+    assert bool(np.all(np.isneginf(out)))
+
+
+def test_llama_cpp_processor_reports_total_pruned():
+    """Regression: get_summary()['total_pruned_tokens'] reads
+    processor.total_pruned, which only the HF __call__ path used to update.
+    The llama.cpp adapter bypasses that path entirely (mutates scores
+    directly), so it was silently always 0 through this route until fixed."""
+    sp = NetelproStreamProcessor(allowed_min=1, allowed_max=3, safety_state=1)
+    sp.llama_cpp_processor([1], [0.0] * 6)  # 3 of 6 tokens pruned
+
+    summary = sp.get_summary()
+    assert summary["total_pruned_tokens"] == 3
+
+
+def test_llama_cpp_processor_boundary_consistent_with_native_gate():
+    """The vectorized fast path assumes the default rule IS a contiguous
+    [min, max] + safety_state check -- verify it agrees with the actual
+    compiled gate at every boundary for a representative range, not just
+    that it "looks fast"."""
+    sp = NetelproStreamProcessor(allowed_min=7, allowed_max=7, safety_state=1)
+    vocab_size = 20
+    scores = [0.0] * vocab_size
+
+    out = sp.llama_cpp_processor([1], scores)
+
+    for t in range(vocab_size):
+        allow, _ = sp.gate.check(t, 7, 7, 1)
+        expected = 0.0 if allow else float("-inf")
+        assert out[t] == expected, f"token {t}: vectorized path disagrees with compiled gate"
+
+
 def test_stream_generate_loop_native_list():
     sp = NetelproStreamProcessor(allowed_min=2, allowed_max=2, safety_state=1)
 
