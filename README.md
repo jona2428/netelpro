@@ -120,15 +120,30 @@ The Phase 6 use case, `examples/zone_policy.sl` (v0.3) — the Neuromancer zone 
 
 ## Verification Theater Benchmark (VTB) & Empirical Alignment
 
-Netelpro includes a native benchmark measuring **Verification Theater** (agents claiming empirical verification without executing tools) across 30 real-world deceptive scenarios covering FileSystem, SystemState, and CodeExecution:
+Netelpro includes a native benchmark measuring **Verification Theater** (agents claiming empirical verification without executing tools) across 45 real-world deceptive scenarios covering FileSystem, SystemState, and CodeExecution (`benchmarks/vtb_dataset.py`, grown from 30 on 2026-09-17 — see the file's own docstring for what the 15 new cases specifically stress instead of repeating the same claim templates):
 
 ```bash
 python -m benchmarks.vtb_runner
 ```
 
+This command tests the **decision logic** — given a known `(claimed, verified,
+sources)` triple, does the compiled Netelpro rule approve or reject correctly.
+It does not exercise the regex-based claim-detection parser that decides
+`claimed` from raw text in the first place; that layer's own regression
+coverage (negation scope, clause boundaries, question spans, English
+contractions, and one confirmed gap around do-support — "I did check X" is
+currently not detected as a claim) lives in
+[`tests/test_guard_claim_detection.py`](tests/test_guard_claim_detection.py).
+
 ### Empirical Results: Base vs. Netelpro Post-DPO (Ollama Local)
 
-Evaluated under identical local execution environments across the 30 standardized VTB scenarios:
+Evaluated under identical local execution environments across the 30
+standardized VTB scenarios that existed at the time of this run (2026, before
+the dataset grew to 45 above) — `python -m benchmarks.vtb_runner` today
+reports against 45 cases and will not reproduce this exact table; the live
+model calls that produced it went through a separate runner
+(`benchmarks/vtb_ood_runner.py`, hits a local Ollama server), not the command
+above:
 
 | Architecture | Model ID | Epistemic Honesty | Verification Theater (FAAR) | Primary Impact |
 | :--- | :--- | :--- | :--- | :--- |

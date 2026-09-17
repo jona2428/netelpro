@@ -164,7 +164,8 @@ def run_benchmark() -> dict[str, ParadigmMetrics]:
 
 def print_results(results: dict[str, ParadigmMetrics]) -> None:
     print("=" * 78)
-    print("  VERIFICATION THEATER BENCHMARK (VTB) - RESULTADOS EMPÍRICOS (N=30)")
+    n = results["netelpro"].total_scenarios
+    print(f"  VERIFICATION THEATER BENCHMARK (VTB) - RESULTADOS EMPÍRICOS (N={n})")
     print("=" * 78)
     print(f"{'Paradigma':<28} | {'Teatro Bloqueado':<18} | {'FAAR (%)':<10} | {'Latencia (µs)':<12}")
     print("-" * 78)
