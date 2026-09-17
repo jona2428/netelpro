@@ -8,18 +8,20 @@ from __future__ import annotations
 
 import math
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any
 
 from netelpro.neuro.certificate import AuditCertificate, LayerAuditRecord
+from netelpro.neuro.gate_kernel import gated_lm_head
 from netelpro.neuro.neuron import NetelproLayer
 from netelpro.neuro.ste import HAS_TORCH
 
 if HAS_TORCH:
     import torch
-    import torch.nn as nn
     import torch.nn.functional as F
+    from torch import nn
     _ModuleBase = nn.Module
     _no_grad = torch.no_grad
 else:
@@ -181,9 +183,9 @@ class NetelproTransformer(_ModuleBase):
     def forward(
         self,
         idx: torch.Tensor,
-        targets: Optional[torch.Tensor] = None,
+        targets: torch.Tensor | None = None,
         control_flags: int | Sequence[int] = 1,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], AuditCertificate]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None, AuditCertificate]:
         """Forward pass with causal generation and formal silicon auditing."""
         t0 = time.perf_counter_ns()
         device = idx.device
@@ -239,21 +241,79 @@ class NetelproTransformer(_ModuleBase):
         return logits, loss, certificate
 
     @_no_grad()
+    def gated_forward(
+        self,
+        idx: torch.Tensor,
+        allowed_min: int,
+        allowed_max: int,
+        safety_state: int = 1,
+        mask_value: float = float("-inf"),
+        control_flags: int | Sequence[int] = 1,
+    ) -> torch.Tensor:
+        """Last-position logits with the token gate fused into the lm_head
+        matmul (docs/GATE_KERNEL_FUSION_SPEC.md), instead of computing the
+        full lm_head then masking as a separate pass.
+
+        Batch size 1 only (single decode step -- see spec Section 4.4;
+        prefill-time / batched gating is out of scope for v0.1). Runs the
+        transformer body identically to forward(), then replaces
+        `self.lm_head(x[:, -1, :])` with gated_lm_head, which dispatches to
+        the Triton kernel on CUDA or the plain-torch reference otherwise
+        (netelpro/neuro/gate_kernel.py) -- same masked output either way,
+        only latency differs.
+        """
+        batch, t = idx.size()
+        assert batch == 1, "gated_forward is decode-step only (batch size 1); see spec Section 4.4"
+        assert t <= self.config.block_size, f"Sequence length {t} exceeds block size {self.config.block_size}"
+
+        device = idx.device
+        pos = torch.arange(0, t, dtype=torch.long, device=device)
+        tok_emb = self.wte(idx)
+        pos_emb = self.wpe(pos)
+        x = self.drop(tok_emb + pos_emb)
+
+        for block in self.blocks:
+            x, _, _ = block(x, control_flags=control_flags)
+
+        x = self.ln_f(x)
+        x_last = x[0, -1, :]  # (n_embd,) -- the one row this decode step needs
+
+        logits = gated_lm_head(
+            x_last, self.lm_head.weight, allowed_min, allowed_max, safety_state, mask_value
+        )
+        return logits.unsqueeze(0)  # (1, vocab_size), matches forward()'s [:, -1, :] shape
+
+    @_no_grad()
     def generate(
         self,
         idx: torch.Tensor,
         max_new_tokens: int,
         temperature: float = 1.0,
-        top_k: Optional[int] = None,
+        top_k: int | None = None,
         control_flags: int = 1,
+        gate: Any | None = None,
     ) -> torch.Tensor:
-        """Autoregressively generate new tokens governed by the formal transformer."""
+        """Autoregressively generate new tokens governed by the formal transformer.
+
+        gate: an optional netelpro.neuro.stream.NetelproStreamProcessor. When
+        given, each decode step calls gated_forward() (fused gate + lm_head,
+        one kernel) instead of forward() + a separate masking pass -- the
+        wiring GATE_KERNEL_FUSION_SPEC.md describes. When None, behavior is
+        byte-identical to before this parameter existed.
+        """
         for _ in range(max_new_tokens):
             # Crop to the last block_size tokens if context is too long
             idx_cond = idx if idx.size(1) <= self.config.block_size else idx[:, -self.config.block_size :]
-            logits, _, _ = self(idx_cond, control_flags=control_flags)
-            # Pluck the logits at the final step
-            logits = logits[:, -1, :] / max(1e-5, temperature)
+            if gate is not None:
+                p = gate.processor
+                logits = self.gated_forward(
+                    idx_cond, p.allowed_min, p.allowed_max, p.safety_state, p.mask_value,
+                    control_flags=control_flags,
+                )
+            else:
+                logits, _, _ = self(idx_cond, control_flags=control_flags)
+                logits = logits[:, -1, :]
+            logits = logits / max(1e-5, temperature)
 
             # Optionally crop the probabilities to only the top k options
             if top_k is not None:
