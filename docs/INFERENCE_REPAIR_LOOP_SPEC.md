@@ -1,8 +1,22 @@
 # Inference-Time Repair Loop — Specification v0.1 (DRAFT)
 
 **Status:** DRAFT — spec approved by Jona in conversation ("armemos esto...
-arma spect y veamos qué sale de esto", 2026-09-17). Pilot implementation to
-follow immediately after this file, same session.
+arma spect y veamos qué sale de esto", 2026-09-17). Pilot implemented and
+run same session (sections 6-8 below). Paused here on purpose — not
+blocked, not abandoned — for cost/time reasons; explicitly resuming next
+session.
+
+**Where to pick this back up:** `gcd_pair` has not passed yet after three
+tries (real primer, then temperature escalation). Two untried moves are
+named at the end of section 8 — a narrower escalation band, or a primer
+that targets gcd's likely real difficulty (which argument shrinks in the
+mutual recursion) instead of vocabulary. Try one of those next, not a new
+fourth mechanism — the loop, the limiter, and the primer are all working
+as designed; what's unresolved is specifically "can a non-finetuned 1.5B
+model be walked to a correct `gcd_pair` within a small retry budget," not
+whether the repair-loop idea itself works (section 6's `sum_range` and the
+syntax-error elimination in section 7 already show it does, for the
+failure classes it's actually aimed at).
 **Origin:** 2026-09-17 conversation, following the llama-cpp-python gate fix
 (`5286c73`) and `STATE_TRACKING_GATE_SPEC.md`'s rate-limiting pilot.
 **House precedent:** same spec-first protocol as `EPISTEMIC_GATE_SPEC.md` and
