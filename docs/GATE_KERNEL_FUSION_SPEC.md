@@ -1,14 +1,13 @@
 # Token-Gate Kernel Fusion — Specification v0.1
 
-**Status:** v0.1 pilot run and concluded, same day (2026-09-17), real Kaggle
-GPU numbers in §8 — **honest negative result**: the naive Triton kernel
-lost to the existing unfused path in both tested configs (7x slower
-broad, still slower narrow). Not blocked, not abandoned — the fusion
-premise stands, the hand-rolled reduction doesn't. v0.2 (§9, same day):
-`tl.dot`-based rewrite implemented per the diagnosis in §8, **not yet run
-on real GPU** — `benchmarks/gate_kernel_fusion_kaggle.ipynb` is updated to
-benchmark v1 and v2 side by side; results land in §9's Results
-subsection when that run happens, not before.
+**Status:** v0.1 (naive kernel, §8) and v0.2 (`tl.dot` kernel, §9) both run
+on real Kaggle GPU, same day (2026-09-17). v0.1: honest negative (naive
+kernel 7x slower than baseline). v0.2: **honest positive, boundary-
+dependent** — the `tl.dot` rewrite beats baseline by 3.1x when the gate's
+allowed range is narrow (mostly-masked, the safety-critical case) but is
+still ~1.27x slower than baseline when the range is broad (mostly-open).
+Not a universal win; a real integration needs a scope decision on which
+regime matters more, not made here (§9 Results).
 Scope confirmed same session: contiguous
 range first (not the discrete `token_to_action_map` path), on
 `NetelproTransformer` (Teo v2) directly, not an external HF/llama.cpp model.
@@ -373,6 +372,54 @@ blow up near zero. Recorded here because it's a real, reportable mistake
 in this pilot's own test harness, not swept past silently — same
 standard the spec holds the kernel to.
 
-### Results
+### Results (2026-09-17, Kaggle T4/P100, real run, post-tolerance-fix)
 
-*(empty — filled in after the Kaggle run.)*
+Differential correctness passed (both kernels, combined `atol+rtol`
+criterion for v2). Four-way benchmark, same methodology as §8:
+
+| range | method | mean_ms | min_ms | p50_ms |
+|---|---|---|---|---|
+| broad `[100, 30000]` | ungated | 0.4292 | 0.4206 | 0.4260 |
+| broad `[100, 30000]` | baseline_unfused | 0.4496 | 0.4421 | 0.4485 |
+| broad `[100, 30000]` | fused_triton_naive (v1) | 3.1347 | 3.0638 | 3.1315 |
+| broad `[100, 30000]` | **fused_triton_dot (v2)** | **0.5724** | 0.5373 | 0.5726 |
+| narrow `[5000, 5200]` | ungated | 0.4217 | 0.4156 | 0.4204 |
+| narrow `[5000, 5200]` | baseline_unfused | 0.4412 | 0.4321 | 0.4390 |
+| narrow `[5000, 5200]` | fused_triton_naive (v1) | 0.6706 | 0.6451 | 0.6672 |
+| narrow `[5000, 5200]` | **fused_triton_dot (v2)** | **0.1425** | 0.1381 | 0.1404 |
+
+**Honest reading: v2 beats v1 decisively (confirms §9's tensor-core
+diagnosis), and v2 beats the real baseline in exactly the regime §6 open
+question 1 predicted it would.**
+
+- **v2 vs. v1:** ~5.5x faster broad (3.13ms → 0.57ms), ~4.7x faster narrow
+  (0.67ms → 0.14ms). The `tl.dot` rewrite is unambiguously the right
+  design over the manual reduce — this is now established, not
+  hypothesized.
+- **v2 vs. baseline, narrow (mostly masked):** **fused wins, 3.1x faster**
+  (0.1425ms vs. 0.4412ms) — and beats even `ungated` (0.42ms), the bare
+  unmasked matmul, because skipping ~31/32 tiles means the kernel reads a
+  small fraction of `lm_head.weight` instead of the whole ~100MB matrix,
+  where `ungated` still has to read all of it. This is the fusion premise
+  from §1 working as designed, in the regime where there's real work to
+  skip.
+- **v2 vs. baseline, broad (mostly allowed):** fused still loses, ~1.27x
+  slower (0.5724ms vs. 0.4496ms) — better than v1's 7x loss, but not a
+  win. Consistent with §8's diagnosis: cuBLAS's GEMV is already close to
+  the memory-bandwidth floor when there's little to skip, and this
+  kernel's fixed overhead (16x FLOP inflation from M-padding, 128 program
+  launches for `BLOCK_N=256` over a 32768 vocab) has nothing to amortize
+  against when almost no tile gets to skip its matmul.
+
+**v0.2 verdict: real, positive, and boundary-dependent.** The fused
+kernel is the better choice exactly when the gate's allowed range is
+narrow relative to the vocabulary — the safety-critical case (tight
+action boundaries) rather than the permissive one (broad, mostly-open
+generation). It is not a strict improvement over today's code in every
+configuration, and this spec does not claim it is. A production
+integration would need to pick a side: either dispatch by range width
+(fused when narrow, baseline when broad — a runtime heuristic, new
+complexity) or accept the ~27% broad-case regression in exchange for the
+narrow-case win, depending on which regime `NetelproTransformer.generate()`
+actually spends more time in. Not decided here — a product/scope call,
+not an engineering one, left open for the next session.
