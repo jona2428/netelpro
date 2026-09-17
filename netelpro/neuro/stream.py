@@ -19,6 +19,13 @@ from netelpro.neuro.ste import HAS_TORCH
 if HAS_TORCH:
     import torch
 
+try:
+    import numpy as np
+
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+
 
 def _fill_range(scores: Any, value: float, start: int, stop: int) -> None:
     """Set scores[start:stop] = value for numpy arrays, plain lists, or any
@@ -141,14 +148,34 @@ class NetelproStreamProcessor:
                 _fill_range(scores, mask_value, hi + 1, vocab_size)
                 pruned_count += vocab_size - (hi + 1)
         else:
-            # Discrete action map: no vectorized shortcut for an arbitrary
-            # token -> action mapping: evaluate the compiled rule per token.
-            for token_id in range(vocab_size):
-                action_id = token_to_action_map.get(token_id, token_id)
-                allow, _ = self.gate.check(action_id, allowed_min, allowed_max, safety_state)
-                if not allow:
-                    scores[token_id] = mask_value
-                    pruned_count += 1
+            # Discrete action map: the compiled gate is evaluated once per
+            # UNIQUE action reachable from the map (cached on self.processor,
+            # shared with the HF __call__ path), not once per vocab token --
+            # see docs/GATE_KERNEL_FUSION_SPEC.md Section 11 for why the old
+            # per-token native-call loop was the documented bottleneck this
+            # replaces.
+            unique_actions, token_to_unique_index = self.processor._action_map_decomposition(vocab_size)
+            unique_allowed = self.processor._unique_action_allowed(
+                unique_actions, allowed_min, allowed_max, safety_state
+            )
+            if HAS_NUMPY:
+                unique_allowed_arr = np.asarray(unique_allowed, dtype=bool)
+                index_arr = np.asarray(token_to_unique_index, dtype=np.int64)
+                denied_mask = ~unique_allowed_arr[index_arr]
+                pruned_count = int(denied_mask.sum())
+                if isinstance(scores, np.ndarray):
+                    scores[denied_mask] = mask_value
+                else:
+                    for idx in np.flatnonzero(denied_mask).tolist():
+                        scores[idx] = mask_value
+            else:
+                # No numpy available: still no per-token native calls (the
+                # actual bottleneck) -- just a plain Python list-index
+                # lookup per token instead of a ctypes call per token.
+                for token_id in range(vocab_size):
+                    if not unique_allowed[token_to_unique_index[token_id]]:
+                        scores[token_id] = mask_value
+                        pruned_count += 1
 
         # get_summary()'s total_pruned_tokens reads self.processor.total_pruned,
         # which the HF __call__ path updates itself -- this adapter bypasses

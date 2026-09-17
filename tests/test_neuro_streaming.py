@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from netelpro.neuro.stream import NetelproStreamProcessor, stream_generate
 from netelpro.neuro.ste import HAS_TORCH
+from netelpro.neuro.stream import NetelproStreamProcessor, stream_generate
 
 if HAS_TORCH:
     import torch
@@ -170,6 +170,138 @@ def test_llama_cpp_processor_boundary_consistent_with_native_gate():
         allow, _ = sp.gate.check(t, 7, 7, 1)
         expected = 0.0 if allow else float("-inf")
         assert out[t] == expected, f"token {t}: vectorized path disagrees with compiled gate"
+
+
+# ---------------------------------------------------------------------------
+# Regression coverage for the discrete token_to_action_map fast path
+# (docs/GATE_KERNEL_FUSION_SPEC.md Section 11) -- the original code called
+# the compiled gate once per vocab token (a Python loop of native ctypes
+# calls, the documented remaining bottleneck after the contiguous-range
+# fix above). The rewrite evaluates the gate once per UNIQUE action and
+# expands via a cached index -- nothing exercised this branch at all
+# before this change, so every test below is new coverage, not a
+# regression check against a prior test.
+# ---------------------------------------------------------------------------
+
+_DISCRETE_MAP = {0: 100, 1: 100, 2: 100, 5: 200, 6: 200, 10: 300}
+_DISCRETE_VOCAB = 20
+_DISCRETE_ALLOWED_MIN, _DISCRETE_ALLOWED_MAX = 100, 250
+# Expected: tokens 0,1,2 (action 100) and 5,6 (action 200) allowed; token 10
+# (action 300) denied; every other token defaults to action_id == token_id
+# (all < 20, well below allowed_min=100) -- denied.
+_DISCRETE_EXPECTED_ALLOWED = {0, 1, 2, 5, 6}
+
+
+def _brute_force_allowed(sp: NetelproStreamProcessor, token_map: dict[int, int], vocab_size: int) -> set[int]:
+    allowed = set()
+    for t in range(vocab_size):
+        action_id = token_map.get(t, t)
+        allow, _ = sp.gate.check(action_id, _DISCRETE_ALLOWED_MIN, _DISCRETE_ALLOWED_MAX, 1)
+        if allow:
+            allowed.add(t)
+    return allowed
+
+
+def test_discrete_action_map_brute_force_sanity():
+    """The hand-picked expected set above must actually match what the
+    compiled gate says -- a sanity check on the fixture itself, not the
+    fast path, so a wrong fixture can't make the fast-path tests below
+    pass for the wrong reason."""
+    sp = NetelproStreamProcessor(
+        allowed_min=_DISCRETE_ALLOWED_MIN, allowed_max=_DISCRETE_ALLOWED_MAX, safety_state=1,
+        token_to_action_map=_DISCRETE_MAP,
+    )
+    assert _brute_force_allowed(sp, _DISCRETE_MAP, _DISCRETE_VOCAB) == _DISCRETE_EXPECTED_ALLOWED
+
+
+def test_llama_cpp_processor_discrete_action_map_plain_list():
+    sp = NetelproStreamProcessor(
+        allowed_min=_DISCRETE_ALLOWED_MIN, allowed_max=_DISCRETE_ALLOWED_MAX, safety_state=1,
+        token_to_action_map=_DISCRETE_MAP,
+    )
+    scores = [0.0] * _DISCRETE_VOCAB
+    out = sp.llama_cpp_processor([1], scores)
+
+    for t in range(_DISCRETE_VOCAB):
+        expected = 0.0 if t in _DISCRETE_EXPECTED_ALLOWED else float("-inf")
+        assert out[t] == expected, f"token {t}: expected {expected}, got {out[t]}"
+
+    summary = sp.get_summary()
+    assert summary["total_pruned_tokens"] == _DISCRETE_VOCAB - len(_DISCRETE_EXPECTED_ALLOWED)
+
+
+def test_llama_cpp_processor_discrete_action_map_numpy():
+    np = pytest.importorskip("numpy")
+    sp = NetelproStreamProcessor(
+        allowed_min=_DISCRETE_ALLOWED_MIN, allowed_max=_DISCRETE_ALLOWED_MAX, safety_state=1,
+        token_to_action_map=_DISCRETE_MAP,
+    )
+    scores = np.zeros(_DISCRETE_VOCAB, dtype=np.float32)
+    out = sp.llama_cpp_processor(np.array([1], dtype=np.intc), scores)
+
+    for t in range(_DISCRETE_VOCAB):
+        expected = 0.0 if t in _DISCRETE_EXPECTED_ALLOWED else float("-inf")
+        assert out[t] == expected, f"token {t}: expected {expected}, got {out[t]}"
+
+
+def test_llama_cpp_processor_discrete_action_map_no_numpy_fallback(monkeypatch):
+    """Forces the plain-Python fallback branch (no native calls per token,
+    but no numpy vectorization either) -- must produce identical output to
+    the numpy-accelerated path, just without the extra speedup."""
+    import netelpro.neuro.stream as stream_mod
+
+    monkeypatch.setattr(stream_mod, "HAS_NUMPY", False)
+
+    sp = NetelproStreamProcessor(
+        allowed_min=_DISCRETE_ALLOWED_MIN, allowed_max=_DISCRETE_ALLOWED_MAX, safety_state=1,
+        token_to_action_map=_DISCRETE_MAP,
+    )
+    scores = [0.0] * _DISCRETE_VOCAB
+    out = sp.llama_cpp_processor([1], scores)
+
+    for t in range(_DISCRETE_VOCAB):
+        expected = 0.0 if t in _DISCRETE_EXPECTED_ALLOWED else float("-inf")
+        assert out[t] == expected, f"token {t}: expected {expected}, got {out[t]}"
+
+
+@pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+def test_logits_processor_hf_discrete_action_map_matches_llama_cpp_path():
+    """Both adapters (HF __call__ and llama_cpp_processor) share the same
+    NetelproLogitsProcessor instance and its cached decomposition -- they
+    must agree on every token, not just each look internally consistent."""
+    sp = NetelproStreamProcessor(
+        allowed_min=_DISCRETE_ALLOWED_MIN, allowed_max=_DISCRETE_ALLOWED_MAX, safety_state=1,
+        token_to_action_map=_DISCRETE_MAP,
+    )
+    input_ids = torch.tensor([[1, 2]])
+    scores = torch.zeros((1, _DISCRETE_VOCAB))
+
+    out = sp.process_hf_logits(input_ids, scores)
+
+    for t in range(_DISCRETE_VOCAB):
+        expected = 0.0 if t in _DISCRETE_EXPECTED_ALLOWED else float("-inf")
+        assert out[0, t].item() == expected, f"token {t}: expected {expected}, got {out[0, t].item()}"
+
+
+def test_discrete_action_map_reacts_to_set_context():
+    """The (unique_actions, token_to_unique_index) decomposition is cached
+    per vocab_size and must stay valid, but the allow/deny decision for
+    each unique action must still react to a changed allowed range --
+    only the expensive per-vocab-token work is cached, not the decision
+    itself."""
+    sp = NetelproStreamProcessor(
+        allowed_min=_DISCRETE_ALLOWED_MIN, allowed_max=_DISCRETE_ALLOWED_MAX, safety_state=1,
+        token_to_action_map=_DISCRETE_MAP,
+    )
+    scores1 = [0.0] * _DISCRETE_VOCAB
+    sp.llama_cpp_processor([1], scores1)
+    assert scores1[0] == 0.0  # action 100 allowed under the initial range
+
+    sp.set_context(allowed_min=300, allowed_max=300, safety_state=1)
+    scores2 = [0.0] * _DISCRETE_VOCAB
+    sp.llama_cpp_processor([1], scores2)
+    assert scores2[0] == float("-inf")  # action 100 no longer in range
+    assert scores2[10] == 0.0  # action 300 now allowed
 
 
 def test_stream_generate_loop_native_list():

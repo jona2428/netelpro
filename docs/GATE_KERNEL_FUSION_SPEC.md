@@ -7,7 +7,11 @@ rewrite, honest positive but boundary-dependent (3.1x faster narrow,
 `gated_lm_head` (what `generate(gate=...)` actually calls) and validated
 on real GPU — **no regression in either tested regime, 3.0x win where
 there's real work to skip.** The token gate is genuinely fused into
-`NetelproTransformer`'s forward pass now, not just specced.
+`NetelproTransformer`'s forward pass now, not just specced. §11 (same
+day): the other bottleneck §6 deferred — the discrete
+`token_to_action_map` path — fixed too, no GPU needed, measured
+**~35-37x on real workloads, honest tie (not a regression) in the
+adversarial case.**
 Scope confirmed same session: contiguous
 range first (not the discrete `token_to_action_map` path), on
 `NetelproTransformer` (Teo v2) directly, not an external HF/llama.cpp model.
@@ -484,3 +488,83 @@ could in principle land on the wrong side of the dispatch. A future
 session could sweep more widths to tighten the threshold, or measure on
 a P100 to check the no-tensor-cores caveat from §9 — neither blocks using
 what's here today.
+
+---
+
+## 11. Discrete `token_to_action_map` fast path (2026-09-17, same day)
+
+§6 open question 2 deferred this on purpose: the contiguous-range work
+above (§1–§10) is a GPU-kernel problem. This one isn't. It's an
+algorithmic fix, runs and is measured entirely on CPU, no Triton, no
+Kaggle needed.
+
+**The bottleneck.** `NetelproLogitsProcessor.__call__`'s discrete branch
+and `NetelproStreamProcessor.llama_cpp_processor`'s discrete branch (used
+whenever a `token_to_action_map` is supplied — the arbitrary token→action
+correspondence path, not the default contiguous-range rule) both looped
+over every vocab token, calling the compiled gate once per token:
+
+```python
+for token_id in range(vocab_size):
+    action_id = token_to_action_map.get(token_id, token_id)
+    allow, _ = self.gate.check(action_id, allowed_min, allowed_max, safety_state)
+    if not allow:
+        scores[token_id] = mask_value
+```
+
+This is the same *class* of bug the contiguous-range fix (`5286c73`)
+already killed for the default rule — a Python loop of native ctypes
+calls, once per decoding step, over a 32k–152k vocab — just never fixed
+for this branch, because a discrete map doesn't have an obvious tensor-
+slicing shortcut the way a contiguous range does.
+
+**The fix: evaluate the gate once per unique action, not once per token.**
+`token_to_action_map` is set once at construction and never mutated
+after (no setter exists). So its `(unique actions, token→unique-action
+index)` decomposition can be computed once, cached, and reused across
+every decode step — only the per-unique-action gate evaluation needs to
+re-run when `allowed_min`/`allowed_max`/`safety_state` change via
+`set_context()`. Implemented in
+`NetelproLogitsProcessor._action_map_decomposition()` (pure Python dict
+grouping, O(vocab_size) once) and `._unique_action_allowed()` (calls
+`self.gate.check()` — the same fail-closed wrapper the old per-token loop
+used, deliberately not `NetelproVectorKernel.evaluate_batch`'s raw native
+call, which has no exception handling and would have silently weakened
+the fail-closed contract `gate_contract.md` §3.2 documents). Both the HF
+`__call__` path (torch gather) and the llama.cpp `llama_cpp_processor`
+path (numpy gather when available, a plain-Python index lookup — no
+native calls, still a real win — when it isn't) share this one cache, via
+`self.processor`.
+
+**Correctness:** `tests/test_neuro_streaming.py` — six new tests, all new
+coverage (nothing exercised this branch before this fix, at all). Brute-
+force comparison against the actual compiled gate (`sp.gate.check()` per
+token, same pattern `test_llama_cpp_processor_boundary_consistent_with_native_gate`
+already used for the contiguous path), the HF and llama.cpp adapters
+checked to agree with each other (they share the same cache), the no-numpy
+fallback exercised via monkeypatch, and a `set_context()` reactivity test
+confirming the cached decomposition doesn't go stale when the allowed
+range changes.
+
+**Results (2026-09-17, local CPU run, `benchmarks/discrete_action_map_bench.py`):**
+
+| scenario | old (ms/step) | new (ms/step) | speedup |
+|---|---|---|---|
+| vocab 32,768, 64 unique actions (tokens collapse 512:1) | 79.4 | 2.13 | **37.3x** |
+| vocab 152,000, 200 unique actions (this file's original motivating scale) | 371.5 | 10.41 | **35.7x** |
+| worst case: vocab 32,768, ~all-identity map (unique ≈ vocab_size) | 79.4 | 78.6 | **~1.0x (honest tie, not a win)** |
+
+**Honest reading.** When a `token_to_action_map` actually collapses many
+tokens onto a smaller action space — the reason such a map exists at all
+(constraining a large LLM vocabulary down to a small legal action surface
+for an agent/system, per this file's own module docstring) — this is a
+real, large, unconditional win: ~35-37x measured, no dispatch heuristic
+needed (unlike §10's kernel work), no downside. In the pathological case
+where the map barely collapses anything (each token maps to its own
+distinct action, explicitly or via the identity fallback), the fix is a
+tie, not a regression: the per-step cost is still bounded by
+`num_unique_actions` native calls, which in that case is ~vocab_size,
+same as before. The worst case was measured, not assumed, and the
+benchmark script's own comment originally overclaimed a win there before
+this run corrected it — left in as a small, real example of the same
+discipline this whole spec has tried to hold to: check before you claim.
