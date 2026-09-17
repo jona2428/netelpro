@@ -50,12 +50,27 @@ def _build_syntax_primer() -> str:
     same machine-consumed source of truth the compiler itself checks
     against -- instead of a hand-picked example subset.
 
-    Root cause this fixes: the v0.1 pilot's hand-written primer only
+    Root cause #1 this fixes: the v0.1 pilot's hand-written primer only
     mentioned "+ - * < > <= >= == and or if" and two example programs. On
     the gcd_pair task the model invented `zero?` (a real Scheme/Lisp idiom
     Netelpro does not have) because nothing told it what actually exists.
     Listing every legal head removes the guessing, not just the specific
     mistake that got fed back last time.
+
+    Root cause #2 (INFERENCE_REPAIR_LOOP_SPEC.md section 8's second untried
+    move, tried now): after root cause #1 was fixed, gcd_pair still failed
+    all 5 attempts the same way -- the model wrote `(defn gcd-two (a b) a)`
+    every time (returns `a` unconditionally, never recurses). The only
+    worked example in the primer (`fib`) recurses on a SINGLE argument
+    (`n`); it never shows a function whose base case depends on the SECOND
+    argument, or whose recursive call transforms BOTH arguments together.
+    That's a plausible reason the model never tried it for gcd_two: nothing
+    in the primer demonstrated the shape at all. The second example below
+    (`cuenta-pasos`) teaches exactly that shape -- two arguments, base case
+    on the second one, both arguments change in the recursive call -- on a
+    deliberately different, much simpler problem (counts down both
+    arguments by 1 until the second hits zero), so it's a structural
+    template, not the gcd answer smuggled in.
     """
     table = json.loads(_ARITY_TABLE_PATH.read_text(encoding="utf-8"))
     forms = sorted(table["special_forms"].keys())
@@ -67,6 +82,12 @@ def _build_syntax_primer() -> str:
         "  (if (< n 2)\n"
         "      n\n"
         "      (+ (fib (- n 1)) (fib (- n 2)))))\n\n"
+        "Functions can take more than one argument, and the recursive call "
+        "can change ANY of them, not just the first:\n\n"
+        "(defn cuenta-pasos (a b)\n"
+        "  (if (== b 0)\n"
+        "      a\n"
+        "      (cuenta-pasos (- a 1) (- b 1))))\n\n"
         f"ALL special forms that exist (nothing else is legal): {', '.join(forms)}\n"
         f"ALL primitives that exist (nothing else is legal): {', '.join(prims)}\n"
         "There is no `zero?`, no `cond`, no loops, no let* -- only what's listed "

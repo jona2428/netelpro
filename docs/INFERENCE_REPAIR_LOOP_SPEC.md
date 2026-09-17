@@ -2,21 +2,24 @@
 
 **Status:** DRAFT — spec approved by Jona in conversation ("armemos esto...
 arma spect y veamos qué sale de esto", 2026-09-17). Pilot implemented and
-run same session (sections 6-8 below). Paused here on purpose — not
-blocked, not abandoned — for cost/time reasons; explicitly resuming next
-session.
+run across two sessions same calendar day (sections 6-10 below). Paused
+again on purpose, same posture as before — not blocked, not abandoned.
 
-**Where to pick this back up:** `gcd_pair` has not passed yet after three
-tries (real primer, then temperature escalation). Two untried moves are
-named at the end of section 8 — a narrower escalation band, or a primer
-that targets gcd's likely real difficulty (which argument shrinks in the
-mutual recursion) instead of vocabulary. Try one of those next, not a new
-fourth mechanism — the loop, the limiter, and the primer are all working
-as designed; what's unresolved is specifically "can a non-finetuned 1.5B
-model be walked to a correct `gcd_pair` within a small retry budget," not
-whether the repair-loop idea itself works (section 6's `sum_range` and the
-syntax-error elimination in section 7 already show it does, for the
-failure classes it's actually aimed at).
+**Where this stands:** `gcd_pair` still hasn't passed, but three distinct
+real bugs were found and diagnosed in sequence this way, each one only
+visible once the previous was fixed: missing vocabulary (section 6,
+fixed) → wrong algorithm shape / frozen at fixed temperature (sections
+7-9, fixed by a structural primer example) → correct shape attempted,
+wrong Euclidean formula, confirmed via direct inspection (`finish_reason`
++ raw candidate) to be a genuine model-knowledge gap, not a harness
+truncation bug (section 10). The mechanism (loop, limiter, primer,
+escalation) worked exactly as designed at every layer; what's left is
+specifically "this 1.5B model doesn't reliably know Euclid's recurrence,"
+which prompt/retry engineering can't fix without handing over the
+answer. `sum_range` (section 6) and the syntax-error elimination
+(section 7) remain the standing positive evidence the mechanism works —
+this task has now mapped exactly where its ceiling is, honestly, not
+where it stopped being convenient to keep trying.
 **Origin:** 2026-09-17 conversation, following the llama-cpp-python gate fix
 (`5286c73`) and `STATE_TRACKING_GATE_SPEC.md`'s rate-limiting pilot.
 **House precedent:** same spec-first protocol as `EPISTEMIC_GATE_SPEC.md` and
@@ -253,3 +256,113 @@ recursion with the base case on the SECOND argument — since gcd's harder
 part may be structural (which argument shrinks, and how) rather than
 vocabulary, which is a different kind of hole than either fix so far
 addressed.
+
+## 9. Follow-up (2026-09-17, next session): structural primer fixes the algorithm choice, exposes a THIRD failure mode
+
+Tried move (b) from section 8, alone first (temperature escalation
+disabled, `--temperature-step 0`, isolating one variable at a time —
+same discipline as every prior step). `_build_syntax_primer()` in
+`examples/inference_repair_loop_demo.py` gained a second worked example,
+`cuenta-pasos (a b)`, deliberately NOT gcd — it counts down two
+arguments together until the second hits zero — but has the exact shape
+section 8 flagged as missing: base case on the second argument, both
+arguments transformed in the recursive call. Verified independently
+against the real compiler+interpreter before spending any inference time
+on it (`cuenta-pasos 10 3` → `7`, correct).
+
+Re-ran `gcd_pair`, same model (`qwen2.5-1.5b-instruct.Q4_K_M.gguf`), 5
+attempts, fixed temperature 0.20:
+
+```
+attempt 1-5 (temp=0.20): DID NOT COMPILE -- line 4, col 22: 'rem' expects 2 operand(s), found 1
+```
+
+**Real progress, still a failure.** The model stopped writing
+`(defn gcd-two (a b) a)` — the frozen "return a unconditionally" bug
+from section 7/8 is gone. It now attempts the actual correct algorithm
+(Euclid's, via `rem`, exactly the primitive that exists for this) —
+the structural primer worked for what it targeted: the model no longer
+lacks the *shape*. But it now calls `rem` with one argument instead of
+two, identically across all 5 attempts — a new frozen repeat, same
+failure class as section 7 (feedback-in-prompt alone doesn't dislodge a
+frozen mistake at fixed low temperature), just one layer deeper than
+before. Three real bugs found and fixed in sequence now, each exposing
+the next: vocabulary (section 6) → algorithm shape (this section) →
+arity on the right primitive (not yet fixed).
+
+## 10. Follow-up (2026-09-17, same session): primer + escalation combined, and a diagnostic that ruled out the harness
+
+Ran the same task with both fixes together: this session's structural
+primer (section 9) plus section 8's temperature escalation
+(`base=0.20, step=0.25, cap=1.30`, the defaults — no new parameters
+introduced, just re-enabling what was already built):
+
+```
+attempt 1 (temp=0.20): DID NOT COMPILE -- line 4, col 22: 'rem' expects 2 operand(s), found 1
+attempt 2 (temp=0.45): DID NOT COMPILE -- line 4, col 22: 'rem' expects 2 operand(s), found 1
+attempt 3 (temp=0.70): DID NOT COMPILE -- line 4, col 22: 'rem' expects 2 operand(s), found 1
+attempt 4 (temp=0.95): DID NOT COMPILE -- line 4, col 8: 'gcd-two' expects 2 operand(s) (declared by defn), found 1
+attempt 5 (temp=1.20): DID NOT COMPILE -- line 4, col 8: 'gcd-two' expects 2 operand(s) (declared by defn), found 1
+```
+
+**Escalation broke the `rem`-arity freeze again (as designed), but the
+model moved to a structurally identical mistake one level up** — dropping
+an argument on its own recursive call (`gcd-two`) instead of on `rem`.
+Same "drops the second argument of a 2-argument call" shape, different
+call site. Still 0/5, still fails closed with the real error.
+
+**Diagnostic, before drawing any conclusion from this:** is "drops an
+argument" actually the model's mistake, or is `--max-tokens 200`
+truncating generation before the second argument gets written — which
+would look identical in the compiler error but mean something completely
+different (a harness bug, not a model limitation)? Checked directly,
+not assumed: regenerated one candidate standalone and inspected
+`finish_reason` and the raw text.
+
+```
+finish_reason: stop   (NOT "length" -- generation ended on its own, not truncated)
+
+(defn gcd-two (a b)
+  (if (== b 0)
+      a
+      (gcd-two (- a (rem b)) (quot b a))))
+```
+
+**Not a harness bug — ruled out with evidence, not assumed away.**
+`finish_reason: stop` means the model chose to end generation there; it
+was never cut off mid-argument. And the raw candidate shows the real
+shape of the mistake: it isn't "forgot to type `a`" in isolation, the
+whole expression is a malformed, non-Euclidean formula
+(`(- a (rem b))`, `(quot b a)` in that order) that happens to also be
+missing an argument to `rem`. The model has a rough, correct-looking
+association ("gcd" → `rem`/`quot` are probably involved) but not the
+actual recurrence (`gcd(a,b) = gcd(b, rem(a,b))`) — the arity error the
+compiler reports is a symptom of that deeper gap, not the gap itself.
+
+**Where this leaves the spec.** Three real, distinct failure classes
+found and fixed or exposed, each layer requiring the previous one to be
+fixed before it became visible: vocabulary (section 6, fixed) → algorithm
+shape / which argument recurses (section 9, fixed) → the actual
+Euclidean formula (this section, confirmed real, not fixed). The first
+two were fixable with primer changes that teach *shape* without handing
+over *the answer* — a general worked example, not the specific solution.
+The third one is qualitatively different: the model doesn't have the
+right formula, and a primer patch that supplied it would just be writing
+the answer into the prompt, defeating the entire premise of the pilot
+(testing whether a non-finetuned model can be walked to a correct
+`gcd_pair` via feedback and structural hints, not whether it can copy one
+handed to it). That's a real, honest boundary on what this mechanism can
+fix — not a bug in the repair loop, the retry limiter, or the primer
+design; a fact about what this specific model already knows.
+
+**Status: paused again, same posture as before** — not blocked, not
+abandoned. `sum_range` (section 6) and the syntax-error elimination
+(section 7) still stand as real positive evidence the mechanism works for
+the failure classes it targets (syntax, and now — section 9 — algorithm
+shape). `gcd_pair` specifically has reached a boundary this session:
+further progress on this exact task would need either a different model
+(one with better latent knowledge of Euclid's algorithm) or accepting
+that "teach the shape without teaching the answer" has a ceiling. Not
+worth inventing a fourth prompting mechanism to push past a gap that's
+about model knowledge, not prompt engineering — same restraint the spec
+held to in section 8 ("not a new fourth mechanism").
