@@ -4,9 +4,11 @@
 GPU numbers in §8 — **honest negative result**: the naive Triton kernel
 lost to the existing unfused path in both tested configs (7x slower
 broad, still slower narrow). Not blocked, not abandoned — the fusion
-premise stands, the hand-rolled reduction doesn't; a `tl.dot`-based
-rewrite is the next move if this gets picked back up (§8), not a small
-patch to what's here.
+premise stands, the hand-rolled reduction doesn't. v0.2 (§9, same day):
+`tl.dot`-based rewrite implemented per the diagnosis in §8, **not yet run
+on real GPU** — `benchmarks/gate_kernel_fusion_kaggle.ipynb` is updated to
+benchmark v1 and v2 side by side; results land in §9's Results
+subsection when that run happens, not before.
 Scope confirmed same session: contiguous
 range first (not the discrete `token_to_action_map` path), on
 `NetelproTransformer` (Teo v2) directly, not an external HF/llama.cpp model.
@@ -297,3 +299,61 @@ gate into the forward pass") is not disproven — the *implementation*
 (naive Triton GEMV) loses to what already exists (`nn.Linear` + tensor
 slicing). Same standard as the rest of this repo: a real number that says
 "no" is worth more than an assumed "yes."
+
+---
+
+## 9. v0.2 — `tl.dot` rewrite (design, 2026-09-17 same day)
+
+Following §8's diagnosis directly: the v0.1 kernel's inner loop
+(`tl.sum(w_chunk * x_chunk[None, :], axis=1)`) never touches tensor cores.
+v0.2 replaces it with `tl.dot`, Triton's tensor-core-mapped matmul
+primitive, in `_fused_gated_lm_head_kernel_dot`
+(`netelpro/neuro/gate_kernel.py`). The v0.1 kernel is kept, renamed
+`_fused_gated_lm_head_kernel_naive` / `gated_lm_head_naive`, specifically
+so the Kaggle notebook can benchmark both in the same run — the comparison
+needs to isolate the kernel-design change, not rely on comparing today's
+numbers against §8's numbers from a different session/run.
+
+**The M=1 problem and its standard fix.** A decode step is exactly one
+token — `x` is a single `(n_embd,)` row, so the GEMV is M=1. Tensor-core
+`mma` instructions require M ≥ 16; there is no way to hand a 1-row operand
+to `tl.dot` and get tensor-core execution. The fix used here (a known
+pattern, not invented for this repo): pad the left operand to
+`BLOCK_M=16` with 15 all-zero rows, run a real 16×`BLOCK_K`×`BLOCK_N`
+tensor-core matmul, then discard rows 1–15 of the result
+(`tl.sum(tl.where(row_idx[:, None] == 0, acc, 0.0), axis=0)`). This
+computes 16x the FLOPs a true GEMV needs — but §8 already established the
+kernel is memory-bandwidth-bound on reading `weight`, not compute-bound,
+so the extra FLOPs are expected to be close to free relative to that read.
+This is the falsifiable part of v0.2: if it's *not* close to free, that's
+itself informative (it would mean the memory-bound diagnosis in §8 was
+incomplete).
+
+**Precision.** `tl.dot`'s tensor-core path needs fp16 (T4/Turing, sm_75)
+or tf32 (Ampere+, sm_80+ — not available on T4 or P100). This spec targets
+fp16 inputs with an explicit fp32 accumulator (`acc = tl.dot(xb, wt, acc)`)
+— the summation itself stays fp32-precise; only the per-element fp16
+rounding of `x` and `weight` before each multiply introduces error. The
+notebook's correctness check (§7) accordingly uses a looser tolerance for
+v2 than v1's exact fp32 comparison (`max_abs_diff < 0.5`,
+`max_rel_diff < 0.05`, checked explicitly and printed, not assumed) —
+masked positions still must be exactly `-inf`, only the unmasked logit
+values get the fp16 tolerance.
+
+**Hardware caveat, stated up front rather than discovered after the
+fact:** P100 (Pascal, sm_60) has no tensor cores at all. On a P100,
+`tl.dot` cannot get a tensor-core speedup over v1 — any win there would
+have to come from better Triton-generated codegen for the same CUDA-core
+path, which is a real possibility but a different, weaker claim than "used
+tensor cores." The notebook's hardware-check cell (§7 step 1) prints the
+actual device name so results are never misattributed to the wrong GPU.
+
+**Open question for this section:** does the 16x FLOP inflation from
+M-padding actually stay free, or does it show up in the numbers? Not
+answered here — v0.1's mistake was claiming a mechanism worked before
+measuring it; v0.2 doesn't repeat that. Results land in the next Kaggle
+run, appended below, not assumed.
+
+### Results
+
+*(empty — filled in after the Kaggle run.)*

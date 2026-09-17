@@ -1,8 +1,11 @@
 """Fused token-gate kernel: lm_head matmul + action_boundary.sl range mask,
 in one GPU kernel instead of matmul-then-mask as two.
 
-See docs/GATE_KERNEL_FUSION_SPEC.md for the full design. Guarded import,
-same pattern as HAS_TORCH in ste.py: Triton has no native Windows build
+See docs/GATE_KERNEL_FUSION_SPEC.md for the full design and
+docs/GATE_KERNEL_FUSION_SPEC.md Section 9 for why v1 (a hand-rolled
+broadcast-multiply-then-reduce) lost to cuBLAS by ~7x and why v2 below
+uses tl.dot (tensor-core matmul) instead. Guarded import, same pattern as
+HAS_TORCH in ste.py: Triton has no native Windows build
 (docs/ROADMAP_TEO_7B_MOE_SDS.md Section 4), so importing this module on the
 Windows dev machine must not raise -- it must degrade to "kernel
 unavailable" and let callers fall back to netelpro.neuro.native_kernel's
@@ -28,7 +31,7 @@ except ImportError:
 if HAS_TRITON:
 
     @triton.jit
-    def _fused_gated_lm_head_kernel(
+    def _fused_gated_lm_head_kernel_naive(
         x_ptr, w_ptr, out_ptr,
         n_embd, vocab_size,
         allowed_min, allowed_max,
@@ -36,18 +39,12 @@ if HAS_TRITON:
         BLOCK_N: tl.constexpr,
         BLOCK_K: tl.constexpr,
     ):
-        """One program instance computes BLOCK_N output columns of
-        `logits = x @ W^T` for a single row `x` (batch=1, one decode step).
-
-        x:   (n_embd,)               contiguous fp32/fp16
-        w:   (vocab_size, n_embd)    lm_head.weight, row `j` is the weight
-                                     vector for vocab entry `j` (nn.Linear
-                                     layout: out_features x in_features)
-        out: (vocab_size,)
-
-        Tiles fully outside [allowed_min, allowed_max] skip the dot product
-        entirely and write mask_value -- the FLOP-skip described in
-        GATE_KERNEL_FUSION_SPEC.md Section 2.
+        """v1: manual broadcast-multiply-then-reduce GEMV. Kept only as the
+        losing side of the v1-vs-v2 comparison in
+        benchmarks/gate_kernel_fusion_kaggle.ipynb -- superseded by
+        _fused_gated_lm_head_kernel_dot below (GATE_KERNEL_FUSION_SPEC.md
+        Section 8: measured ~7x slower than the unfused cuBLAS baseline on
+        a T4, because this inner loop never touches tensor cores).
         """
         pid = tl.program_id(axis=0)
         col_start = pid * BLOCK_N
@@ -73,6 +70,71 @@ if HAS_TRITON:
 
         in_range = (cols >= allowed_min) & (cols <= allowed_max)
         result = tl.where(in_range, acc, mask_value)
+        tl.store(out_ptr + cols, result, mask=col_mask)
+
+    @triton.jit
+    def _fused_gated_lm_head_kernel_dot(
+        x_ptr, w_ptr, out_ptr,
+        n_embd, vocab_size,
+        allowed_min, allowed_max,
+        mask_value,
+        BLOCK_N: tl.constexpr,
+        BLOCK_K: tl.constexpr,
+    ):
+        """v2: tl.dot (tensor-core matmul) GEMV, one row real + 15 zero-padded.
+
+        A decode step is M=1 (one token's hidden state). Tensor-core mma
+        instructions need M >= 16, so a real M=1 GEMV can't hit tensor
+        cores directly -- the standard trick (used here) is to pad the
+        left operand to BLOCK_M=16 with 15 all-zero rows, run a real
+        16xBLOCK_Kx BLOCK_N tile matmul on tensor cores, then discard the
+        14 zero rows of the result. This computes 16x the FLOPs of a true
+        GEMV, but the kernel is memory-bandwidth-bound on reading
+        `weight` regardless (GATE_KERNEL_FUSION_SPEC.md Section 8's
+        ungated ~= baseline_unfused finding), so the extra FLOPs are free
+        relative to that read -- what changes is using tensor-core
+        throughput for the multiply-add instead of CUDA-core scalar ops.
+
+        fp16 inputs, fp32 accumulator: T4 (Turing, sm_75) tensor cores do
+        fp16, not tf32 (that needs Ampere+) -- P100 (Pascal, sm_60) has no
+        tensor cores at all, so this kernel is only expected to beat v1
+        there by better codegen, not by tensor-core throughput; measure,
+        don't assume (spec Section 9).
+        """
+        BLOCK_M: tl.constexpr = 16
+
+        pid = tl.program_id(axis=0)
+        col_start = pid * BLOCK_N
+        cols = col_start + tl.arange(0, BLOCK_N)
+        col_mask = cols < vocab_size
+
+        tile_max = col_start + BLOCK_N - 1
+        tile_fully_outside = (tile_max < allowed_min) | (col_start > allowed_max)
+
+        if tile_fully_outside:
+            tl.store(out_ptr + cols, mask_value, mask=col_mask)
+            return
+
+        row_idx = tl.arange(0, BLOCK_M)
+        acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
+        for k in range(0, n_embd, BLOCK_K):
+            k_idx = k + tl.arange(0, BLOCK_K)
+            k_mask = k_idx < n_embd
+
+            x_chunk = tl.load(x_ptr + k_idx, mask=k_mask, other=0.0).to(tl.float16)
+            # Row 0 = the real token vector, rows 1..15 = zero padding.
+            xb = tl.where(row_idx[:, None] == 0, x_chunk[None, :], 0.0).to(tl.float16)
+
+            w_ptrs = w_ptr + cols[None, :] * n_embd + k_idx[:, None]
+            w_mask = k_mask[:, None] & col_mask[None, :]
+            wt = tl.load(w_ptrs, mask=w_mask, other=0.0).to(tl.float16)
+
+            acc = tl.dot(xb, wt, acc)
+
+        # Discard the 15 padding rows -- row 0 is the only real GEMV result.
+        result_row = tl.sum(tl.where(row_idx[:, None] == 0, acc, 0.0), axis=0)
+        in_range = (cols >= allowed_min) & (cols <= allowed_max)
+        result = tl.where(in_range, result_row, mask_value)
         tl.store(out_ptr + cols, result, mask=col_mask)
 
 
@@ -106,28 +168,17 @@ def gated_lm_head_reference(
     return masked
 
 
-def gated_lm_head(
+def _launch(
+    kernel,
     x: torch.Tensor,
     weight: torch.Tensor,
     allowed_min: int,
     allowed_max: int,
-    safety_state: int = 1,
-    mask_value: float = float("-inf"),
-    block_n: int = 1024,
-    block_k: int = 128,
+    safety_state: int,
+    mask_value: float,
+    block_n: int,
+    block_k: int,
 ) -> torch.Tensor:
-    """Fused gate + lm_head for one decode step (x is a single (n_embd,) row).
-
-    Dispatches to the Triton kernel when available and running on a CUDA
-    tensor; otherwise falls back to gated_lm_head_reference. Callers never
-    see the difference in output -- only in latency (measured honestly in
-    benchmarks/gate_kernel_fusion_kaggle.ipynb, not assumed here).
-    """
-    if not HAS_TRITON or not x.is_cuda:
-        return gated_lm_head_reference(
-            x, weight, allowed_min, allowed_max, safety_state, mask_value
-        )
-
     if safety_state == 0:
         vocab_size = weight.size(0)
         return torch.full((vocab_size,), mask_value, dtype=x.dtype, device=x.device)
@@ -139,7 +190,7 @@ def gated_lm_head(
     weight = weight.contiguous().to(torch.float32)
 
     grid = (triton.cdiv(vocab_size, block_n),)
-    _fused_gated_lm_head_kernel[grid](
+    kernel[grid](
         x, weight, out,
         n_embd, vocab_size,
         allowed_min, allowed_max,
@@ -148,3 +199,58 @@ def gated_lm_head(
         BLOCK_K=block_k,
     )
     return out.to(x.dtype)
+
+
+def gated_lm_head_naive(
+    x: torch.Tensor,
+    weight: torch.Tensor,
+    allowed_min: int,
+    allowed_max: int,
+    safety_state: int = 1,
+    mask_value: float = float("-inf"),
+    block_n: int = 1024,
+    block_k: int = 128,
+) -> torch.Tensor:
+    """v1 kernel (manual reduce, no tensor cores) -- kept for the
+    benchmark comparison in benchmarks/gate_kernel_fusion_kaggle.ipynb,
+    not used by gated_lm_head's default dispatch anymore."""
+    if not HAS_TRITON or not x.is_cuda:
+        return gated_lm_head_reference(
+            x, weight, allowed_min, allowed_max, safety_state, mask_value
+        )
+    return _launch(
+        _fused_gated_lm_head_kernel_naive, x, weight, allowed_min, allowed_max,
+        safety_state, mask_value, block_n, block_k,
+    )
+
+
+def gated_lm_head(
+    x: torch.Tensor,
+    weight: torch.Tensor,
+    allowed_min: int,
+    allowed_max: int,
+    safety_state: int = 1,
+    mask_value: float = float("-inf"),
+    block_n: int = 256,
+    block_k: int = 32,
+) -> torch.Tensor:
+    """Fused gate + lm_head for one decode step (x is a single (n_embd,) row).
+
+    v2 (tl.dot / tensor-core) kernel, dispatched when Triton is available
+    and running on a CUDA tensor; otherwise falls back to
+    gated_lm_head_reference. Callers never see a difference in output
+    (modulo fp16-accumulation tolerance -- see spec Section 9) -- only in
+    latency, measured honestly in benchmarks/gate_kernel_fusion_kaggle.ipynb,
+    not assumed here. Default block_n/block_k (256/32) are multiples of 16
+    to satisfy tensor-core tiling; both divide Teo v2's n_embd=768 and
+    vocab_size=32768 exactly, but the mask logic handles remainders for
+    other configs too.
+    """
+    if not HAS_TRITON or not x.is_cuda:
+        return gated_lm_head_reference(
+            x, weight, allowed_min, allowed_max, safety_state, mask_value
+        )
+    return _launch(
+        _fused_gated_lm_head_kernel_dot, x, weight, allowed_min, allowed_max,
+        safety_state, mask_value, block_n, block_k,
+    )
