@@ -12,6 +12,8 @@ from __future__ import annotations
 import pytest
 
 from netelpro.neuro.gate_kernel import (
+    DOT_KERNEL_TOUCHED_TILE_THRESHOLD,
+    _touched_tile_fraction,
     gated_lm_head,
     gated_lm_head_reference,
 )
@@ -81,6 +83,32 @@ def test_gated_lm_head_dispatches_to_reference_off_cuda():
     out = gated_lm_head(x, weight, allowed_min=5, allowed_max=20, safety_state=1)
     expected = gated_lm_head_reference(x, weight, allowed_min=5, allowed_max=20, safety_state=1)
     assert torch.equal(out, expected)
+
+
+def test_touched_tile_fraction_full_range_is_one():
+    assert _touched_tile_fraction(0, 32767, vocab_size=32768, block_n=256) == 1.0
+
+
+def test_touched_tile_fraction_narrow_range_is_small():
+    # [5000, 5050] sits entirely inside tile 19 (19*256=4864 .. 20*256-1=5119)
+    # -- exactly one touched tile, unlike a range that straddles a tile
+    # boundary (which would touch two).
+    frac = _touched_tile_fraction(5000, 5050, vocab_size=32768, block_n=256)
+    total_tiles = -(-32768 // 256)
+    assert frac == pytest.approx(1 / total_tiles)
+
+
+def test_touched_tile_fraction_broad_range_matches_pilot_measurement():
+    """The exact ranges benchmarked in GATE_KERNEL_FUSION_SPEC.md Section 9
+    -- confirms the dispatch threshold's own justification (broad ~91%
+    touched, measured slower than baseline) is reproducible math, not a
+    one-off number typed into the spec by hand."""
+    frac = _touched_tile_fraction(100, 30000, vocab_size=32768, block_n=256)
+    assert frac > DOT_KERNEL_TOUCHED_TILE_THRESHOLD  # broad range: dispatch must NOT pick the kernel
+
+
+def test_touched_tile_fraction_empty_range_is_zero():
+    assert _touched_tile_fraction(100, 50, vocab_size=32768, block_n=256) == 0.0
 
 
 def test_gated_forward_matches_unfused_forward():

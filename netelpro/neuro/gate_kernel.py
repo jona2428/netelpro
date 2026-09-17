@@ -224,6 +224,39 @@ def gated_lm_head_naive(
     )
 
 
+DOT_KERNEL_TOUCHED_TILE_THRESHOLD = 0.5
+"""Fraction of lm_head.weight tiles the v2 kernel would actually have to
+compute (not skip) for a given [allowed_min, allowed_max]. Above this,
+gated_lm_head dispatches straight to the unfused reference path instead of
+launching the kernel at all.
+
+GATE_KERNEL_FUSION_SPEC.md Section 9 measured two real points on a T4:
+~91% of tiles touched (broad range) -> fused 0.57ms, lost to baseline's
+0.45ms; ~1/128 tiles touched (narrow range) -> fused 0.14ms, beat baseline
+3.1x. 0.5 is a linear interpolation between those two points (see the
+spec's "crossover" note), not a swept-and-confirmed number -- it has never
+been measured directly. Override via gated_lm_head(...,
+dispatch_threshold=...) if you have real numbers for your own range
+distribution; refining this default needs a real sweep, not another guess.
+"""
+
+
+def _touched_tile_fraction(allowed_min: int, allowed_max: int, vocab_size: int, block_n: int) -> float:
+    """Fraction of BLOCK_N-wide column tiles that overlap [allowed_min,
+    allowed_max] at all -- these are the tiles the v2 kernel cannot skip
+    (GATE_KERNEL_FUSION_SPEC.md Section 2's tile-skip early return only
+    fires for tiles fully outside the range)."""
+    lo = max(0, allowed_min)
+    hi = min(vocab_size - 1, allowed_max)
+    if hi < lo:
+        return 0.0
+    first_tile = lo // block_n
+    last_tile = hi // block_n
+    touched = last_tile - first_tile + 1
+    total_tiles = -(-vocab_size // block_n)  # ceil division
+    return touched / total_tiles
+
+
 def gated_lm_head(
     x: torch.Tensor,
     weight: torch.Tensor,
@@ -233,16 +266,24 @@ def gated_lm_head(
     mask_value: float = float("-inf"),
     block_n: int = 256,
     block_k: int = 32,
+    dispatch_threshold: float = DOT_KERNEL_TOUCHED_TILE_THRESHOLD,
 ) -> torch.Tensor:
     """Fused gate + lm_head for one decode step (x is a single (n_embd,) row).
 
-    v2 (tl.dot / tensor-core) kernel, dispatched when Triton is available
-    and running on a CUDA tensor; otherwise falls back to
-    gated_lm_head_reference. Callers never see a difference in output
-    (modulo fp16-accumulation tolerance -- see spec Section 9) -- only in
-    latency, measured honestly in benchmarks/gate_kernel_fusion_kaggle.ipynb,
-    not assumed here. Default block_n/block_k (256/32) are multiples of 16
-    to satisfy tensor-core tiling; both divide Teo v2's n_embd=768 and
+    Three-way dispatch, all internal -- callers never see a difference in
+    output (modulo fp16-accumulation tolerance on the kernel path, see spec
+    Section 9), only in latency:
+      1. No Triton, or x isn't a CUDA tensor -> gated_lm_head_reference.
+      2. Triton + CUDA, but the allowed range would force the v2 kernel to
+         touch more than `dispatch_threshold` of the vocab's tiles ->
+         gated_lm_head_reference too. Measured (Section 9): the fused
+         kernel loses to the unfused path on broad ranges, so launching it
+         there would be a regression, not a fusion.
+      3. Triton + CUDA + a narrow enough range -> the tl.dot / tensor-core
+         kernel, where Section 9 measured a real 3.1x win.
+
+    Default block_n/block_k (256/32) are multiples of 16 to satisfy
+    tensor-core tiling; both divide Teo v2's n_embd=768 and
     vocab_size=32768 exactly, but the mask logic handles remainders for
     other configs too.
     """
@@ -250,6 +291,15 @@ def gated_lm_head(
         return gated_lm_head_reference(
             x, weight, allowed_min, allowed_max, safety_state, mask_value
         )
+
+    if safety_state == 1:
+        vocab_size = weight.size(0)
+        touched = _touched_tile_fraction(allowed_min, allowed_max, vocab_size, block_n)
+        if touched > dispatch_threshold:
+            return gated_lm_head_reference(
+                x, weight, allowed_min, allowed_max, safety_state, mask_value
+            )
+
     return _launch(
         _fused_gated_lm_head_kernel_dot, x, weight, allowed_min, allowed_max,
         safety_state, mask_value, block_n, block_k,
