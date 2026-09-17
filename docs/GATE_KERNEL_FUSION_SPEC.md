@@ -1,8 +1,13 @@
-# Token-Gate Kernel Fusion — Specification v0.1 (DRAFT)
+# Token-Gate Kernel Fusion — Specification v0.1
 
-**Status:** DRAFT — spec approved by Jona in conversation ("seguí con netelpro,
-armemos el kernel Triton/CUDA pa fusionar el gate en el forward pass,
-corriendo en Kaggle", 2026-09-17). Scope confirmed same session: contiguous
+**Status:** v0.1 pilot run and concluded, same day (2026-09-17), real Kaggle
+GPU numbers in §8 — **honest negative result**: the naive Triton kernel
+lost to the existing unfused path in both tested configs (7x slower
+broad, still slower narrow). Not blocked, not abandoned — the fusion
+premise stands, the hand-rolled reduction doesn't; a `tl.dot`-based
+rewrite is the next move if this gets picked back up (§8), not a small
+patch to what's here.
+Scope confirmed same session: contiguous
 range first (not the discrete `token_to_action_map` path), on
 `NetelproTransformer` (Teo v2) directly, not an external HF/llama.cpp model.
 **Origin:** follow-up to `5286c73` (`llama_cpp_processor` vectorization,
@@ -232,7 +237,63 @@ pilot):
    attempt/config, mean/min/max latency, honestly, whatever the numbers
    turn out to be.
 
-## 8. Results
+## 8. Results (2026-09-17, Kaggle T4/P100, real run)
 
-*(empty — filled in after the Kaggle run. Not claimed before it's measured,
-same discipline as every other spec in this repo.)*
+Differential correctness check (§7 step 3) passed on real CUDA tensors
+before any timing was trusted. Full three-way benchmark, `torch.cuda.Event`
+timing, 200 iterations after 20 warmup, `NetelproTransformer` at Teo v2
+config (vocab 32768, 12 layers, `d_model` 768):
+
+| range | method | mean_ms | min_ms | p50_ms |
+|---|---|---|---|---|
+| broad `[100, 30000]` (mostly allowed) | ungated | 0.4325 | 0.4219 | 0.4282 |
+| broad `[100, 30000]` | baseline_unfused | 0.4529 | 0.4430 | 0.4502 |
+| broad `[100, 30000]` | **fused_triton** | **3.1362** | 3.0724 | 3.1315 |
+| narrow `[5000, 5200]` (mostly masked) | ungated | 0.4221 | 0.4140 | 0.4202 |
+| narrow `[5000, 5200]` | baseline_unfused | 0.4433 | 0.4331 | 0.4397 |
+| narrow `[5000, 5200]` | **fused_triton** | **0.6470** | 0.6288 | 0.6430 |
+
+**Honest reading: the fused kernel lost in both configs.** Broad:
+~7x slower than baseline (3.14ms vs. 0.45ms). Narrow: still slower
+(0.65ms vs. 0.44ms), though the gap shrank a lot from the broad case —
+tile-skip visibly did something (open question 1, §6, is answered: yes,
+skip amount matters, exactly as predicted), it just wasn't enough to close
+the gap, let alone open a lead.
+
+**Root cause, diagnosed from the shape of the numbers, not guessed:**
+`ungated` ≈ `baseline_unfused` (0.43ms vs. 0.45ms) — today's unfused path
+is *already* close to free relative to the bare matmul. That means the
+premise in §1 ("the second masking pass is pure overhead worth fusing
+away") was true in kind but small in magnitude: for a batch-1 decode-step
+GEMV, `nn.Linear` dispatches to a cuBLAS GEMV kernel that's already close
+to the T4's memory-bandwidth floor for reading the ~100MB `lm_head.weight`
+matrix once — there was never much daylight for a fused kernel to win by
+just removing one cheap elementwise pass. The v0.1 kernel's actual loss
+is bigger than that gap, though, which points at a second, separate
+problem: `_fused_gated_lm_head_kernel`'s inner loop
+(`tl.sum(w_chunk * x_chunk[None, :], axis=1)`, a manual broadcast-multiply-
+then-reduce) is a naive GEMV implementation that doesn't use `tl.dot`
+(Triton's tensor-core-mapped matmul primitive) — it's a slower kernel than
+cuBLAS's tuned GEMV on its own merits, independent of masking. That's
+consistent with 7x slower in the broad config (almost no tiles skipped,
+so it's nearly a pure "naive Triton dot vs. cuBLAS" comparison) and with
+narrow still losing despite skipping ~31/32 tiles (skip removes most of
+the *work*, but per-launch/per-program overhead plus the remaining tile's
+inefficient reduction still costs more than the entire baseline path).
+
+**This does not fix or contradict the spec's premise (§1) about the
+masking pass being separable overhead — it shows that overhead was smaller
+than assumed, and that a hand-rolled reduction is the wrong tool to spend
+effort closing a gap that small.** Naive fusion doesn't win. If this is
+worth pursuing further, the next experiment is not "tune the tile sizes"
+but a structurally different kernel body — `tl.dot`-based tiling (real
+tensor-core matmul, not manual multiply-reduce) — which is new kernel-
+design work, not an incremental fix to this one. Not attempted in v0.1;
+left as a candidate for a future session, same as the untried moves at the
+end of `INFERENCE_REPAIR_LOOP_SPEC.md` §8.
+
+**v0.1 verdict: negative result, honestly measured.** The idea ("fuse the
+gate into the forward pass") is not disproven — the *implementation*
+(naive Triton GEMV) loses to what already exists (`nn.Linear` + tensor
+slicing). Same standard as the rest of this repo: a real number that says
+"no" is worth more than an assumed "yes."
