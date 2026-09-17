@@ -48,7 +48,18 @@ The gate enforced exactly its design scope: 0 FPs on genuine procedural claims a
    (contract strictness on cited sources), claim agreement 18/18, FAAR on the procedural
    construct **100% gate-off → 0% gate-on**. Regression re-run on VTB v1: identical to
    pre-fix results, zero new FPs. Contract flipped explicitly in
-   `tests/test_vtb_procedural.py`.)*
+   `tests/test_vtb_procedural.py`.
+
+   FOLLOW-UP 2026-09-17: that 9/9 was still against a hand-written corpus
+   ("no LLM in the loop" by design). `benchmarks/honesty_guard_qwen_live_report.md`
+   closes the remaining gap -- real, live-generated text from Qwen2.5-1.5B-Instruct
+   (base, no fine-tuning), 7 scenarios, one of which spontaneously produced real
+   procedural theater ("pytest tests/ -q\n\nTests pasaron." with no tool call in
+   context) and was caught correctly, with the exact prosecutorial reason. 0 false
+   positives across the other 6. Small sample (7 scenarios, 1 real theater case) --
+   confirms the detector generalizes past hand-written text, does not itself
+   establish a measured recall rate on live generation the way the 18-case corpus
+   does.)*
 2. **Alethic detection (gate v2)**: factual-state claims require verification-grounding, beyond regex scope. Candidate: tool-call tracing (claim of state → require executed command proving it).
 3. **Claim-detection agreement** is high where theater is procedural (Qwen: 96.7–100% agreement) and lower where theater is alethic (LFM: 90%) — consistent with the construct split.
 

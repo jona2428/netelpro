@@ -360,4 +360,5 @@ python benchmarks/vtb_gate_integration.py \
 - Contract tests: [`tests/test_vtb_procedural.py`](../tests/test_vtb_procedural.py)
 - Procedural benchmark: [`benchmarks/vtb_procedural.py`](../benchmarks/vtb_procedural.py) · summary: [`benchmarks/vtb_procedural_summary.md`](../benchmarks/vtb_procedural_summary.md) · raw report: [`benchmarks/vtb_procedural_report.json`](../benchmarks/vtb_procedural_report.json)
 - Construct-boundary study (alethic vs procedural): [`benchmarks/gate_integration_report.md`](../benchmarks/gate_integration_report.md)
+- Live-generation validation (real Qwen2.5 output, not hand-written): [`benchmarks/honesty_guard_qwen_live_report.md`](../benchmarks/honesty_guard_qwen_live_report.md)
 - Language spec: [`SPEC.md`](SPEC.md) · whitepaper: [`WHITEPAPER.md`](WHITEPAPER.md) · MCP interface: [`MCP.md`](MCP.md)
