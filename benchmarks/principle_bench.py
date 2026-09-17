@@ -376,9 +376,22 @@ FENCE_CASES = re.compile(r"```netelpro-cases\s*\n(.*?)```", re.DOTALL)
 FENCE_JSON = re.compile(r"```json\s*\n(.*?)```", re.DOTALL)
 CASE_LINE = re.compile(r"^\s*\(\s*([01][01,\s]*)\s*\)\s*->\s*([01]|true|false)\s*$")
 
+# Opening fences must be matched SPECIFICALLY, never by substring: "```netelpro"
+# is a literal prefix of "```netelpro-cases", so a bare `"```netelpro" in text`
+# test cannot distinguish "the model opened the contract fence" from "the model
+# opened the cases fence". Measured 2026-09-17 over the 2026-09-14 run artifact:
+# 128 of the 137 netelpro `truncado` labels carried detail "fence cases sin
+# cerrar", a message that contradicts itself -- it is only reachable AFTER the
+# contract fence closed, so no fence was left unterminated. The label came from
+# the substring test, and it mislabelled "contract present, cases missing" (the
+# eval's largest error class, `sin_casos`) as truncation. The `(?![-\w])`
+# lookahead is what keeps the contract fence from matching the cases fence.
+FENCE_NP_OPEN = re.compile(r"```netelpro(?![-\w])")
+FENCE_CASES_OPEN = re.compile(r"```netelpro-cases")
+
 
 def grade_netelpro(response: str, params: List[str], table_id: int) -> Tuple[bool, str, str]:
-    if "```netelpro" not in response:
+    if not FENCE_NP_OPEN.search(response):
         return False, "sin_bloque", ""
     m = FENCE_NP.search(response)
     if not m:
@@ -386,7 +399,10 @@ def grade_netelpro(response: str, params: List[str], table_id: int) -> Tuple[boo
     contract = m.group(1).strip()
     mc = FENCE_CASES.search(response)
     if not mc:
-        if "netelpro-cases" in response:
+        # `truncado` means the cases fence was OPENED and never closed. A response
+        # that merely names the fence in prose, or omits it, is `sin_casos` -- the
+        # same class the run #5 exit gate is held to (see benchmarks/run5_gate.py).
+        if FENCE_CASES_OPEN.search(response):
             return False, "truncado", "fence cases sin cerrar"
         return False, "sin_casos", ""
     model_cases: List[Tuple[Tuple[int, ...], int]] = []
