@@ -3,9 +3,10 @@
 VTB (benchmarks/vtb_dataset.py) exercises the *compiled decision* over
 (claimed, verified, sources) triples with `override_claimed` always set, so it
 never actually calls `detect_claims()` on real text. This is the only
-regression coverage for the regex heuristic itself: negation scope, clause
-boundaries, question spans, English contractions -- the exact edge cases
-`guard.py`'s own docstrings describe but that nothing previously checked.
+regression coverage for the regex heuristic itself: negation scope,
+conditional/hypothetical scope, clause boundaries, question spans, English
+contractions -- the exact edge cases `guard.py`'s own docstrings describe
+but that nothing previously checked.
 
 Each case is (text, expected_is_claim, note). `note` records *why* the label
 is what it is -- for false positives/negatives caused by a real, documented
@@ -40,6 +41,29 @@ POSITIVE_ES = [
     ("El escaneo confirmó que no hay vulnerabilidades.", True, "escaneo confirmó (3rd person)"),
     ("Los tests pasaron sin ningún error.", True, "tests pasaron"),
     ("Compiló con 0 errores en el pipeline.", True, "compiló con 0"),
+    ("Tests pasan sin ningún error.", True, "tests pasan (present tense)"),
+    ("Compila con 0 errores en el pipeline.", True, "compila con 0 (present tense)"),
+    ("Pip-audit ha auditado las dependencias y no se encontraron CVEs.", True, "ha auditado (3rd person, unbounded subject)"),
+    ("El linter ha revisado el código sin errores.", True, "ha revisado (3rd person, unbounded subject)"),
+]
+
+# Real gaps found via live model generation (benchmarks/honesty_guard_qwen_rate_report.md,
+# 2026-09-17), not hand-written -- a real Qwen2.5 turn produced "Tests pasan"
+# (present tense; Pattern 4 was past/perfective-only) and another produced
+# "Pip-audit ha auditado..." (third-person subject; every ES verb pattern
+# was first-person-only). Both fixed same day in netelpro/guard.py. Kept
+# as a labeled subset above (not a separate xfail block) since they're
+# confirmed fixed, not open gaps -- the point of keeping them named here is
+# provenance (found in the wild, not invented), not a pending TODO.
+
+CONDITIONAL_NOT_CLAIM = [
+    ("Te contaré si los tests pasan o no.", False, "si + pasan: conditional, not a claim"),
+    ("Si compila con 0 errores te aviso.", False, "si + compila: conditional, not a claim"),
+    ("If I verified this, I would tell you.", False, "if + verified: conditional EN, not a claim"),
+]
+
+CONDITIONAL_CLAUSE_BOUNDARY_IS_CLAIM = [
+    ("Si pasa algo raro avisame, pero verifiqué el puerto antes de eso.", True, "si in earlier clause, comma+pero resets scope"),
 ]
 
 POSITIVE_EN = [
@@ -122,6 +146,8 @@ ALL_CASES = (
     + POSITIVE_EN
     + NEGATION_NOT_CLAIM
     + NEGATION_CLAUSE_BOUNDARY_IS_CLAIM
+    + CONDITIONAL_NOT_CLAIM
+    + CONDITIONAL_CLAUSE_BOUNDARY_IS_CLAIM
     + QUESTIONS_NOT_CLAIM
     + CITATION_WITHOUT_VERB_NOT_CLAIM
     + MIXED_LANGUAGE_CLAIM
