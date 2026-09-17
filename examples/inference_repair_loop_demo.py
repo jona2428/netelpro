@@ -36,22 +36,47 @@ except ImportError:
     sys.exit(1)
 
 import importlib
+import json
 
 from benchmarks.run5_gate import extract_block
 from netelpro.state_gate import RetryLimiter
 from rlvr.verify import VerifyResult, verify_program
 
-SYNTAX_PRIMER = """Netelpro is a small Lisp-like language. Every form is
-(head arg1 arg2 ...). Define a function with defn:
+_ARITY_TABLE_PATH = Path(__file__).parent.parent / "netelpro" / "spec" / "arity_table.json"
 
-(defn fib (n)
-  (if (< n 2)
-      n
-      (+ (fib (- n 1)) (fib (- n 2)))))
 
-Operators: + - * < > <= >= == and or if. No loops -- use recursion.
-Write ONLY the function definition inside a ```netelpro fenced block, and
-nothing else."""
+def _build_syntax_primer() -> str:
+    """Renders the exhaustive head list from spec/arity_table.json -- the
+    same machine-consumed source of truth the compiler itself checks
+    against -- instead of a hand-picked example subset.
+
+    Root cause this fixes: the v0.1 pilot's hand-written primer only
+    mentioned "+ - * < > <= >= == and or if" and two example programs. On
+    the gcd_pair task the model invented `zero?` (a real Scheme/Lisp idiom
+    Netelpro does not have) because nothing told it what actually exists.
+    Listing every legal head removes the guessing, not just the specific
+    mistake that got fed back last time.
+    """
+    table = json.loads(_ARITY_TABLE_PATH.read_text(encoding="utf-8"))
+    forms = sorted(table["special_forms"].keys())
+    prims = sorted(table["primitives"].keys())
+    return (
+        "Netelpro is a small Lisp-like language. Every form is "
+        "(head arg1 arg2 ...). Define a function with defn:\n\n"
+        "(defn fib (n)\n"
+        "  (if (< n 2)\n"
+        "      n\n"
+        "      (+ (fib (- n 1)) (fib (- n 2)))))\n\n"
+        f"ALL special forms that exist (nothing else is legal): {', '.join(forms)}\n"
+        f"ALL primitives that exist (nothing else is legal): {', '.join(prims)}\n"
+        "There is no `zero?`, no `cond`, no loops, no let* -- only what's listed "
+        "above. Use recursion, not iteration.\n"
+        "Write ONLY the function definition inside a ```netelpro fenced block, "
+        "and nothing else."
+    )
+
+
+SYNTAX_PRIMER = _build_syntax_primer()
 
 
 def build_prompt(task_desc: str, signature: str, prior_attempt: str | None, prior_error: str | None) -> str:

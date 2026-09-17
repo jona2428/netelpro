@@ -173,3 +173,35 @@ instead of, or in addition to, a better primer. Both are the natural next
 experiment, not run in this pass — the honest result of this pilot is "the
 simplest version of the idea doesn't reliably work yet," not "the idea
 doesn't work."
+
+## 7. Follow-up (2026-09-17, same day): real head list closes the syntax gap, exposes a semantic one
+
+Implemented the lesson from §6: `_build_syntax_primer()` in
+`examples/inference_repair_loop_demo.py` now renders the primer from
+`spec/arity_table.json` directly (every special form and primitive that
+actually exists) instead of a hand-picked subset plus two examples.
+
+Re-ran `gcd_pair` with the real primer, same model, same 5-attempt budget:
+
+- **All 5 attempts now compile** (was 0/5). The syntax-guessing failure
+  class (`zero?` and similar invented heads) is gone — confirms the §6
+  hypothesis.
+- **All 5 attempts still fail, and fail the SAME way**: `caso (299, 457):
+  esperado 1, obtuvo 299` — identical error, every attempt. The model wrote
+  semantically the same broken function five times in a row (it returns `a`
+  unconditionally instead of actually recursing toward the base case),
+  despite the exact failing case being fed back verbatim each time.
+
+This is a different, more specific answer to open question 1 than §6's:
+feedback-in-prompt did its job for the class of error it can actually fix
+(syntax — the model now emits legal Netelpro every time), but for a
+*semantic* bug it did nothing observable here, because attempts at
+`temperature=0.2` are similar enough to each other that the model reproduces
+close to the same program regardless of the error text. The loop isn't
+exploring alternative logic; it's re-emitting the same logic. Open question
+2's option (b) — escalating temperature or otherwise varying sampling
+across retries, not just the fed-back text — is now the concrete next
+experiment, not a hypothetical one: this run is the evidence that it's
+needed, at least for semantic (not syntactic) failures.
+
+Not yet run. Left for the next session on this spec.
