@@ -15,6 +15,7 @@ from netelpro.neuro.gate_kernel import (
     DOT_KERNEL_TOUCHED_TILE_THRESHOLD,
     _touched_tile_fraction,
     gated_lm_head,
+    gated_lm_head_dot,
     gated_lm_head_reference,
 )
 from netelpro.neuro.ste import HAS_TORCH
@@ -81,6 +82,16 @@ def test_gated_lm_head_dispatches_to_reference_off_cuda():
     GPU kernel launch on a CPU tensor."""
     x, weight = _toy()
     out = gated_lm_head(x, weight, allowed_min=5, allowed_max=20, safety_state=1)
+    expected = gated_lm_head_reference(x, weight, allowed_min=5, allowed_max=20, safety_state=1)
+    assert torch.equal(out, expected)
+
+
+def test_gated_lm_head_dot_also_dispatches_to_reference_off_cuda():
+    """gated_lm_head_dot (the unconditional-kernel entry point used by the
+    benchmark notebook) must still fall back safely off CUDA -- it skips
+    gated_lm_head's range-width dispatch, not the CUDA-availability check."""
+    x, weight = _toy()
+    out = gated_lm_head_dot(x, weight, allowed_min=5, allowed_max=20, safety_state=1)
     expected = gated_lm_head_reference(x, weight, allowed_min=5, allowed_max=20, safety_state=1)
     assert torch.equal(out, expected)
 

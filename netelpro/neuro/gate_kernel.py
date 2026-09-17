@@ -257,6 +257,36 @@ def _touched_tile_fraction(allowed_min: int, allowed_max: int, vocab_size: int, 
     return touched / total_tiles
 
 
+def gated_lm_head_dot(
+    x: torch.Tensor,
+    weight: torch.Tensor,
+    allowed_min: int,
+    allowed_max: int,
+    safety_state: int = 1,
+    mask_value: float = float("-inf"),
+    block_n: int = 256,
+    block_k: int = 32,
+) -> torch.Tensor:
+    """v2 kernel (tl.dot / tensor-core), unconditional -- always launches
+    the kernel when Triton+CUDA are available, no range-width dispatch.
+
+    This is the raw kernel entry point used by
+    benchmarks/gate_kernel_fusion_kaggle.ipynb to measure the kernel
+    itself (including on ranges where gated_lm_head's dispatch would skip
+    it) -- gated_lm_head below is what production code (gated_forward)
+    should call instead, since it picks the faster path per Section 9's
+    measurements.
+    """
+    if not HAS_TRITON or not x.is_cuda:
+        return gated_lm_head_reference(
+            x, weight, allowed_min, allowed_max, safety_state, mask_value
+        )
+    return _launch(
+        _fused_gated_lm_head_kernel_dot, x, weight, allowed_min, allowed_max,
+        safety_state, mask_value, block_n, block_k,
+    )
+
+
 def gated_lm_head(
     x: torch.Tensor,
     weight: torch.Tensor,
@@ -270,17 +300,23 @@ def gated_lm_head(
 ) -> torch.Tensor:
     """Fused gate + lm_head for one decode step (x is a single (n_embd,) row).
 
-    Three-way dispatch, all internal -- callers never see a difference in
-    output (modulo fp16-accumulation tolerance on the kernel path, see spec
-    Section 9), only in latency:
+    This is the production entry point (what
+    NetelproTransformer.gated_forward calls) -- three-way dispatch, all
+    internal, callers never see a difference in output (modulo
+    fp16-accumulation tolerance on the kernel path, see spec Section 9),
+    only in latency:
       1. No Triton, or x isn't a CUDA tensor -> gated_lm_head_reference.
       2. Triton + CUDA, but the allowed range would force the v2 kernel to
          touch more than `dispatch_threshold` of the vocab's tiles ->
          gated_lm_head_reference too. Measured (Section 9): the fused
          kernel loses to the unfused path on broad ranges, so launching it
          there would be a regression, not a fusion.
-      3. Triton + CUDA + a narrow enough range -> the tl.dot / tensor-core
-         kernel, where Section 9 measured a real 3.1x win.
+      3. Triton + CUDA + a narrow enough range -> gated_lm_head_dot, where
+         Section 9 measured a real 3.1x win.
+
+    To benchmark or test the kernel itself regardless of range width, call
+    gated_lm_head_dot directly -- this function's whole point is to *not*
+    always do that.
 
     Default block_n/block_k (256/32) are multiples of 16 to satisfy
     tensor-core tiling; both divide Teo v2's n_embd=768 and
@@ -300,7 +336,6 @@ def gated_lm_head(
                 x, weight, allowed_min, allowed_max, safety_state, mask_value
             )
 
-    return _launch(
-        _fused_gated_lm_head_kernel_dot, x, weight, allowed_min, allowed_max,
-        safety_state, mask_value, block_n, block_k,
+    return gated_lm_head_dot(
+        x, weight, allowed_min, allowed_max, safety_state, mask_value, block_n, block_k,
     )
