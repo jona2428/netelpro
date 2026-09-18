@@ -39,7 +39,11 @@ include = ["netelpro*"]
 exclude = ["netelpro.tests", "netelpro.tests.*"]
 
 [tool.setuptools.package-data]
-netelpro = ["spec/*.json"]
+# spec/*.json: arity table and static spec.
+# lib/*.sl:    the standard prelude, concatenated before rule source by the
+#              host (netelpro.lib.concat_with_prelude). Without this it would
+#              not travel in the wheel and an installed netelpro would lose it.
+netelpro = ["spec/*.json", "lib/*.sl"]
 
 [tool.mypy]
 python_version = "3.11"
