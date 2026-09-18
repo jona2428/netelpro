@@ -33,6 +33,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from netelpro.lib import (  # noqa: E402
+    GENERATED_MARKER,
     LibError,
     contract_from_source,
     migrate_source,
@@ -94,14 +95,25 @@ def main(argv: list[str] | None = None) -> int:
 
     drifted: list[str] = []
     migrated = 0
+    canonical = 0
     skipped: list[tuple[str, str]] = []
+    tampered: list[tuple[str, str]] = []
     refused: list[tuple[str, str]] = []
 
     for path in sorted(directory.glob("*.sl")):
         source = path.read_text(encoding="utf-8-sig")
+        marked = GENERATED_MARKER in source
         try:
             spec = contract_from_source(source)
         except LibError as exc:
+            if marked:
+                # A block that declares itself generated but no longer matches
+                # the canonical shape was hand-edited. That is exactly what
+                # this guard exists to catch: never classify it as "bespoke"
+                # and let it pass in green.
+                tampered.append((path.name, str(exc)))
+                print(f"  {path.name:26s} TAMPERED (generated block hand-edited)")
+                continue
             skipped.append((path.name, str(exc)))
             continue
 
@@ -112,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         if new_source == source:
+            canonical += 1
             print(f"  {path.name:26s} already canonical")
             continue
 
@@ -133,13 +146,19 @@ def main(argv: list[str] | None = None) -> int:
         migrated += 1
         print(f"  {path.name:26s} migrated ({len(spec.slots)} slots)")
 
-    print(f"\ncanonical:   {migrated + len(drifted) if write else len(drifted)}")
     if write:
+        print(f"canonical:   {canonical + migrated}")
         print(f"migrated:    {migrated}")
+    else:
+        print(f"canonical:   {canonical}")
     print(f"drifted:     {len(drifted)}")
     print(f"bespoke:     {len(skipped)} (own policy rows; never touched)")
     for name, reason in skipped:
         print(f"  {name:26s} {reason[:70]}")
+    if tampered:
+        print(f"TAMPERED:    {len(tampered)} (generated block edited by hand)")
+        for name, reason in tampered:
+            print(f"  {name:26s} {reason[:70]}")
     if refused:
         print(f"REFUSED:     {len(refused)}")
         for name, reason in refused:
@@ -147,6 +166,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if not write and drifted:
         print("\nrun with --write to normalise the drifted blocks")
+        return 1
+    if tampered:
+        print(
+            "\na generated block was hand-edited. Restore it with --write, or if "
+            "the change is real, teach the generator the new shape."
+        )
         return 1
     if refused:
         return 1

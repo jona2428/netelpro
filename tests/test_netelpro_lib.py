@@ -418,3 +418,125 @@ def test_migrated_live_contracts_compile_and_keep_verdicts():
         assert rule.verify_int(cases) == [], path.name
         checked += 1
     assert checked > 0
+
+
+# ---------------------------------------------------------------------------
+# The drift guard script itself: --check must FAIL on a hand-edited block.
+#
+# The guard is only worth wiring into the preflight if a tampered generated
+# block actually turns it red. A contract that declares itself generated and
+# no longer matches the canonical shape used to be classified as "bespoke"
+# and pass in green -- i.e. the one case the guard exists for.
+# ---------------------------------------------------------------------------
+
+_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "migrate_contracts.py"
+
+
+def _load_guard_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_migrate_contracts_guard", _SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_CANONICAL_TWO_SLOT = """\
+; Contrato de prueba.
+(truth-table filter-rule
+  (a : (Int 0 1))
+  (b : (Int 0 1))
+  ((0 _) -> 0)
+  ((_ 0) -> 0)
+  ((1 1) -> 1)
+  ((_ _) -> 0))
+"""
+
+
+def _write(tmp_path: Path, name: str, text: str) -> None:
+    (tmp_path / name).write_text(text, encoding="utf-8", newline="\n")
+
+
+def test_guard_fails_on_hand_edited_generated_block(tmp_path, monkeypatch, capsys):
+    """A block carrying the GENERATED marker whose rows were edited by hand
+    must be reported as TAMPERED and make --check exit 1."""
+    from netelpro.lib import GENERATED_MARKER
+
+    marked = _CANONICAL_TWO_SLOT.replace(
+        "(truth-table filter-rule",
+        f"{GENERATED_MARKER}\n(truth-table filter-rule",
+    )
+    # Hand-edit: an extra row the generator would never emit.
+    tampered = marked.replace("  ((1 1) -> 1)", "  ((1 1) -> 1)\n  ((1 0) -> 1)")
+    assert tampered != marked
+    _write(tmp_path, "tampered.sl", tampered)
+
+    module = _load_guard_module()
+    monkeypatch.setattr(module, "CONTRACT_DIRS", (tmp_path,))
+    exit_code = module.main(["--check"])
+    output = capsys.readouterr().out
+
+    assert exit_code == 1, "a hand-edited generated block must fail the check"
+    assert "TAMPERED" in output
+
+
+def test_guard_passes_on_canonical_and_ignores_bespoke(tmp_path, monkeypatch, capsys):
+    """Regression guard for the tamper fix: a genuinely bespoke contract (no
+    marker, own policy rows) is still skipped, not flagged, and a canonical
+    contract keeps the check green."""
+    from netelpro.lib import GENERATED_MARKER
+
+    _write(
+        tmp_path,
+        "canonical.sl",
+        _CANONICAL_TWO_SLOT.replace(
+            "(truth-table filter-rule",
+            f"{GENERATED_MARKER}\n(truth-table filter-rule",
+        ),
+    )
+    # Bespoke: never generated, its own policy row, no marker.
+    _write(
+        tmp_path,
+        "bespoke.sl",
+        """\
+; Politica propia, nunca generada.
+(truth-table filter-rule
+  (a : (Int 0 1))
+  (b : (Int 0 1))
+  ((1 1) -> 1)
+  ((0 1) -> 0)
+  ((_ _) -> 0))
+""",
+    )
+
+    module = _load_guard_module()
+    monkeypatch.setattr(module, "CONTRACT_DIRS", (tmp_path,))
+    exit_code = module.main(["--check"])
+    output = capsys.readouterr().out
+
+    assert exit_code == 0, output
+    assert "TAMPERED" not in output
+    assert "canonical:   1" in output
+    assert "bespoke:     1" in output
+
+
+def test_guard_reports_canonical_count_truthfully(tmp_path, monkeypatch, capsys):
+    """The count line is the evidence the preflight pastes: it must report the
+    real number of canonical contracts, not zero."""
+    from netelpro.lib import GENERATED_MARKER
+
+    marked = _CANONICAL_TWO_SLOT.replace(
+        "(truth-table filter-rule",
+        f"{GENERATED_MARKER}\n(truth-table filter-rule",
+    )
+    _write(tmp_path, "one.sl", marked)
+    _write(tmp_path, "two.sl", marked)
+
+    module = _load_guard_module()
+    monkeypatch.setattr(module, "CONTRACT_DIRS", (tmp_path,))
+    module.main(["--check"])
+    output = capsys.readouterr().out
+
+    assert "canonical:   2" in output, output
+    assert "drifted:     0" in output
