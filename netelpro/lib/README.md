@@ -103,16 +103,55 @@ The round-trip proof is `tests/test_netelpro_lib.py::test_roundtrip_matches_ever
 for each live contract, extract → re-render → assert identical verdicts over
 the whole declared domain on both the native and interpreter paths.
 
+## Migration (done)
+
+The 23 live contracts were migrated: their formal block is now generated and
+carries a marker line naming the generator. The prose header of each contract
+is untouched — slot names and their meanings still live in the file, and that
+remains the source of truth for *what the contract means*.
+
+```bash
+python workspace/straylight/scripts/migrate_contracts.py --check   # read-only, default
+python workspace/straylight/scripts/migrate_contracts.py --write
+```
+
+`--check` exits non-zero if any contract's formal block drifts from what the
+generator would emit, so hand-editing a generated block fails loudly. The same
+check runs in the test suite as
+`test_live_contracts_have_no_generator_drift`.
+
+What actually changed on disk, measured with `git diff`:
+
+| Change | Files |
+|---|---|
+| Marker line added | 23 |
+| Stray UTF-8 BOM removed (inconsistent between files) | 3 |
+| Missing trailing newline added | 2 |
+| Row semantics changed | **0** |
+
+`--write` refuses to touch a contract unless both the old and new source
+compile and decide identically over the full declared domain plus
+out-of-domain backstop probes. The first `--check` run before writing reported
+23/23 drifted, all by marker only.
+
+### On the provenance digest
+
+`epistemic_edge.record_verified_edge` hashes the `rule_source` string it is
+given and stores it verbatim. It does **not** read these files from disk, and
+no test hashes their text (verified by grep over `src/` and `tests/`). So the
+migration does not change what that digest certifies — the earlier concern
+that it would cover "generator + spec" instead of the contract applies only if
+a caller starts feeding it generated sources. None does today.
+
 ## Not done yet, on purpose
 
-- **The existing contracts were not rewritten.** That is a migration, and it
-  changes what the SHA256 provenance digest in `epistemic_edge` certifies:
-  today it covers the contract text; after migration it would cover
-  generator + spec. That is a decision, not a detail.
 - **No `include` in the language.** Concatenation works today with parity
   intact and zero compiler changes. `include` would require touching the
   parser, the audit path and provenance. Concatenate first; add `include` only
   if the usage actually demands it.
+- **The prelude is not used by any live contract.** The 23 migrated contracts
+  are truth-tables, and truth-table rows cannot call a Bool helper. The
+  prelude is there for `defn`-style rules; it has no production caller yet.
 
 ## Packaging
 

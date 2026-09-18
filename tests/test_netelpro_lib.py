@@ -23,6 +23,8 @@ from netelpro.lib import (
     Slot,
     concat_with_prelude,
     contract_from_source,
+    formal_block_start,
+    migrate_source,
     prelude_source,
     render_contract,
     render_truth_table,
@@ -48,11 +50,14 @@ def _contract_dir() -> Path | None:
     return None
 
 
-_LIVE_CONTRACTS = sorted(
-    (p for p in _contract_dir().glob("*.sl") if p.is_file())
-    if _contract_dir() is not None
-    else []
-)
+def _live_contracts() -> list[Path]:
+    directory = _contract_dir()
+    if directory is None:
+        return []
+    return sorted(p for p in directory.glob("*.sl") if p.is_file())
+
+
+_LIVE_CONTRACTS = _live_contracts()
 
 
 # ---------------------------------------------------------------------------
@@ -305,3 +310,111 @@ def test_live_contracts_report_how_many_are_canonical():
             bespoke.append(path.name)
     assert len(canonical) + len(bespoke) == len(_LIVE_CONTRACTS)
     assert canonical, "expected at least one canonical contract in the live set"
+
+
+# ---------------------------------------------------------------------------
+# migrate_source -- normalising the formal block, and the drift guard
+# ---------------------------------------------------------------------------
+
+
+def test_migrate_preserves_header_verbatim():
+    """The prose header is the source of truth for slot MEANING. Migration
+    must never touch it -- only the formal block below it."""
+    source = """\
+; Contrato de prueba.
+;   a: 1 si la condicion a se cumple; 0 si no
+;   b: 1 si la condicion b se cumple; 0 si no
+(truth-table filter-rule
+  (a : (Int 0 1))
+  (b : (Int 0 1))
+  ((0 _) -> 0)
+  ((_ 0) -> 0)
+  ((1 1) -> 1)
+  ((_ _) -> 0))
+"""
+    migrated = migrate_source(source)
+    assert migrated.startswith(source[: source.index("(truth-table")])
+    assert "a: 1 si la condicion a se cumple" in migrated
+
+
+def test_migrate_is_idempotent_and_compiles():
+    source = """\
+; Contrato de prueba.
+(truth-table filter-rule
+  (a : (Int 0 1))
+  (b : (Int 0 1))
+  ((0 _) -> 0)
+  ((_ 0) -> 0)
+  ((1 1) -> 1)
+  ((_ _) -> 0))
+"""
+    once = migrate_source(source)
+    assert migrate_source(once) == once, "migration must be idempotent"
+    rule = RuleFilter(once)
+    assert rule.decide_int(1, 1) == 1
+    assert rule.decide_int(0, 1) == 0
+
+
+def test_migrate_refuses_bespoke_contract():
+    """A contract with its own policy rows must be refused, not reshaped."""
+    source = """\
+(truth-table filter-rule
+  (a : (Int 0 1))
+  (b : (Int 0 1))
+  ((1 1) -> 1)
+  ((0 1) -> 0)
+  ((_ _) -> 0))
+"""
+    with pytest.raises(LibError):
+        migrate_source(source)
+
+
+def test_formal_block_start_points_at_truth_table():
+    source = "; header\n; more\n(truth-table filter-rule\n  ((_ _) -> 0))\n"
+    start = formal_block_start(source)
+    assert source[start:].startswith("(truth-table")
+
+
+@pytest.mark.skipif(not _LIVE_CONTRACTS, reason="live contract directory not reachable")
+def test_live_contracts_have_no_generator_drift():
+    """The drift guard: every live canonical contract's formal block must match
+    what the generator would emit, byte for byte.
+
+    This is what makes hand-editing a generated block fail loudly instead of
+    silently diverging from the generator. Same check as
+    ``scripts/migrate_contracts.py --check``.
+    """
+    drifted = []
+    for path in _LIVE_CONTRACTS:
+        source = path.read_text(encoding="utf-8-sig")
+        try:
+            migrated = migrate_source(source)
+        except LibError:
+            continue  # bespoke contract; not managed by the generator
+        if migrated != source:
+            drifted.append(path.name)
+    assert drifted == [], (
+        f"formal block drifted from the generator in {len(drifted)} contract(s): "
+        f"{drifted}. Run scripts/migrate_contracts.py --write"
+    )
+
+
+@pytest.mark.skipif(not _LIVE_CONTRACTS, reason="live contract directory not reachable")
+def test_migrated_live_contracts_compile_and_keep_verdicts():
+    """After migration the contracts must still compile and decide the same."""
+    checked = 0
+    for path in _LIVE_CONTRACTS:
+        source = path.read_text(encoding="utf-8-sig")
+        try:
+            spec = contract_from_source(source)
+        except LibError:
+            continue
+        rule = RuleFilter(source)
+        arity = len(spec.slots)
+        cases = [
+            (combo, 1 if all(combo) else 0)
+            for combo in itertools.product((0, 1), repeat=arity)
+        ]
+        assert rule.verify_int(cases) == [], path.name
+        checked += 1
+    assert checked > 0

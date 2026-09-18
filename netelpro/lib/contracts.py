@@ -43,12 +43,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 __all__ = [
+    "GENERATED_MARKER",
     "PRELUDE_PATH",
     "ContractSpec",
     "LibError",
     "Slot",
     "concat_with_prelude",
     "contract_from_source",
+    "formal_block_start",
+    "migrate_source",
     "prelude_source",
     "render_contract",
     "render_truth_table",
@@ -290,6 +293,66 @@ def contract_from_source(source: str) -> ContractSpec:
         admit=rows_tuple[-1][1],
         reject=default,
     )
+
+
+# ---------------------------------------------------------------------------
+# Migration: normalise the FORMAL BLOCK of an existing contract in place.
+# ---------------------------------------------------------------------------
+
+# Inserted immediately above the formal block. The prefix is the detection
+# key: it must stay stable so the marker can be recognised and replaced
+# instead of duplicated.
+GENERATED_MARKER = (
+    "; BLOQUE FORMAL GENERADO por netelpro.lib.contracts -- no editar a mano; "
+    "scripts/migrate_contracts.py --check vigila la deriva."
+)
+_MARKER_PREFIX = "; BLOQUE FORMAL GENERADO por netelpro.lib.contracts"
+
+
+def formal_block_start(source: str) -> int:
+    """Character offset where the formal block begins (the ``(truth-table`` line).
+
+    Everything before it -- the prose header with the parameter meanings, the
+    verdict legend and the coverage notes -- is preserved verbatim by the
+    migration. Only the block below it is regenerated.
+    """
+    offset = 0
+    for line in source.splitlines(keepends=True):
+        if line.lstrip().startswith("(truth-table"):
+            return offset
+        offset += len(line)
+    raise LibError("no '(truth-table' line found; nothing to migrate")
+
+
+def _strip_generated_marker(header: str) -> str:
+    """Drop a previously inserted marker so migration is idempotent."""
+    kept = [line for line in header.splitlines(keepends=True) if not line.startswith(_MARKER_PREFIX)]
+    return "".join(kept)
+
+
+def migrate_source(source: str) -> str:
+    """Regenerate the formal block of a canonical contract, header untouched.
+
+    The contract file stays the source of truth for *meaning* (slot names live
+    in the block, their descriptions in the prose header). What this
+    normalises is the *shape*: parameter declarations, one zero-rejection row
+    per slot, the all-ones admit row, and the mandatory all-wildcard backstop,
+    in that order.
+
+    Raises LibError if the contract is not the canonical all-of-N shape, so a
+    contract with bespoke policy rows can never be silently reshaped.
+
+    Idempotent: running it on its own output returns identical text.
+    """
+    spec = contract_from_source(source)
+    start = formal_block_start(source)
+    header = _strip_generated_marker(source[:start])
+    if header and not header.endswith("\n"):
+        header += "\n"
+    block = render_truth_table(
+        spec.rule_name, spec.slots, _all_of_rows(spec), default=spec.reject
+    )
+    return f"{header}{GENERATED_MARKER}\n{block}"
 
 
 def main(argv: list[str] | None = None) -> int:
