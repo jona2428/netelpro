@@ -4,6 +4,65 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## Unreleased — netelpro/lib: canonical contract generator + drift guard (2026-09-18)
+
+### Added
+- **`netelpro/lib/` — new package data, ships in the wheel** (`lib/*.sl` added
+  to `[tool.setuptools.package-data]`; without it an installed netelpro would
+  silently lose the prelude).
+  - `prelude.sl` — Bool helpers (`all-ofN`, `any-zeroN`). Netelpro has no
+    `include`, so the host concatenates the prelude before rule source via
+    `netelpro.lib.concat_with_prelude`. A name collision with the rule's own
+    definitions is a hard error, never a silent shadow. **No production
+    consumer yet:** every live contract is a `truth-table`, and truth-table
+    rows cannot call helpers — exhaustiveness is decided syntactically over
+    row patterns, so a wildcard row calling a helper covers nothing.
+  - `contracts.py` — generator of canonical all-of-N contracts, plus
+    `migrate_source()`, which regenerates the formal block while preserving
+    the prose header verbatim. `contract_from_source` is a guard rail, not a
+    normalizer: it accepts only the canonical form and raises `LibError`
+    rather than silently rewriting a contract that carries its own policy.
+- **`scripts/migrate_contracts.py`** — `--check` (default, read-only) and
+  `--write`. `--write` refuses any contract whose verdicts change over its
+  full declared domain plus backstop probes.
+- **Drift guard wired into CI** (`fiscal` job, after the netelpro checkout).
+  It must run *after* that checkout: the script resolves `netelpro.lib` from
+  `workspace/straylight`, and the published package does not carry `lib/`.
+
+### Fixed
+- **Drift guard reported a false green on hand-edited generated blocks.** A
+  file carrying the `GENERATED` marker but edited by hand was classified as
+  `bespoke` and exited 0 — the exact case the guard exists to catch. The
+  script never read `GENERATED_MARKER`. It now separates `TAMPERED`
+  (generated block hand-edited) from `bespoke` (never generated) and exits 1.
+- **Drift guard reported `canonical: 0` with 23 canonical contracts.** The
+  pipeline engine marks `ok: True` for any skill output and never reads the
+  exit code, so this output *is* the evidence — and it was lying in its own
+  count.
+- **Token gate: numeric token map admitted tokens with no digit.** The rule
+  classified a token as numeric when every character came from `"0123456789.-"`,
+  which admits `' -----------'`, `'...............'`, `'..\n\n'`. Measured on
+  `qwen2.5-1.5b-instruct.Q4_K_M`: 147 tokens passed, **137 of them carrying no
+  digit at all**. The model used one to open its answer, which is where the
+  previously unexplained leading `-` in the two-phase demo came from. Requiring
+  at least one digit cuts the set to 10 (+EOS). Confirmed by intervention on
+  the real gate, not by reimplementation. This removes the artefact; it does
+  **not** make the arithmetic correct — format and correctness are orthogonal.
+
+### Notes
+- Known pre-existing backend divergence outside the declared domain: the native
+  JIT accepts e.g. `2` in a slot typed `(Int 0 1)` and answers via the backstop
+  row, while the reference interpreter rejects it at parse time. Consequence:
+  `verify_int` cannot differentially test the backstop path. Documented in
+  `netelpro/lib/README.md`.
+
+### Versioning
+- `pyproject.toml` aligned to the real series. The tags `v0.8.0` and `v0.9.0`
+  were both cut over a `pyproject.toml` that still declared `0.7.0`, and the
+  package number has never tracked the tags (the CHANGELOG already records
+  v0.4–0.6 shipping without a bump). PyPI holds `0.7.0` and `0.7.1` only. The
+  declared version now reads `0.9.0`, matching the latest tag.
+
 ## Unreleased — gcd curriculum for run #3 (2026-09-08)
 
 ### Added
