@@ -50,6 +50,14 @@ def extract_number(text: str) -> float | None:
 
 
 def build_numeric_token_action_map(llm: Llama, vocab_size: int) -> dict[int, int]:
+    """action=1 only for tokens that decode to a number: at least one real
+    digit (0-9) and nothing outside '.'/'-' besides it. EOS stays allowed.
+
+    The digit requirement is not cosmetic. Measured 2026-09-17 on
+    Qwen2.5-1.5B: the character-set-only rule allowed 147 tokens, of which
+    137 contain no digit at all (' -----------', '...............', '..\\n\\n').
+    The model used one of them to open its answer, which is where the
+    unexplained leading '-' in this demo's output came from."""
     eos_id = llm.token_eos()
     action_map: dict[int, int] = {}
     for token_id in range(vocab_size):
@@ -57,7 +65,8 @@ def build_numeric_token_action_map(llm: Llama, vocab_size: int) -> dict[int, int
             action_map[token_id] = 1
             continue
         text = llm.detokenize([token_id]).decode("utf-8", errors="ignore").strip()
-        is_numeric = bool(text) and all(c in _NUMERIC_CHARS for c in text)
+        has_digit = any(c.isdigit() for c in text)
+        is_numeric = bool(text) and has_digit and all(c in _NUMERIC_CHARS for c in text)
         action_map[token_id] = 1 if is_numeric else 0
     return action_map
 

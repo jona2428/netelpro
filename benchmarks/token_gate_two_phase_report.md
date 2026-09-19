@@ -34,3 +34,27 @@ The first version of this script checked correctness with `str(ground_truth) in 
 
 - Single-phase demo (format right, arithmetic wrong): [`benchmarks/token_gate_numeric_output_report.md`](token_gate_numeric_output_report.md)
 - Discrete-map fast path both demos exercise at real vocab scale: [`docs/GATE_KERNEL_FUSION_SPEC.md`](../docs/GATE_KERNEL_FUSION_SPEC.md) §11
+
+## Follow-up (2026-09-17, later the same day) — the `9+6` failure mode is now explained
+
+The "Honest reading" section above left the `9+6` case as an open question: the reasoning phase stated `15` explicitly, yet phase 2 emitted `-15.9999` under the gate. That is now diagnosed, and the cause was in this demo's own token map, not in the model.
+
+**Root cause.** `build_numeric_token_action_map()` classified a token as numeric if its decoded text consisted only of characters from `"0123456789.-"`. That test admits tokens with **no digit at all** — a run of hyphens (`' -----------'`), a run of dots (`'...............'`), `'..\n\n\n\n'`. Counted on the real vocabulary (`qwen2.5-1.5b-instruct.Q4_K_M`):
+
+| Rule | Tokens allowed | Of which carry no digit |
+|---|---|---|
+| Characters only (original) | 148 (147 + EOS) | **137** |
+| Requires ≥1 digit (fixed) | 11 (10 + EOS) | 0 |
+
+The model was therefore free to open its answer with a bare `-`, which is a legal token under the old map. That is the spurious sign — no model mystery required.
+
+**Confirmed by intervention on the real gate, not by reimplementation.** Re-running this demo with the digit requirement added, same model, same question, same seed path:
+
+- before: `'-15.9999'`
+- after: `'15961515'`
+
+The sign is gone. The answer is still wrong, and that distinction matters: **the format guarantee and arithmetic correctness are orthogonal.** Masking 151,925 of 151,936 tokens leaves the model with 11 candidates, and a 1.5B model picking greedily among 11 digit fragments will happily emit `15961515`. The old map's 148 candidates at least contained more of the right pieces. Fixing the map removes the artefact; it does not make the arithmetic work, and this report should not be read as claiming it does.
+
+**What this says about the demo's fitness as evidence.** The arithmetic framing conflates two questions — *did the gate hold?* and *is the number right?* — so a fully working gate reads as a failure. For demonstrating what the token gate actually guarantees, a boundary case is the honest showcase: the model is about to emit a forbidden token and that logit goes to `-inf` before sampling. No correct-or-incorrect answer to muddy the result. The single-phase demo shows the same effect from the same cause: `47+89` previously produced `-82`, and after the fix it produces `'8600000000000000'` — numeric format held, value meaningless.
+
+**Not measured here:** whether the digit rule changes outcomes across a sweep (n=1 per configuration; this identifies mechanism, not rate), and whether a larger model narrows the 11-candidate gap. Both are open.

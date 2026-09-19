@@ -3,9 +3,10 @@ an arbitrary token-ID range. Forces Qwen2.5 to answer with digits ONLY --
 structurally, at every sampling step, not by asking nicely in the prompt.
 
 Builds a real token_to_action_map: every vocab token gets action 1 (allowed)
-if its decoded text is purely numeric (plus '.'/'-' for decimals/negatives),
-action 0 (denied) otherwise -- except the EOS token, always allowed so
-generation can actually stop. Two unique actions across a 151,936-token
+if its decoded text is purely numeric AND contains at least one real digit
+('.'/'-' are allowed only as part of a number), action 0 (denied) otherwise
+-- except the EOS token, always allowed so generation can actually stop.
+Two unique actions across a 151,936-token
 vocab (Qwen2.5's real vocab size) is the best possible case for the
 discrete-map fast path fixed the same session
 (docs/GATE_KERNEL_FUSION_SPEC.md Section 11, netelpro/guard's discrete
@@ -40,7 +41,17 @@ def build_numeric_token_action_map(llm: Llama, vocab_size: int) -> dict[int, int
     """action=1 for tokens that decode to pure digits (+ '.'/'-'), action=0
     otherwise. EOS is force-allowed (action=1) so the model can still stop
     generating -- without this it would run to max_tokens every time, since
-    the EOS token never decodes to digits on its own."""
+    the EOS token never decodes to digits on its own.
+
+    A token counts as numeric only if it also contains at least one real digit
+    (0-9). Without that check the map admits tokens whose text is made only of
+    '.'/'-' -- e.g. ' -----------', '...............' -- which pass the
+    character-set test while carrying no number at all. Measured 2026-09-17 on
+    Qwen2.5-1.5B: loose map = 147 allowed tokens, digit-requiring map = 10,
+    i.e. 137 tokens that were "numeric" with zero digits in them. That gap is
+    where the spurious sign in the two-phase demo came from: the model was
+    free to open its answer with a bare '-' (see
+    benchmarks/token_gate_numeric_output_report.md)."""
     eos_id = llm.token_eos()
     action_map: dict[int, int] = {}
     for token_id in range(vocab_size):
@@ -48,7 +59,8 @@ def build_numeric_token_action_map(llm: Llama, vocab_size: int) -> dict[int, int
             action_map[token_id] = 1
             continue
         text = llm.detokenize([token_id]).decode("utf-8", errors="ignore").strip()
-        is_numeric = bool(text) and all(c in _NUMERIC_CHARS for c in text)
+        has_digit = any(c.isdigit() for c in text)
+        is_numeric = bool(text) and has_digit and all(c in _NUMERIC_CHARS for c in text)
         action_map[token_id] = 1 if is_numeric else 0
     return action_map
 

@@ -25,3 +25,9 @@ This isn't a flaw in the gate — it did exactly what `[allowed_min, allowed_max
 
 - Mechanism-only demo (arbitrary token-ID ranges): [`examples/contract_gate_llama_cpp_demo.py`](../examples/contract_gate_llama_cpp_demo.py)
 - Discrete-map fast path this exercises at real scale: [`docs/GATE_KERNEL_FUSION_SPEC.md`](../docs/GATE_KERNEL_FUSION_SPEC.md) §11
+
+## Follow-up (2026-09-17, later the same day) — the `-82` sign was a map artefact
+
+The `47+89 → -82` result above is partly explained by a defect in this demo's own token map. `build_numeric_token_action_map()` accepted any token whose decoded text consisted only of characters from `"0123456789.-"`, which includes **137 tokens that contain no digit at all** (runs of hyphens, runs of dots, `'..\n\n\n\n'`). A bare `-` was therefore a legal first token. The map has been fixed to require at least one real digit; allowed tokens dropped from 148 (147 + EOS) to 11 (10 + EOS).
+
+Re-run after the fix, same model and prompt: `'8600000000000000'` — numeric format held, value meaningless. The sign is gone; the arithmetic is not fixed, and this demo should not be read as an arithmetic benchmark. Full diagnosis and the intervention that confirmed it: [`token_gate_two_phase_report.md`](token_gate_two_phase_report.md), "Follow-up" section.
