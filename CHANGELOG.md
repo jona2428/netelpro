@@ -4,6 +4,27 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## Unreleased — `examples/gate_demo.py`: the gate as a verifiable demo (2026-09-19)
+
+### Added
+- **`examples/gate_demo.py`** — one command, ~30 seconds, no GPU, no model, no
+  training, no network, no optional dependencies. Runs the *real* compiled gate
+  (`RuleFilter` → LLVM → ctypes) and proves four claims on screen: the policy is
+  a 3-line `filter-rule` a human reads; it compiles to native machine code (entry
+  address printed); it decides, with `reason is None` exactly when the rule
+  decided; and it fails closed on every failure mode with an explicit reason.
+  Measured on the dev machine: **12/12 checks, ~520k decisions/sec, ~1.9 µs per
+  decision** including the Python→ctypes boundary, 0 mismatches on the
+  differential native-vs-interpreter check.
+  Colour is emitted only when stdout is a TTY (and honours `NO_COLOR`): piping or
+  capturing yields plain text. Without that the output was unassertable — and
+  this was a real defect found by the test, not a stylistic preference.
+- **`tests/test_gate_demo.py`** — keeps the demo honest rather than leaving it to
+  manual runs: exit code 0, zero `FAIL` marks, the printed tally cross-checked
+  against the `PASS` marks actually emitted (a demo that grades itself wrongly is
+  worse than one that fails loudly), the four evidence strings asserted directly,
+  and a guard against optional-dependency imports creeping in.
+
 ## Unreleased — netelpro/lib: canonical contract generator + drift guard (2026-09-18)
 
 ### Added
