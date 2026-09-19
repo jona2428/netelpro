@@ -4,7 +4,12 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
-## Unreleased — `contains?` primitive: the evasion gate in compiled netelpro (2026-09-19)
+## [0.9.1] — 2026-09-19
+
+First release to PyPI since 0.7.1: tags v0.8.0/v0.9.0 were cut but never
+published (the packaging discrepancy documented below). This release aligns
+the published version with the tagged line and ships the gate as a verifiable
+product.
 
 ### Added
 - **New language primitive `contains?`** (substring test, libc `strstr`), completing
@@ -32,7 +37,7 @@ commit hash until the first tagged release.
   off by one group (documented as the 10-closer rule); fixed and covered by
   tests.
 
-## Unreleased — `examples/gate_demo.py`: the gate as a verifiable demo (2026-09-19)
+## [0.9.1] — 2026-09-19 (cont.)
 
 ### Added
 - **`examples/gate_demo.py`** — one command, ~30 seconds, no GPU, no model, no
@@ -53,7 +58,9 @@ commit hash until the first tagged release.
   worse than one that fails loudly), the four evidence strings asserted directly,
   and a guard against optional-dependency imports creeping in.
 
-## Unreleased — netelpro/lib: canonical contract generator + drift guard (2026-09-18)
+## [0.9.0] — 2026-09-18
+
+- netelpro/lib: canonical contract generator + drift guard (2026-09-18)
 
 ### Added
 - **`netelpro/lib/` — new package data, ships in the wheel** (`lib/*.sl` added

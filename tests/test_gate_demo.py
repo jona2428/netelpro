@@ -121,5 +121,7 @@ def test_gate_demo_needs_no_optional_dependencies() -> None:
     machines without a GPU stack.
     """
     source = DEMO.read_text(encoding="utf-8")
+    packaged = (REPO_ROOT / "netelpro" / "gate_demo.py").read_text(encoding="utf-8")
     for forbidden in ("import torch", "import transformers", "import requests", "urllib.request"):
-        assert forbidden not in source, f"gate_demo.py must stay dependency-free: found {forbidden!r}"
+        for label, body in (("examples/gate_demo.py", source), ("netelpro/gate_demo.py", packaged)):
+            assert forbidden not in body, f"{label} must stay dependency-free: found {forbidden!r}"

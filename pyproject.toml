@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netelpro"
-version = "0.9.0"
+version = "0.9.1"
 description = "A programming language designed for LLMs — honest by construction: mechanical verification, explicit holes, no silent gaps."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -43,7 +43,8 @@ exclude = ["netelpro.tests", "netelpro.tests.*"]
 # lib/*.sl:    the standard prelude, concatenated before rule source by the
 #              host (netelpro.lib.concat_with_prelude). Without this it would
 #              not travel in the wheel and an installed netelpro would lose it.
-netelpro = ["spec/*.json", "lib/*.sl"]
+# rules/*.sl:  rules bundled for the packaged gate demo (netelpro.gate_demo).
+netelpro = ["spec/*.json", "lib/*.sl", "rules/*.sl"]
 
 [tool.mypy]
 python_version = "3.11"

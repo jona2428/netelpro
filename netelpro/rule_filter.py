@@ -109,6 +109,11 @@ class RuleFilter:
         """
         self._source: str = source
         self.source: str = source
+        # Native entry point; None only when native compilation is skipped
+        # (declared sorry holes) or LLVM produced no address -- both cases
+        # fail closed in decide(). CFUNCTYPE has no stable public type, so
+        # this is Any by necessity, not by laziness.
+        self._native_fn: Any = None
 
         # 1. Parse phase
         parse_result = parse(source)
