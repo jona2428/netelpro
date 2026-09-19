@@ -204,6 +204,7 @@ carrying exact source coordinates. No silent fallbacks, no dynamic reinterpretat
 | `<`, `<=`, `>`, `>=` | `icmp signed` → `i1` |
 | `==`, `!=` | type-aware: `icmp` for i64/i1, `strcmp` (libc) for `i8*` → `i1` — operands are statically homogeneous |
 | `prefix?` | `strncmp(text, prefix, strlen(prefix)) == 0` (libc) → `i1` |
+| `contains?` | `strstr(text, needle) != NULL` (libc) → `i1` — substring at ANY position (v0.9); parity-tested against the interpreter incl. empty needle/text, multibyte UTF-8, and multiple emission sites per module |
 | `print` | call to `printf` — `%lld` for Int, `%s` for Str (internal constant globals, selected by LLVM type) — requires `(grant io)` enforced at compile time |
 | `not` | `xor i1 1` |
 | `if`, `and`, `or`, `let` | SSA branches/phis; and/or short-circuit with merge blocks |
@@ -374,7 +375,7 @@ The program runs only after surviving all four. There is no stage where dishones
 
 ### 15.3 Deliberate limits (documented, not accidental)
 
-- Compiled subset: Int/Bool/Str (read-only), `+ - * / quot rem`, comparisons (incl. string `==`/`prefix?`), `not`, `if/and/or`, `let`, `def`, `defn`, calls, `print` (%lld/%s). String/list PRODUCTION (`str-cat`, `int->str`, `cons`, ...) remains interpreter-only: native code decides, it does not build data.
+- Compiled subset: Int/Bool/Str (read-only), `+ - * / quot rem`, comparisons (incl. string `==`/`prefix?`/`contains?`), `not`, `if/and/or`, `let`, `def`, `defn`, calls, `print` (%lld/%s). String/list PRODUCTION (`str-cat`, `int->str`, `cons`, ...) remains interpreter-only: native code decides, it does not build data.
 - Heads are primitives/special forms or top-level `defn` only — no first-class functions in v0.1.
 - Params resolve per-param to Int (i64), Bool (i1) or Str (i8*) at the native boundary (v0.2/v0.3); unused params bind to Int by default.
 - Capabilities are file-scoped grants (`{io}`); per-function effects deferred.

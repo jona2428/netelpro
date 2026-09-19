@@ -4,6 +4,34 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## Unreleased — `contains?` primitive: the evasion gate in compiled netelpro (2026-09-19)
+
+### Added
+- **New language primitive `contains?`** (substring test, libc `strstr`), completing
+  the string-operations set (`prefix?` was anchor-only and could not decide on
+  mid-string evidence). Implemented in both backends symmetrically:
+  `codegen.py` (LLVM: single `strlen` setup + `strstr` call per site — declared
+  once per module, `DuplicatedNameError` regression test included) and
+  `evaluator.py` (reference interpreter). Arity table and SPEC updated.
+  Native-vs-interpreter parity: **26/26 cases** (`scripts/verify_contains_gate.py`).
+  Native throughput measured: **~534k decisions/sec (~1.87 µs)**.
+- **`examples/gates/evasion_detector.sl`** — the evasion rule the primitive was
+  built for: denies any command/code text mentioning credentials (`.env`,
+  `api_key`, `bearer `, `token=`, `secrets`, ...) in **any position** of the
+  text — the exact class the anchor-bounded Python regex sniff lets through.
+- **`tests/test_contains_primitive.py`** — 11 formal tests (primitive semantics,
+  duplicated-declaration regression, rule-level behaviour).
+- **FinalFront integration** — the compiled rule is wired into
+  `zone_policy.py` as a second layer after the Python regex sniff: it only
+  adds a DENY (RED) when the sniff found nothing (pure evasion). It can never
+  produce an ALLOW the sniff would have gated, and the explicit-citation
+  policy is respected (sniff-first ordering).
+
+### Fixed
+- Nested `or` parsing: the closing-paren budget for nested disjunctions was
+  off by one group (documented as the 10-closer rule); fixed and covered by
+  tests.
+
 ## Unreleased — `examples/gate_demo.py`: the gate as a verifiable demo (2026-09-19)
 
 ### Added

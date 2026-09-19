@@ -467,6 +467,15 @@ def compile_program(program: Program) -> CompiledProgram:
                 _unify(a1_t, TYPE_STR, node.args[1].line, node.args[1].col, "'prefix?' prefix operand")
                 return TYPE_BOOL
 
+            if head == "contains?":
+                if len(node.args) != 2:
+                    raise CodegenError(f"'contains?' expects 2 arguments, got {len(node.args)}", node.line, node.col)
+                a0_t = typecheck(node.args[0], lex_env, current_defn)
+                a1_t = typecheck(node.args[1], lex_env, current_defn)
+                _unify(a0_t, TYPE_STR, node.args[0].line, node.args[0].col, "'contains?' text operand")
+                _unify(a1_t, TYPE_STR, node.args[1].line, node.args[1].col, "'contains?' needle operand")
+                return TYPE_BOOL
+
             if head == "print":
                 if len(node.args) != 1:
                     raise CodegenError(f"'print' expects 1 argument, got {len(node.args)}", node.line, node.col)
@@ -565,6 +574,11 @@ def compile_program(program: Program) -> CompiledProgram:
     strncmp_fn = ir.Function(mod, strncmp_ty, name="strncmp")
     strlen_ty = ir.FunctionType(i64, [ir.PointerType(ir.IntType(8))])
     strlen_fn = ir.Function(mod, strlen_ty, name="strlen")
+    strstr_ty = ir.FunctionType(
+        ir.PointerType(ir.IntType(8)),
+        [ir.PointerType(ir.IntType(8)), ir.PointerType(ir.IntType(8))],
+    )
+    strstr_fn = ir.Function(mod, strstr_ty, name="strstr")
 
     exit_ty = ir.FunctionType(ir.VoidType(), [i32])
     exit_fn = ir.Function(mod, exit_ty, name="exit")
@@ -863,6 +877,17 @@ def compile_program(program: Program) -> CompiledProgram:
                 prefix_len = builder.call(strlen_fn, [b])
                 cmp_res = builder.call(strncmp_fn, [a, b, prefix_len])
                 res = builder.icmp_signed("==", cmp_res, ir.Constant(i32, 0))
+                if is_tail:
+                    builder.ret(res)
+                return res
+
+            if head == "contains?":
+                a = compile_expr(node.args[0], env, is_tail=False, builder=builder, ctx=ctx)
+                b = compile_expr(node.args[1], env, is_tail=False, builder=builder, ctx=ctx)
+                assert a is not None and b is not None
+                # strstr(haystack, needle) != NULL  <=>  needle occurs in haystack.
+                ptr = builder.call(strstr_fn, [a, b])
+                res = builder.icmp_signed("!=", ptr, ir.Constant(ir.PointerType(ir.IntType(8)), None))
                 if is_tail:
                     builder.ret(res)
                 return res

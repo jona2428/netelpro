@@ -41,6 +41,7 @@
     "str->int":  {"arity": [1, 1],  "sig": "(str->int s)"},
     "int->float":{"arity": [1, 1],  "sig": "(int->float n)"},
     "prefix?":   {"arity": [2, 2],  "sig": "(prefix? text prefix)", "phase": "v0.3"},
+    "contains?": {"arity": [2, 2],  "sig": "(contains? text needle)", "phase": "v0.9 substring search for native evasion detection"},
     "print":     {"arity": [1, 1],  "sig": "(print x)", "phase": "requires capability io from Phase 3", "capabilities": ["io"]}
   },
   "literals": {

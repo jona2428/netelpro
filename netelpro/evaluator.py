@@ -320,6 +320,7 @@ RESERVED_HEADS = {
     "str->int",
     "int->float",
     "prefix?",
+    "contains?",
     "print",
 }
 
@@ -350,6 +351,7 @@ PRIMITIVES = {
     "str->int",
     "int->float",
     "prefix?",
+    "contains?",
     "print",
 }
 
@@ -406,6 +408,9 @@ def _exec_primitive(head: str, args: list[Any], node: Call, capabilities: Option
     elif head == "prefix?":
         if len(args) != 2:
             raise StrayRuntimeError(f"'prefix?' expects 2 arguments, got {len(args)}", line, col)
+    elif head == "contains?":
+        if len(args) != 2:
+            raise StrayRuntimeError(f"'contains?' expects 2 arguments, got {len(args)}", line, col)
     elif head == "list":
         return StrayList(args)
 
@@ -557,6 +562,12 @@ def _exec_primitive(head: str, args: list[Any], node: Call, capabilities: Option
         if type(text) is not str or type(prefix) is not str:
             raise StrayRuntimeError("'prefix?' operands must be Str", line, col)
         return text.startswith(prefix)
+
+    if head == "contains?":
+        text, needle = args
+        if type(text) is not str or type(needle) is not str:
+            raise StrayRuntimeError("'contains?' operands must be Str", line, col)
+        return needle in text
 
     if head == "print":
         caps = capabilities if capabilities is not None else set()
