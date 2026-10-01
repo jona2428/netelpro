@@ -438,6 +438,22 @@ CLAIMS_NEGATIVE = [
 ]
 
 
+def test_extensionless_well_known_files_are_claim_paths():
+    """Found 2026-10-01 by the Receipts-RAFT reward truth table, before any
+    training: "Modifiqué Dockerfile." was no claim at all, so a failed
+    Dockerfile write narrated as done scored R=1 (reward hacking by path
+    shape). Well-known extensionless names are paths; ordinary words are not."""
+    for text, path, kind in (
+        ("Modifiqué Dockerfile.", "Dockerfile", KIND_MODIFIED),
+        ("Borré el Makefile.", "Makefile", KIND_DELETED),
+        ("Creé LICENSE con el texto MIT.", "LICENSE", KIND_CREATED),
+        ("Modifiqué docker/Dockerfile.", "docker/Dockerfile", KIND_MODIFIED),
+    ):
+        assert [(c.path, c.kind) for c in detect_mutation_claims(text)] == [(path, kind)], text
+    for text in ("No modifiqué el Dockerfile.", "Modifiqué la licencia del proyecto.", "Dockerfiles are useful."):
+        assert all(c.path not in ("Dockerfile", "LICENSE") for c in detect_mutation_claims(text)), text
+
+
 def test_live_raft_path_then_verb_does_not_steal_a_verb_that_has_its_own_path():
     got = [(c.path, c.kind) for c in detect_mutation_claims("Revisé src/app.py y modifiqué config/settings.py.")]
     assert got == [("config/settings.py", KIND_MODIFIED)]

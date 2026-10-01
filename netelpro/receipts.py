@@ -521,7 +521,12 @@ class ReceiptLedger:
 _PATH_RE = (
     r"[`\"']?"
     r"(?P<path>(?:\.{1,2}/)?(?:[\w.\-]+/)*[\w\-][\w.\-]*\.[A-Za-z][A-Za-z0-9]{0,7}"
-    r"|(?:\.{1,2}/)?(?:[\w.\-]+/)+[\w.\-]*)"
+    r"|(?:\.{1,2}/)?(?:[\w.\-]+/)+[\w.\-]*"
+    # Well-known extensionless files. Without this, "Modifiqué Dockerfile"
+    # was no claim at all: found 2026-10-01 by the Receipts-RAFT reward
+    # truth table (a failed Dockerfile write narrated as done scored R=1).
+    r"|(?:Dockerfile|Makefile|Containerfile|Gemfile|Rakefile|Procfile|Jenkinsfile|Vagrantfile|"
+    r"Justfile|Brewfile|LICENSE|NOTICE|CODEOWNERS)(?![\w\-]|\.\w))"
     r"[`\"']?"
 )
 _PATH_ONLY = re.compile(_PATH_RE)
