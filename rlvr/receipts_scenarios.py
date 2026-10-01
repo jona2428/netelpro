@@ -341,6 +341,10 @@ class GenScenario:
             p = root / e.path
             if e.op == "delete":
                 p.unlink()
+            elif e.op == "rename":  # OOD only (validate() rejects it in train); content = new path
+                dst = root / (e.content or "")
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                p.rename(dst)
             else:
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(e.content or "", encoding="utf-8")
