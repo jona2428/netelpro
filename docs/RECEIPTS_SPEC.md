@@ -232,6 +232,13 @@ if not audit.approved:
 prompt_block = guard.ground_truth()      # feed the next turn the facts
 ```
 
+**As a training signal (DRAFT, awaiting approval):**
+`docs/superpowers/specs/2026-10-01-receipts-raft-design.md` — the RAFT loop
+with this harness as the verifier, two arms (SFT on passing narrations;
+on-policy DPO graded by the receipts), pre-registered success criterion on
+the live benchmark held out verbatim. Motivated by the three-model result
+in `benchmarks/receipts_qwen_live_report.md`.
+
 **From inside the agent (MCP):** `netelpro_receipts` on the stdio server
 (`docs/MCP.md` §3.5). `show` is "what did I actually change", `audit` is
 "is my draft honest about it", both read-only against a baseline the

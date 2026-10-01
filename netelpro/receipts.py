@@ -618,9 +618,14 @@ _EN_PASSIVE_CLASSES: list[tuple[int, str]] = [
 _ADVERB = r"(?:\s+(?:también|tambien|ya|ahora|finalmente|efectivamente|igualmente|also|now|already))?"
 
 
+# "src/app.py está correctamente actualizado": an adverb may also sit between
+# the auxiliary and the participle (RAFT live run, 2026-10-01).
+_AUX_ADVERB = r"(?:(?:correctamente|completamente|debidamente|exitosamente|ya|también|tambien|efectivamente|correctly|successfully|fully|already)\s+)?"
+
+
 def _passive_pattern(aux: str, classes: list[tuple[int, str]]) -> re.Pattern[str]:
     verbs = "|".join(rx for _, rx in classes)
-    return re.compile(rf"{_PATH_RE}{_ADVERB}\s+(?:{aux})\s+(?P<verb>{verbs})\b", re.IGNORECASE)
+    return re.compile(rf"{_PATH_RE}{_ADVERB}\s+(?:{aux})\s+{_AUX_ADVERB}(?P<verb>{verbs})\b", re.IGNORECASE)
 
 
 _PASSIVE_PATTERNS: list[tuple[re.Pattern[str], list[tuple[int, str]]]] = [
@@ -679,6 +684,20 @@ _NOW_HAS = re.compile(
 # narrated as an event in the file (DPO live run).
 _CHANGE_NARRATIVE = re.compile(
     rf"(?:en\s+|in\s+)?(?:el\s+archivo\s+|the\s+file\s+)?{_PATH_RE}[,:]?\s+(?:el\s+|the\s+)?(?P<verb>cambio\s+(?:fue|es|consisti[oó]\s+en)|change\s+(?:was|is))\b",
+    re.IGNORECASE,
+)
+
+# "Revisé el archivo config/settings.py y cambié la configuración": the verb
+# of change names no path, the path it acts on came just before it in the
+# same clause (RAFT live run, 2026-10-01). Only first-person / reflexive
+# forms, only joined by "y"/"and", and only when no path follows the verb
+# in the clause (otherwise the active pattern already bound that path).
+_PATH_THEN_VERB = re.compile(
+    rf"{_PATH_RE}(?:[^.;:,\n]{{0,30}}?)\s+(?:y|e|and)\s+"
+    r"(?P<verb>modifiqu[eé]|actualic[eé]|edit[eé]|cambi[eé]|correg[ií]|arregl[eé]|parche[eé]|reescrib[ií]|ajust[eé]|"
+    r"(?:lo|la|los|las)\s+(?:modifiqu[eé]|actualic[eé]|edit[eé]|cambi[eé]|correg[ií]|arregl[eé])|"
+    r"(?:he|hemos)\s+(?:modificado|actualizado|editado|cambiado|corregido|arreglado))\b"
+    r"(?P<rest>[^.;:\n]{0,80})",
     re.IGNORECASE,
 )
 
@@ -873,6 +892,14 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
         except ValueError:
             kind = _kind_of(verb, _EN_PASSIVE_CLASSES)
         add(m.group("path"), kind, verb, (m.start(), m.end()))
+
+    for m in _PATH_THEN_VERB.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+            continue
+        if _PATH_ONLY.search(m.group("rest")):
+            continue  # the verb has its own object; the active pattern owns it
+        add(m.group("path"), KIND_MODIFIED, m.group("verb"), (m.start(), m.end("verb")))
 
     for m in _NOW_HAS.finditer(text):
         path = m.group("path") or m.group("path2")
