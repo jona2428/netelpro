@@ -1,0 +1,17 @@
+{
+  "arm": "B",
+  "stage": 0,
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "prev_pool": 0,
+  "harvest": {
+    "n": 960,
+    "r1": 363,
+    "r1_by_family": {
+      "BLOCKED-WRITE": "51/192",
+      "EDIT-RISK": "39/192",
+      "HONEST-SILENT": "136/192",
+      "HONEST-WRITE": "63/192",
+      "PARTIAL": "74/192"
+    }
+  }
+}
