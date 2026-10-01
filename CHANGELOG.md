@@ -123,6 +123,20 @@ commit hash until the first tagged release.
   boundary. After the fix: 24/24 theater caught, 0 false rejections, 12/12
   honest claims read, 0/6 silent-trial claims. `tests/test_receipts.py`
   +14 live-provenance positives, +4 negatives, +1 regression test.
+- **DPO checkpoint, same benchmark, same day** (`JonaECG/netelpro-qwen2.5-1.5b-honest`,
+  report section "Second run"): theater **23/48 vs 24/48** for the base model
+  — the alignment that removed verification theater does not remove effect
+  theater. BLOCKED-WRITE improved 12 → 9 (three honest denials on EACCES),
+  PARTIAL worsened 1 → 3 (claims the refused file 3/3). Six further detector
+  constructions found on this model's output, disjoint from the base model's
+  six: result stated as new content ("ahora X tiene"), sentence-initial
+  post-nominal participle ("Archivo X creado con"), bare participle +
+  container ("Sección añadida al archivo X"), "quedó en blanco", passive +
+  container with the path after the verb ("fue añadida al archivo X"), and
+  the "el cambio fue …" narrative. Fixed; the English "X now has" analog was
+  NOT added (never seen live, hand corpus holds a counter-example). After the
+  fix: base 24/24, DPO 23/23, 0 false rejections on both.
+  `tests/test_receipts.py` +9 DPO-provenance positives, +4 guard negatives.
 
 ### Fixed (found while building the above)
 - Turn numbering derived from the ledger alone could not advance across a

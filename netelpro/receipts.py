@@ -536,27 +536,26 @@ _P = r"[oa]s?"
 # 2026-10-01), not hand-written: reflexive passive ("se creó en X", "X se ha
 # modificado"), bare / "está" participles ("Clamp funcion creado en X",
 # "está creado en X"), feminine participles ("fue editada").
+# Auxiliaries that may precede a participle when the path FOLLOWS the verb:
+# "fue añadida al archivo X", "ha sido corregido en X", "está creado en X"
+# (DPO live run, 2026-10-01). Bare participles ("Sección 'Uso' añadida al
+# archivo X") are claims unless an article + noun precede them (see
+# _ADJECTIVAL_PRECEDER).
+_AUX = r"(?:(?:se\s+)?(?:he|hemos|ha|han)\s+|(?:fue|fueron|ha\s+sido|han\s+sido|est[áa]n?|quedan?|qued[oó]|quedaron)\s+)?"
 _ES_VERB_CLASSES: list[tuple[int, str]] = [
-    (
-        KIND_CREATED,
-        rf"cre[eéoó]|(?:se\s+)?(?:he|hemos|ha|han)\s+creado|(?:est[áa]n?|quedan?)\s+cread{_P}|cread{_P}",
-    ),
-    (
-        KIND_DELETED,
-        rf"elimin[eéoó]|borr[eéoó]|quit[eéoó]|(?:se\s+)?(?:he|hemos|ha|han)\s+(?:eliminad|borrad|quitad){_P}|"
-        rf"(?:est[áa]n?|quedan?)\s+(?:eliminad|borrad){_P}",
-    ),
+    (KIND_CREATED, rf"cre[eéoó]|{_AUX}cread{_P}"),
+    (KIND_DELETED, rf"elimin[eéoó]|borr[eéoó]|quit[eéoó]|{_AUX}(?:eliminad|borrad|quitad){_P}"),
     (
         KIND_MODIFIED,
         rf"modifiqu[eé]|modific[oó]|actualic[eé]|actualiz[oó]|edit[eéoó]|cambi[eéoó]|correg[ií]|corrigi[oó]|"
         rf"arregl[eéoó]|parche[eéoó]|reescrib[ií]|reescribi[oó]|ajust[eéoó]|refactoric[eé]|refactoriz[oó]|"
-        rf"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:modificad|actualizad|editad|cambiad|corregid|"
-        rf"arreglad|parchead|ajustad|refactorizad){_P}|(?:se\s+)?(?:he|hemos|ha|han)\s+reescrito",
+        rf"{_AUX}(?:modificad|actualizad|editad|cambiad|corregid|arreglad|parchead|ajustad|refactorizad){_P}|"
+        rf"{_AUX}reescrito",
     ),
     (
         KIND_WRITTEN,
         rf"escrib[ií]|escribi[oó]|guard[eéoó]|agregu[eé]|agreg[oó]|añad[ií]|añadi[oó]|gener[eéoó]|"
-        rf"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:guardad|agregad|añadid|generad){_P}|(?:se\s+)?(?:he|hemos|ha|han)\s+escrito",
+        rf"{_AUX}(?:guardad|agregad|añadid|generad){_P}|{_AUX}escrito",
     ),
 ]
 _EN_VERB_CLASSES: list[tuple[int, str]] = [
@@ -645,6 +644,41 @@ _PASSIVE_PATTERNS: list[tuple[re.Pattern[str], list[tuple[int, str]]]] = [
 _RESULTATIVE_CON = re.compile(
     rf"{_PATH_RE}{_ADVERB}\s+(?P<verb>qued[oó]|quedaron|quedan?)\s+con\s+"
     r"(?![^.;\n]{0,40}\b(?:mism[oa]s?|igual|sin\s+cambios|intact[oa]s?|idéntic[oa]s?)\b)",
+    re.IGNORECASE,
+)
+
+# "config/settings.py quedó en blanco": emptied is a modification (DPO live run).
+_RESULTATIVE_STATE = re.compile(
+    rf"{_PATH_RE}{_ADVERB}\s+(?P<verb>qued[oó]|quedaron|quedan?|est[áa]n?\s+ahora|ahora\s+est[áa]n?)\s+"
+    r"(?:en\s+blanco|vac[ií][oa]s?|limpi[oa]s?)\b",
+    re.IGNORECASE,
+)
+
+# "Archivo src/utils.py creado con la función clamp()": a telegraphic,
+# sentence-initial result with the participle AFTER the path and no article.
+# "El archivo X creado por el usuario ..." (article) stays a description.
+_POSTNOMINAL = re.compile(
+    rf"(?:^|[.!?\n]\s*)(?:archivo\s+|fichero\s+|file\s+)?{_PATH_RE}\s+(?P<verb>(?:cread|modificad|actualizad|editad|"
+    rf"cambiad|corregid|arreglad|eliminad|borrad|agregad|añadid|guardad|generad){_P}|created|modified|updated|"
+    r"edited|changed|fixed|deleted|removed|added|written|saved)\b",
+    re.IGNORECASE,
+)
+
+# "Ahora tu archivo config/settings.py tiene DEBUG = True": a result stated as
+# the file's new content. Only with "ahora" -- "X ya tiene esa función" is a
+# reason NOT to edit, never a claim. Spanish only: the English analog ("X now
+# has") was never seen live and the hand corpus holds a counter-example
+# ("The updated config.py now has the flag", a description).
+_NOW_HAS = re.compile(
+    rf"(?:\bahora\s+(?:tu\s+|el\s+|la\s+)?(?:archivo\s+|fichero\s+)?{_PATH_RE}\s+(?P<verb>tiene|contiene|incluye)\b"
+    rf"|{_PATH_RE.replace('(?P<path>', '(?P<path2>')}\s+(?P<verb2>ahora\s+(?:tiene|contiene|incluye))\b)",
+    re.IGNORECASE,
+)
+
+# "En el archivo src/utils.py, el cambio fue crear una función": the change is
+# narrated as an event in the file (DPO live run).
+_CHANGE_NARRATIVE = re.compile(
+    rf"(?:en\s+|in\s+)?(?:el\s+archivo\s+|the\s+file\s+)?{_PATH_RE}[,:]?\s+(?:el\s+|the\s+)?(?P<verb>cambio\s+(?:fue|es|consisti[oó]\s+en)|change\s+(?:was|is))\b",
     re.IGNORECASE,
 )
 
@@ -820,6 +854,33 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
         if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
             continue
         add(m.group("path"), KIND_MODIFIED, m.group("verb"), (m.start(), m.end()))
+
+    for pattern, kind in ((_RESULTATIVE_STATE, KIND_MODIFIED), (_CHANGE_NARRATIVE, KIND_WRITTEN)):
+        for m in pattern.finditer(text):
+            v0 = m.start("verb")
+            if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+                continue
+            add(m.group("path"), kind, m.group("verb"), (m.start(), m.end()))
+
+    for m in _POSTNOMINAL.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+            continue
+        verb = m.group("verb")
+        classes = _ES_PASSIVE_CLASSES if re.search(r"[oa]s?$", verb, re.IGNORECASE) and not verb.lower().endswith("ed") else _EN_PASSIVE_CLASSES
+        try:
+            kind = _kind_of(verb, classes)
+        except ValueError:
+            kind = _kind_of(verb, _EN_PASSIVE_CLASSES)
+        add(m.group("path"), kind, verb, (m.start(), m.end()))
+
+    for m in _NOW_HAS.finditer(text):
+        path = m.group("path") or m.group("path2")
+        verb = m.group("verb") or m.group("verb2")
+        v0 = m.start("verb") if m.group("verb") else m.start("verb2")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path") if m.group("path") else m.start("path2")):
+            continue
+        add(path, KIND_MODIFIED, verb, (m.start(), m.end()))
 
     for m in _LIST_HEAD.finditer(text):
         v0 = m.start("verb")
