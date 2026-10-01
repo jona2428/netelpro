@@ -1,0 +1,9 @@
+{
+  "name": "base",
+  "model": "/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-1.5B-Instruct-GGUF/snapshots/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+  "sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+  "llama_cpp": "0.3.36",
+  "repeats": 10,
+  "temperature": 0.5,
+  "max_tokens": 160
+}

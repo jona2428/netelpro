@@ -82,6 +82,8 @@ for s in ("bench", "ood"):
                         "--repeats", "10", "--n-gpu-layers", "-1", "--out", out], cwd="netelpro", capture_output=True, text=True)
     print(r.stdout[-3000:], r.stderr[-3000:])
     assert r.returncode == 0, f"{{s}} falló"
+import shutil
+shutil.rmtree("netelpro")  # el clon no es output: sin esto la descarga baja el repo entero
 '''
     return {"cells": [_code(install), _code(clone), _code(get_model), _code(run)],
             "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
