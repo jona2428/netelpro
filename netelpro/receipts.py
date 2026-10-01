@@ -78,6 +78,9 @@ from netelpro.gate import Gate
 
 __all__ = [
     "DEFAULT_IGNORE",
+    "LEDGER_FILE",
+    "SNAPSHOT_FILE",
+    "STATE_DIR",
     "GENESIS",
     "KIND_CREATED",
     "KIND_DELETED",
@@ -96,7 +99,9 @@ __all__ = [
     "ReceiptLedger",
     "detect_mutation_claims",
     "diff_snapshots",
+    "load_snapshot",
     "main",
+    "save_snapshot",
     "snapshot",
 ]
 
@@ -754,14 +759,16 @@ class MutationGuard:
     def turn(self) -> int | None:
         return self._turn
 
-    def begin(self, baseline: dict[str, str] | None = None) -> int:
+    def begin(self, baseline: dict[str, str] | None = None, *, turn: int | None = None) -> int:
         """Start a turn: snapshot the workspace (or adopt `baseline`).
-        Returns the turn number (ledger's latest + 1)."""
+        Returns the turn number: `turn` if given (a harness that numbers
+        turns itself, e.g. the CLI's snapshot.json), else ledger's latest
+        + 1."""
         self._before = snapshot(self.root, self.ignore) if baseline is None else dict(baseline)
         self._after = None
         # A turn with no effects leaves no receipt, so the ledger alone
         # cannot number turns: the guard's own counter advances too.
-        self._turn = max(self.ledger.latest_turn or 0, self._turn or 0) + 1
+        self._turn = turn if turn is not None else max(self.ledger.latest_turn or 0, self._turn or 0) + 1
         self._open = True
         return self._turn
 
@@ -910,18 +917,20 @@ class MutationGuard:
 # 5. CLI: zero-integration wrapper for any harness
 # ---------------------------------------------------------------------------
 
-_STATE_DIR = ".netelpro"
-_SNAPSHOT_FILE = "snapshot.json"
-_LEDGER_FILE = "receipts.jsonl"
+STATE_DIR = ".netelpro"
+SNAPSHOT_FILE = "snapshot.json"
+LEDGER_FILE = "receipts.jsonl"
 
 
 def _state_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
     root = Path(args.root).resolve()
-    state = Path(args.state) if args.state else root / _STATE_DIR
-    return root, state / _SNAPSHOT_FILE, state / _LEDGER_FILE
+    state = Path(args.state) if args.state else root / STATE_DIR
+    return root, state / SNAPSHOT_FILE, state / LEDGER_FILE
 
 
-def _load_snapshot(path: Path) -> tuple[int, dict[str, str]] | None:
+def load_snapshot(path: Path) -> tuple[int, dict[str, str]] | None:
+    """(turn, files) from a snapshot.json written by `begin`, or None when
+    there is none. A corrupt file is a LedgerError, never an empty baseline."""
     if not path.exists():
         return None
     try:
@@ -931,7 +940,7 @@ def _load_snapshot(path: Path) -> tuple[int, dict[str, str]] | None:
         raise LedgerError(f"{path}: unreadable snapshot: {e}") from e
 
 
-def _save_snapshot(path: Path, turn: int, files: dict[str, str]) -> None:
+def save_snapshot(path: Path, turn: int, files: dict[str, str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"turn": turn, "files": files}, ensure_ascii=False), encoding="utf-8")
 
@@ -939,17 +948,17 @@ def _save_snapshot(path: Path, turn: int, files: dict[str, str]) -> None:
 def _cmd_begin(args: argparse.Namespace) -> int:
     root, snap_path, ledger_path = _state_paths(args)
     ledger = ReceiptLedger.load(ledger_path)
-    previous = _load_snapshot(snap_path)
+    previous = load_snapshot(snap_path)
     turn = max(ledger.latest_turn or 0, previous[0] if previous else 0) + 1
     files = snapshot(root, DEFAULT_IGNORE)
-    _save_snapshot(snap_path, turn, files)
+    save_snapshot(snap_path, turn, files)
     print(f"turn {turn}: baseline of {len(files)} files hashed under {root}")
     return 0
 
 
 def _cmd_end(args: argparse.Namespace) -> int:
     root, snap_path, ledger_path = _state_paths(args)
-    loaded = _load_snapshot(snap_path)
+    loaded = load_snapshot(snap_path)
     if loaded is None:
         print("error: no baseline snapshot -- run `begin` first", file=sys.stderr)
         return 1
@@ -958,7 +967,7 @@ def _cmd_end(args: argparse.Namespace) -> int:
     after = snapshot(root, DEFAULT_IGNORE)
     receipts = ledger.record_diff(before, after, turn=turn)
     ledger.save(ledger_path)
-    _save_snapshot(snap_path, turn, after)
+    save_snapshot(snap_path, turn, after)
     print(f"turn {turn}: {len(receipts)} receipt(s) recorded, chain head {ledger.head[:12]}")
     for r in receipts:
         print("  " + r.short())
@@ -969,7 +978,7 @@ def _cmd_show(args: argparse.Namespace) -> int:
     root, snap_path, ledger_path = _state_paths(args)
     ledger = ReceiptLedger.load(ledger_path)
     ok, reason = ledger.verify_chain()
-    loaded = _load_snapshot(snap_path)
+    loaded = load_snapshot(snap_path)
     turn = args.turn if args.turn is not None else (loaded[0] if loaded else ledger.latest_turn)
     guard = MutationGuard(root, ledger=ledger)
     print(guard.ground_truth(turn))
@@ -984,7 +993,7 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     else:
         text = Path(args.text).read_text(encoding="utf-8")
     ledger = ReceiptLedger.load(ledger_path)
-    loaded = _load_snapshot(snap_path)
+    loaded = load_snapshot(snap_path)
     turn = args.turn if args.turn is not None else (loaded[0] if loaded else ledger.latest_turn)
     guard = MutationGuard(root, ledger=ledger, strict=args.strict)
     if loaded is not None:
@@ -1030,7 +1039,7 @@ def main(argv: list[str] | None = None) -> int:
         description="File-effect receipts: what an LLM agent says it wrote vs. what the bytes say.",
     )
     parser.add_argument("--root", default=".", help="workspace root (default: cwd)")
-    parser.add_argument("--state", default=None, help=f"state dir (default: <root>/{_STATE_DIR})")
+    parser.add_argument("--state", default=None, help=f"state dir (default: <root>/{STATE_DIR})")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("begin", help="hash the workspace as this turn's baseline").set_defaults(fn=_cmd_begin)
     sub.add_parser("end", help="hash again, record receipts for every changed path").set_defaults(fn=_cmd_end)

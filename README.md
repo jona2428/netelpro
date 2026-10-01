@@ -283,6 +283,12 @@ python -m netelpro.receipts end
 python -m netelpro.receipts audit --text answer.md     # exit 2 = theater
 ```
 
+From inside the agent, the same ground truth is an MCP tool: launch the server
+with `NETELPRO_RECEIPTS_ROOT=/path/to/repo python -m netelpro --mcp` and the model
+can call `netelpro_receipts` (`show`: what actually changed; `audit`: is my draft
+honest about it) — read-only, root and baseline fixed server-side so the model
+cannot erase its own receipts ([`docs/MCP.md`](docs/MCP.md) §3.5).
+
 See it on real files in thirty seconds — a simulated turn whose prose lies
 about one of its three edits, plus tamper refusal and the full differential:
 

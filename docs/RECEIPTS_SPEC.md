@@ -2,7 +2,8 @@
 
 **Status:** v0.1 implemented — `netelpro/receipts.py`,
 `netelpro/rules/mutation_receipt.sl`, `examples/receipts_demo.py`,
-`tests/test_receipts.py` (58 cases), `tests/test_receipts_demo.py`.
+`tests/test_receipts.py` (58 cases), `tests/test_receipts_demo.py`,
+`netelpro/mcp_server.py` tool `netelpro_receipts` + `tests/test_mcp_receipts.py`.
 **Origin:** 2026-10-01 conversation — "algo orientado a combatir las
 alucinaciones y el impedimento de modificación de archivos en ejecuciones
 de las LLM".
@@ -219,7 +220,13 @@ if not audit.approved:
 prompt_block = guard.ground_truth()      # feed the next turn the facts
 ```
 
-Next step, not built: a `netelpro_receipts` MCP tool so the model itself
-can call "what did I actually change this turn" through the existing
-stdio server (`docs/MCP.md`), closing the read path from inside the
-agent instead of only from the harness.
+**From inside the agent (MCP):** `netelpro_receipts` on the stdio server
+(`docs/MCP.md` §3.5). `show` is "what did I actually change", `audit` is
+"is my draft honest about it", both read-only against a baseline the
+server hashed before the first request. The root is `NETELPRO_RECEIPTS_ROOT`
+of the server process, never a model argument; there is no `begin`/`end`
+action, so the model cannot move the baseline to erase its own receipts.
+
+```bash
+NETELPRO_RECEIPTS_ROOT=/path/to/repo python -m netelpro --mcp
+```

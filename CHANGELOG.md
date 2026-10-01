@@ -43,6 +43,17 @@ commit hash until the first tagged release.
 - **`tests/test_receipts.py`** — 58 cases across the four layers (rule domain,
   snapshots/ledger, claim corpus with per-label provenance, guard end to end,
   CLI round trip).
+- **MCP tool `netelpro_receipts`** (`docs/MCP.md` §3.5): the receipts read path
+  from inside the agent. `show` lists what actually changed under the server's
+  root since the baseline; `audit` judges the agent's draft text against it.
+  Read-only by construction: the root is `NETELPRO_RECEIPTS_ROOT` of the server
+  process (never a model argument), the baseline is hashed before the first
+  request, and there is no `begin`/`end` action — a model that could move the
+  baseline after writing would erase its own receipts. A harness baseline from
+  `netelpro-receipts begin` is respected. Unset root: structured
+  `phase: "receipts"` error, every other tool unaffected.
+  `tests/test_mcp_receipts.py`: 12 cases, in-process and over the real stdio
+  process.
 
 ### Fixed (found while building the above)
 - Turn numbering derived from the ledger alone could not advance across a

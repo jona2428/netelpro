@@ -9,6 +9,7 @@ An MCP-style **stdio JSON-RPC 2.0 server** exposing the Netelpro compiler, evalu
 - `protocolVersion`: `2024-11-05`
 - `serverInfo`: `{"name": "netelpro-mcp", "version": "0.1.0"}` — the server's own version, independent of the package version in `pyproject.toml`
 - Methods: `initialize`, `notifications/initialized`, `ping`, `tools/list`, `tools/call`
+- Environment: `NETELPRO_RECEIPTS_ROOT` (optional) enables `netelpro_receipts` over that workspace (§3.5)
 - JSON-RPC error codes: `-32700` malformed JSON, `-32600` invalid request, `-32601` unknown method or tool, `-32602` invalid params, `-32603` internal error
 - Zero external dependencies for the transport: the server loop uses only `json`, `os`, `subprocess`, `sys`, `tempfile`. The native backend needs `llvmlite`, but every native code path imports it lazily and reports a structured `codegen` error (`"llvmlite not available"`) if absent — the server itself never fails to start.
 
@@ -45,7 +46,7 @@ Wire-in sequence (real captured lines; `-->` client to server, `<--` server to c
 
 ## 3. Tools
 
-`tools/list` returns exactly these four entries (`TOOLS_LIST`); the schemas below are copied verbatim from the code and are the source of truth.
+`tools/list` returns the entries of `TOOLS_LIST`; the schemas below are copied verbatim from the code and are the source of truth.
 
 ### 3.1 `netelpro_compile`
 
@@ -205,6 +206,68 @@ Output: `{version, forms, capabilities}` — `version` is `"0.1.0"`; `forms` mer
 arguments: {"category": "special_forms", "query": "grant"}
 structuredContent: {"version": "0.1.0", "forms": {"grant": {"arity": [1, null], "sig": "(grant cap...)", "scope": "top-level only", "phase": "grammar reserved, enforced in Phase 3", "desc": "Top-level capability declaration; grants effects (e.g. io) file-wide."}}, "capabilities": {}}
 ```
+
+### 3.5 `netelpro_receipts`
+
+File-effect ground truth for the **calling agent** — the read path of
+[`RECEIPTS_SPEC.md`](RECEIPTS_SPEC.md) from inside the model instead of only
+from the harness. `show` lists every file created / modified / deleted under
+the server's workspace root since the baseline, by sha256; `audit` judges a
+draft of the agent's own final text: every claim that a file was created /
+modified / deleted / written must be backed by a receipt of the same kind,
+decided by the compiled rule `netelpro/rules/mutation_receipt.sl`.
+
+```json
+{
+  "name": "netelpro_receipts",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {"type": "string", "enum": ["show", "audit"], "default": "show"},
+      "text":   {"type": "string", "description": "For 'audit': the agent's draft final text."},
+      "strict": {"type": "boolean", "default": false, "description": "For 'audit': also reject silent writes."}
+    }
+  }
+}
+```
+
+**Configuration is server-side only.** The workspace root comes from the
+environment variable `NETELPRO_RECEIPTS_ROOT` of the server process; the model
+never passes a path, so it can neither point the tool elsewhere nor at a subtree
+that hides its own writes. With the variable unset the tool answers a structured
+`phase: "receipts"` error and every other tool keeps working.
+
+**The baseline predates the session.** `_run_stdio_server` hashes the root once,
+before the first request, and persists it as `<root>/.netelpro/snapshot.json` —
+unless the harness already wrote one with `netelpro-receipts begin`, which is
+then respected (its turn number included). The tool has no `begin` / `end`
+action: a model that could move the baseline after writing would erase its own
+receipts. Turn boundaries belong to the harness (`python -m netelpro.receipts
+begin|end`).
+
+**Read-only.** Both actions compute the diff live against the baseline and never
+write `receipts.jsonl`; committed turns in the ledger are loaded for context,
+never modified. Limits: `text` is capped at `MAX_SOURCE_BYTES` (`phase: "limit"`).
+
+```
+arguments: {"action": "show"}
+structuredContent: {"ok": true, "version": "0.1.0", "root": "/work/repo", "turn": 1,
+  "effects": [{"seq": 0, "turn": 1, "kind": "modified", "path": "src/app.py", "before": "7b62…", "after": "512a…", ...}],
+  "ground_truth": "[netelpro receipts] observed file effects, turn 1 (sha256, not recollection):\n  modified src/app.py  7b628dcc52e1 -> 512a5d2f31c9",
+  "errors": []}
+
+arguments: {"action": "audit", "text": "Actualicé config/settings.py y creé src/new.py."}
+structuredContent: {"ok": true, "approved": false, "turn": 1,
+  "claims": [
+    {"path": "config/settings.py", "kind": "modified", "admitted": true,  "reason": null, "receipt": {...}},
+    {"path": "src/new.py",         "kind": "created",  "admitted": false, "receipt": null,
+     "reason": "claim 'creé src/new.py' (created) at offset 31: no receipt for 'src/new.py' -- the path does not exist in the workspace before or after the turn"}],
+  "unreported": [], "unreported_rejected": [], "reasons": ["..."], "ground_truth": "...", "errors": []}
+```
+
+`ok` is about the tool running; `approved` is the verdict. A rejected claim is
+`ok: true, approved: false` — a decision, not a failure. Contract proven by
+`tests/test_mcp_receipts.py` (in-process and over the real stdio process).
 
 ## 4. Limits and containment
 
