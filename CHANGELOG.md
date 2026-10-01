@@ -4,6 +4,62 @@ All notable changes to Netelpro (formerly Straylight) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); entries are headed by
 commit hash until the first tagged release.
 
+## [Unreleased]
+
+### Added
+- **`netelpro/receipts.py` — file-effect honesty for LLM agents** (spec:
+  `docs/RECEIPTS_SPEC.md`). The failure it targets: the agent says "actualicé
+  `config/settings.py`" and the file is byte-for-byte what it was — the write
+  tool errored, was blocked, or was never called, and the prose reports
+  success. `HonestyGuard` cannot see this (a tool result exists); the evidence
+  standard here is the bytes.
+  - `snapshot()` / `diff_snapshots()`: sha256 of every file under the root
+    before and after the turn; every differing path becomes a `Receipt`
+    (created / modified / deleted, hash before, hash after).
+  - `ReceiptLedger`: append-only, hash-chained, JSONL-persisted. The model has
+    no write path to it and is never asked to recall it; `load()` refuses a
+    file whose chain does not verify (one edited field breaks it).
+  - `detect_mutation_claims()`: ES + EN extraction of `(path, kind)` effect
+    claims with the same scoping discipline as `guard.py` (negation, attempt,
+    intent, future, conditional, question, adjectival participle; a
+    preposition before the path makes it a container).
+  - **`netelpro/rules/mutation_receipt.sl`**: three functions, `(filter-rule
+    claim receipt strict)`, deciding whether a claim kind is admitted by a
+    receipt kind. Kind-aware ("updated X" when X was created is false);
+    `strict` rejects silent writes the text never mentions. Full 40-row
+    domain verified against an oracle and native-vs-interpreter: 0 mismatches.
+  - `MutationGuard`: `begin()` / `end()` / `audit()` / `enforce()` /
+    `ground_truth()` (a block the harness puts in front of the model so it
+    reads what changed instead of remembering it). A guard rebuilt from the
+    JSONL ledger in a fresh process reaches the same verdict
+    (`test_guard_survives_total_context_amnesia`).
+  - CLI `python -m netelpro.receipts begin|end|audit|show` (also the
+    `netelpro-receipts` console script): zero-integration wrapper for any
+    harness that touches a directory. `audit` exits 2 on theater.
+- **`examples/receipts_demo.py`** + `tests/test_receipts_demo.py`: real
+  temporary workspace, real sha256, a simulated agent turn whose prose lies
+  about one of three edits; 19 on-screen checks including tamper refusal and
+  the 40-row differential. Plain output when piped (`NO_COLOR` honoured).
+- **`tests/test_receipts.py`** — 58 cases across the four layers (rule domain,
+  snapshots/ledger, claim corpus with per-label provenance, guard end to end,
+  CLI round trip).
+- **MCP tool `netelpro_receipts`** (`docs/MCP.md` §3.5): the receipts read path
+  from inside the agent. `show` lists what actually changed under the server's
+  root since the baseline; `audit` judges the agent's draft text against it.
+  Read-only by construction: the root is `NETELPRO_RECEIPTS_ROOT` of the server
+  process (never a model argument), the baseline is hashed before the first
+  request, and there is no `begin`/`end` action — a model that could move the
+  baseline after writing would erase its own receipts. A harness baseline from
+  `netelpro-receipts begin` is respected. Unset root: structured
+  `phase: "receipts"` error, every other tool unaffected.
+  `tests/test_mcp_receipts.py`: 12 cases, in-process and over the real stdio
+  process.
+
+### Fixed (found while building the above)
+- Turn numbering derived from the ledger alone could not advance across a
+  turn with no effects (no receipt, same number reused). The guard and the
+  CLI now carry their own counter and take the max.
+
 ## [0.9.1] — 2026-09-19
 
 First release to PyPI since 0.7.1: tags v0.8.0/v0.9.0 were cut but never

@@ -11,6 +11,10 @@ Tools exposed:
 - netelpro_verify: Differential parity verification between native JIT and interpreter.
 - netelpro_gate: Per-case differential gate evaluation between native JIT and interpreter.
 - netelpro_spec: Static language specification knowledge, forms, and capabilities.
+- netelpro_receipts: File-effect ground truth for the calling agent -- what actually
+  changed under NETELPRO_RECEIPTS_ROOT since the baseline (show), and whether the
+  agent's own text about those changes is admitted by the compiled receipt rule
+  (audit). Read-only: the model can neither move the baseline nor write receipts.
 
 Limits (module-level overridable attributes):
 - MAX_SOURCE_BYTES: 65536
@@ -29,6 +33,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from netelpro.caps import check_capabilities, collect_grants
@@ -352,6 +357,39 @@ TOOLS_LIST: list[dict[str, Any]] = [
                 },
             },
             "required": ["source", "cases"],
+        },
+    },
+    {
+        "name": "netelpro_receipts",
+        "description": (
+            "File-effect ground truth for the calling agent. 'show' lists every file "
+            "created/modified/deleted under the server's configured workspace root since "
+            "the baseline, by sha256 -- read this instead of recalling what you changed. "
+            "'audit' judges a draft of your own final text: every claim that a file was "
+            "created/modified/deleted/written must be backed by a receipt of the same kind, "
+            "decided by a compiled Netelpro rule; the result names any claim the bytes do "
+            "not support. Read-only: the root and the baseline are configured server-side "
+            "(NETELPRO_RECEIPTS_ROOT), never by the model."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["show", "audit"],
+                    "default": "show",
+                    "description": "'show': observed effects since the baseline. 'audit': judge `text` against them.",
+                },
+                "text": {
+                    "type": "string",
+                    "description": "For 'audit': the agent's draft final text (the prose that will be shown to the user).",
+                },
+                "strict": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "For 'audit': also reject observed effects the text never mentions (silent writes).",
+                },
+            },
         },
     },
     {
@@ -1554,6 +1592,151 @@ def _write_worker_result(res: dict[str, Any], out_path: str | None) -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Tool: netelpro_receipts (file-effect ground truth, read-only)
+# ---------------------------------------------------------------------------
+
+RECEIPTS_ROOT_ENV = "NETELPRO_RECEIPTS_ROOT"
+
+
+def _receipts_root() -> str | None:
+    """The workspace the receipts tool observes. Server-side configuration
+    only: the model never passes a path, so it can neither point the tool
+    at another directory nor at a subtree that hides its own writes."""
+    value = os.environ.get(RECEIPTS_ROOT_ENV, "").strip()
+    return value or None
+
+
+def _receipts_error(message: str, phase: str = "receipts") -> dict[str, Any]:
+    return {"ok": False, "errors": [{"phase": phase, "line": 0, "col": 0, "message": message}]}
+
+
+def receipts_ensure_baseline() -> dict[str, Any] | None:
+    """Hash the configured root once and persist it as the baseline, unless
+    a harness already wrote one (`netelpro-receipts begin`). Called at server
+    start so the baseline predates anything the model does in this session;
+    `tool_receipts` calls it too for in-process `dispatch` users. Returns a
+    structured error dict when the root is unusable, else None."""
+    root = _receipts_root()
+    if root is None:
+        return None
+    from netelpro.receipts import (
+        DEFAULT_IGNORE,
+        LEDGER_FILE,
+        SNAPSHOT_FILE,
+        STATE_DIR,
+        LedgerError,
+        ReceiptLedger,
+        load_snapshot,
+        save_snapshot,
+        snapshot,
+    )
+
+    base = Path(root)
+    if not base.is_dir():
+        return _receipts_error(f"{RECEIPTS_ROOT_ENV}={root!r} is not a directory")
+    state = base / STATE_DIR
+    try:
+        if load_snapshot(state / SNAPSHOT_FILE) is None:
+            ledger = ReceiptLedger.load(state / LEDGER_FILE)
+            turn = (ledger.latest_turn or 0) + 1
+            save_snapshot(state / SNAPSHOT_FILE, turn, snapshot(base, DEFAULT_IGNORE))
+    except LedgerError as e:
+        return _receipts_error(str(e))
+    except OSError as e:
+        return _receipts_error(f"cannot establish baseline under {root!r}: {e}")
+    return None
+
+
+def tool_receipts(action: str = "show", text: str = "", strict: bool = False) -> dict[str, Any]:
+    """Read-only view of what changed under the configured root, and a verdict
+    on the agent's own text about it. Never writes receipts, never moves the
+    baseline: turn boundaries belong to the harness (CLI begin/end)."""
+    root = _receipts_root()
+    if root is None:
+        return _receipts_error(
+            f"receipts not configured: set {RECEIPTS_ROOT_ENV} to the workspace root when "
+            "launching the server (the model cannot choose the root)"
+        )
+    if action not in ("show", "audit"):
+        return _receipts_error(f"unknown action {action!r}: expected 'show' or 'audit'")
+    if not isinstance(text, str):
+        return _receipts_error("'text' must be a string")
+    if len(text.encode("utf-8")) > MAX_SOURCE_BYTES:
+        return _receipts_error(
+            f"text size ({len(text.encode('utf-8'))} bytes) exceeds MAX_SOURCE_BYTES ({MAX_SOURCE_BYTES})",
+            phase="limit",
+        )
+    if action == "audit" and not text.strip():
+        return _receipts_error("'audit' requires non-empty 'text'")
+
+    err = receipts_ensure_baseline()
+    if err is not None:
+        return err
+
+    from netelpro.receipts import (
+        LEDGER_FILE,
+        SNAPSHOT_FILE,
+        STATE_DIR,
+        LedgerError,
+        MutationGuard,
+        ReceiptLedger,
+        load_snapshot,
+    )
+
+    base = Path(root)
+    state = base / STATE_DIR
+    try:
+        loaded = load_snapshot(state / SNAPSHOT_FILE)
+        if loaded is None:  # pragma: no cover -- ensure_baseline just wrote it
+            return _receipts_error("baseline snapshot missing after initialisation")
+        turn, baseline = loaded
+        # In-memory ledger: committed turns are visible, this turn's receipts
+        # are computed live and never saved from here.
+        guard = MutationGuard(base, ledger=ReceiptLedger.load(state / LEDGER_FILE), strict=bool(strict))
+        guard.begin(baseline, turn=turn)
+        receipts = guard.end()
+    except LedgerError as e:
+        return _receipts_error(str(e))
+
+    effects = [r.to_dict() for r in receipts]
+    if action == "show":
+        return {
+            "ok": True,
+            "version": "0.1.0",
+            "root": str(base.resolve()),
+            "turn": turn,
+            "effects": effects,
+            "ground_truth": guard.ground_truth(turn),
+            "errors": [],
+        }
+
+    audit = guard.audit(text, turn=turn, strict=bool(strict))
+    return {
+        "ok": True,
+        "version": "0.1.0",
+        "root": str(base.resolve()),
+        "turn": turn,
+        "approved": audit.approved,
+        "claims": [
+            {
+                "path": v.claim.path,
+                "kind": v.claim.kind_name,
+                "text": v.claim.text,
+                "receipt": v.receipt.to_dict() if v.receipt else None,
+                "admitted": v.admitted,
+                "reason": v.reason,
+            }
+            for v in audit.verdicts
+        ],
+        "unreported": [r.to_dict() for r in audit.unreported],
+        "unreported_rejected": [r.to_dict() for r in audit.unreported_rejected],
+        "reasons": list(audit.reasons),
+        "ground_truth": guard.ground_truth(turn),
+        "errors": [],
+    }
+
+
 def tool_spec(category: str = "all", query: str | None = None) -> dict[str, Any]:
     """Export static language knowledge about special forms, primitives, and capabilities."""
     forms: dict[str, Any] = {}
@@ -1607,7 +1790,8 @@ def dispatch(name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     """Dispatch a tool call by name and arguments, returning a structured result dictionary.
 
     Args:
-        name: One of 'netelpro_compile', 'netelpro_eval', 'netelpro_verify', 'netelpro_spec'.
+        name: One of 'netelpro_compile', 'netelpro_eval', 'netelpro_verify', 'netelpro_gate',
+            'netelpro_spec', 'netelpro_receipts'.
         args: Dictionary of arguments matching the tool's inputSchema.
 
     Returns:
@@ -1639,6 +1823,11 @@ def dispatch(name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
         source = args.get("source", "")
         gate_args = args.get("args", [])
         return tool_gate(source=source, args=gate_args)
+    elif name == "netelpro_receipts":
+        action = args.get("action", "show")
+        text = args.get("text", "")
+        strict = bool(args.get("strict", False))
+        return tool_receipts(action=action, text=text, strict=strict)
     else:
         raise ValueError(f"Unknown tool '{name}'")
 
@@ -1795,6 +1984,14 @@ def _run_stdio_server() -> int:
     if hasattr(sys.stdin, "reconfigure"):
         with contextlib.suppress(Exception):
             sys.stdin.reconfigure(encoding="utf-8")
+
+    # Receipts baseline BEFORE the first request: the model must not be able
+    # to write files and then have the baseline taken after the fact. Only
+    # when NETELPRO_RECEIPTS_ROOT is set; a bad root is reported on stderr
+    # (stdout is reserved for JSON-RPC) and again by every tool call.
+    baseline_err = receipts_ensure_baseline()
+    if baseline_err is not None:
+        print(f"netelpro-mcp: receipts: {baseline_err['errors'][0]['message']}", file=sys.stderr)
 
     def _read_capped_line() -> str:
         """Read one stdio line with a hard byte cap (never buffers beyond MAX_LINE_BYTES).
