@@ -1,6 +1,6 @@
 # Receipts — File-Effect Honesty, Specification v0.1
 
-**Status:** v0.1 implemented — `netelpro/receipts.py`,
+**Status:** v0.1 implemented, incremental snapshots added (§9) — `netelpro/receipts.py`,
 `netelpro/rules/mutation_receipt.sl`, `examples/receipts_demo.py`,
 `tests/test_receipts.py` (58 cases), `tests/test_receipts_demo.py`,
 `netelpro/mcp_server.py` tool `netelpro_receipts` + `tests/test_mcp_receipts.py`.
@@ -134,10 +134,21 @@ Regex over the finished turn, ES + EN, same posture as `guard.py`:
   and adjectival participles ("the updated config.py").
 - A path inside a URL is not a path.
 
+- **Live-found forms (2026-10-01, Qwen2.5-1.5B, see
+  `benchmarks/receipts_qwen_live_report.md`)**: reflexive passives ("se creó
+  en X", "X se ha modificado"), gendered participles ("fue editada"), bare
+  and `está` participles without an article ("Clamp funcion creado en X"),
+  the resultative "X quedó con …" (unless the clause says unchanged), an
+  adverb between path and auxiliary ("X también quedó cambiado"), and a
+  list after a colon ("Se han editado los siguientes archivos:\n- X"). The
+  comma is a clause boundary: a verb never binds to a path across ", pero".
+
 Over-matching is the safe direction (a detected claim with a matching
 receipt costs nothing); the scoping exists so it does not become noise.
-Labeled corpus: 15 positive / 17 negative cases in `tests/test_receipts.py`,
-each with the reason for its label.
+Labeled corpus in `tests/test_receipts.py`: 15 hand-written positives + 14
+live-provenance positives, 21 negatives, each with the reason for its label.
+Measured on live output: detector precision 26/26, recall 13/24 as shipped
+and 24/24 after the same-day fix (§ report).
 
 ---
 
@@ -166,13 +177,14 @@ each with the reason for its label.
   sentence is rejected after generation, not prevented during it.
 - **Renames.** Observed as delete + create. A rename claim ("renombré X a
   Y") is not a verb class yet.
-- **Cost.** `snapshot()` hashes every byte under the root, twice per turn.
-  Fine for a repository; wrong for a 50 GB tree. Hole: an mtime+size fast
-  path that re-hashes only candidates, or inotify. Deliberately not built
-  until a real tree demands it.
+- **Cost.** Resolved by the incremental fast path (§9): with a cache the
+  take is one `stat` per file plus the bytes that actually changed. The
+  first take of a root is still linear in its bytes.
 - **Detection recall.** Regex. Some phrasing will get through ("the change
-  landed in X"). Each miss found in live generation should be added to the
-  labeled corpus with provenance, as `guard.py` does.
+  landed in X"). The first live run found six Spanish constructions this
+  way and they were fixed the same day with provenance in the corpus; the
+  next model, language or domain will find more. Measure, then fix; never
+  assume the hand corpus is the ceiling.
 
 ---
 
@@ -230,3 +242,81 @@ action, so the model cannot move the baseline to erase its own receipts.
 ```bash
 NETELPRO_RECEIPTS_ROOT=/path/to/repo python -m netelpro --mcp
 ```
+
+---
+
+## 9. Incremental snapshots (fast path)
+
+Each `Snapshot` carries, per path, the **stat signature** the hash was taken
+under: `(size, mtime_ns, ctime_ns, inode)`, plus `taken_ns`, the instant the
+walk started. `snapshot(root, cache=previous)` reuses the cached hash of a
+file only when all of these hold:
+
+1. its signature equals the cached one;
+2. its mtime **and** ctime are both older than `previous.taken_ns -
+   RACY_WINDOW_NS` (2 s). A write that lands inside the same timestamp tick
+   as the hash leaves size and mtime unchanged — git's "racy" case — so
+   anything touched near the cached take is never trusted by that cache;
+3. the cached value is a real digest, not the unreadable sentinel.
+
+Everything else is re-read. A plain `dict` cache (no stats) reuses nothing
+and gives the same result; `incremental=False` on the guard and `--full`
+on the CLI force a full re-read.
+
+**Why not size + mtime.** The threat model is an agent with a shell. After
+a same-size edit it can run `touch -d` / `os.utime` and restore the exact
+mtime; size+mtime would then reuse the stale hash and the receipt would
+vanish. `ctime` is set by the kernel on every inode change, utime included,
+and cannot be chosen from user space on Linux/macOS; a rename-over gets a
+new inode. Both evasions are tests
+(`test_incremental_detects_same_size_edit_with_forged_mtime`,
+`test_incremental_detects_rename_over_with_forged_mtime`).
+
+**Residual holes, declared:** Windows, where `st_ctime` is the creation
+time and only the racy window and size+mtime defend; a root that writes
+the raw device or steps the clock; a `.netelpro/snapshot.json` the model
+is allowed to edit (keep the state dir out of its write scope, or run
+`--full`).
+
+**Measured on this repository** (420 files, 97 MB tracked, cloud container
+disk, 2026-10-01): full take 9096 ms with 420 files hashed; incremental take
+11 ms with 0 hashed and 420 reused, identical result. The MCP tool and the
+CLI `end` use the baseline as cache automatically; `begin` uses the previous
+turn's snapshot.
+
+---
+
+## 10. Claude Code hooks (zero-wrap integration)
+
+```bash
+pip install netelpro
+python -m netelpro.hooks.claude_code install            # in the repo you work in
+python -m netelpro.hooks.claude_code install --strict   # silent writes block too
+```
+
+`install` writes the absolute interpreter path into three hooks in
+`.claude/settings.json` (`--local` for `settings.local.json`), merging with
+whatever is already there, and adds `.netelpro/` to `.gitignore`. Restart
+Claude Code in the repo to activate.
+
+| Event | Hook does | Output to Claude Code |
+|---|---|---|
+| `SessionStart`, `UserPromptSubmit` | baseline of the turn (incremental) | `additionalContext`: "turn N, M files hashed; file claims are checked against receipts when you stop" |
+| `Stop`, approved | commit receipts | nothing |
+| `Stop`, rejected, first time | keep the turn open | `{"decision":"block","reason":...}`: each claim with no receipt, the ground truth, "perform the edit or correct the message" |
+| `Stop`, rejected again (`stop_hook_active`) | commit, allow the stop | `systemMessage` to the user naming the claims still unsupported |
+
+The second row of the rejection path is the important design choice: the
+model gets exactly one correction round. Netelpro's job is to make the
+false sentence visible and costly, not to hold a session hostage.
+
+**Fail-open, deliberately and only for the hook's own problems:** no
+baseline for this turn (installed mid-session) takes one now and lets the
+stop through with a `systemMessage`; a corrupt ledger or an internal error
+prints to stderr and exits 1, which Claude Code shows as a non-blocking
+hook error. The only thing that ever blocks is a real verdict from the
+compiled rule.
+
+Residual limits: the hook audits the final text only (intermediate
+narration during tool use is not judged); `SubagentStop` is not wired;
+attribution (model vs user vs build writes) is still observational.

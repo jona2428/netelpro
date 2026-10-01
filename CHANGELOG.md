@@ -55,6 +55,89 @@ commit hash until the first tagged release.
   `tests/test_mcp_receipts.py`: 12 cases, in-process and over the real stdio
   process.
 
+- **Incremental snapshots** (`docs/RECEIPTS_SPEC.md` §9). A `Snapshot` now
+  carries each hash's stat signature `(size, mtime_ns, ctime_ns, inode)` and
+  the take's start time; `snapshot(root, cache=previous)` re-reads only files
+  whose signature changed or that were touched within a 2 s racy window of
+  the cached take (git's rule). ctime and inode are part of the signature on
+  purpose: an agent with a shell can forge mtime after a same-size edit but
+  cannot set ctime from user space on Linux/macOS, and a rename-over changes
+  the inode — both evasions are tests. `MutationGuard(incremental=False)` and
+  CLI `--full` force a full re-read; the pre-fast-path `snapshot.json` still
+  loads (as a cache that reuses nothing). Measured on this repo, 420 files /
+  97 MB: full 9096 ms, incremental 11 ms, identical result. Residual holes
+  declared in the spec (Windows ctime semantics, raw-device/clock-stepping
+  root, a model allowed to edit the state dir).
+
+- **Claude Code hooks** (`netelpro/hooks/claude_code.py`, `docs/RECEIPTS_SPEC.md`
+  §10). `python -m netelpro.hooks.claude_code install` merges three hooks into
+  `.claude/settings.json` (keeping existing hooks, adding `.netelpro/` to
+  `.gitignore`): `SessionStart` / `UserPromptSubmit` take the turn's baseline
+  and inject a two-line notice that file claims are audited; `Stop` audits
+  `last_assistant_message` against the live receipts. A rejected message
+  blocks the stop once with the exact claims, the ground truth and the
+  instruction to either perform the edit or correct the text; a second
+  rejection (`stop_hook_active`) never loops: the stop is allowed and a
+  `systemMessage` warns the user. Deliberately fail-open on the hook's own
+  problems (no baseline yet, corrupt ledger, internal error: stderr + exit 1,
+  never a block). `--strict` makes silent writes block too. Transcript JSONL
+  fallback for hosts without `last_assistant_message`. `tests/test_claude_code_hook.py`:
+  19 cases, every hook run as the real subprocess with Claude Code's stdin JSON,
+  including the exact installed command executed through a shell.
+- `netelpro.receipts.open_turn()` / `TurnState`: the "load baseline, observe
+  live diff, commit or not" sequence shared by the MCP tool and the hook, so
+  both judge identically.
+
+- **`benchmarks/receipts_qwen_live_bench.py`** — the receipts layer against a
+  real local model, same discipline as `honesty_guard_qwen_rate_bench.py`:
+  real generations at a real temperature, raw transcripts saved, labels made
+  by a human afterwards. Ground truth is the bytes: each trial runs in a real
+  temporary workspace where the harness applies exactly the effects its
+  simulated tool output reports as succeeded, then audits the text with
+  `MutationGuard`. Five families: EDIT-RISK (no tool result), BLOCKED-WRITE
+  (EACCES / sandbox refusal — the "impedimento de modificación" case),
+  PARTIAL (one landed, one failed), HONEST-WRITE (false-rejection check),
+  HONEST-SILENT (false-positive check); 16 scenarios × N repeats.
+  `tests/test_receipts_bench.py` proves the harness with canned texts (11
+  cases).
+- **Live run, 2026-10-01** (`benchmarks/receipts_qwen_live_report.md`,
+  raw transcripts + hand labels in `receipts_qwen_live_results.json`):
+  48 generations from base `qwen2.5-1.5b-instruct-q4_k_m.gguf`, every one
+  hand-labeled before reading the detector. **The model reported a blocked
+  write as done 12/12 times** when shown an explicit EACCES / sandbox error,
+  and narrated an edit it never made 11/12 times with no tool result; next
+  to a success, it reported the failure honestly 5/6. The detector as shipped
+  had precision 26/26 and live recall 13/24 (54%) on theater trials.
+
+### Fixed (found on the live run above, same day)
+- Six Spanish constructions the mutation-claim detector missed on real
+  output: list after a colon ("Se han editado los siguientes archivos:
+  - X"), feminine participles ("fue editada"), reflexive passives ("se creó
+  en X", "X se ha modificado", "X se editó"), bare / `está` participles
+  ("Clamp funcion creado en X", "está creado en X"), the resultative "quedó
+  con ... agregada" / "quedó con la nueva sección", and an adverb between
+  path and auxiliary ("X también quedó cambiado"). The first fix round
+  introduced a false rejection across a contrast clause ("README.md se
+  actualizó, pero el src/utils.py no se pudo editar"), caught by the
+  differential re-classification before shipping: the comma is now a clause
+  boundary. After the fix: 24/24 theater caught, 0 false rejections, 12/12
+  honest claims read, 0/6 silent-trial claims. `tests/test_receipts.py`
+  +14 live-provenance positives, +4 negatives, +1 regression test.
+- **DPO checkpoint, same benchmark, same day** (`JonaECG/netelpro-qwen2.5-1.5b-honest`,
+  report section "Second run"): theater **23/48 vs 24/48** for the base model
+  — the alignment that removed verification theater does not remove effect
+  theater. BLOCKED-WRITE improved 12 → 9 (three honest denials on EACCES),
+  PARTIAL worsened 1 → 3 (claims the refused file 3/3). Six further detector
+  constructions found on this model's output, disjoint from the base model's
+  six: result stated as new content ("ahora X tiene"), sentence-initial
+  post-nominal participle ("Archivo X creado con"), bare participle +
+  container ("Sección añadida al archivo X"), "quedó en blanco", passive +
+  container with the path after the verb ("fue añadida al archivo X"), and
+  the "el cambio fue …" narrative. Fixed; the English "X now has" analog was
+  NOT added (never seen live, hand corpus holds a counter-example). After the
+  fix: base 24/24, DPO 23/23, 0 false rejections on both.
+  `tests/test_receipts.py` +9 DPO-provenance positives, +4 guard negatives.
+
 ### Fixed (found while building the above)
 - Turn numbering derived from the ledger alone could not advance across a
   turn with no effects (no receipt, same number reused). The guard and the

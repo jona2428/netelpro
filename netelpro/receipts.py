@@ -67,12 +67,13 @@ import hashlib
 import json
 import os
 import re
+import stat as statmod
 import sys
 import time
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from netelpro.gate import Gate
 
@@ -89,18 +90,22 @@ __all__ = [
     "KIND_NONE",
     "KIND_WRITTEN",
     "RULE_PATH",
+    "TurnState",
     "ClaimVerdict",
     "LedgerError",
     "MutationAudit",
     "MutationClaim",
     "MutationGuard",
     "MutationTheaterError",
+    "RACY_WINDOW_NS",
     "Receipt",
     "ReceiptLedger",
+    "Snapshot",
     "detect_mutation_claims",
     "diff_snapshots",
     "load_snapshot",
     "main",
+    "open_turn",
     "save_snapshot",
     "snapshot",
 ]
@@ -153,8 +158,44 @@ _UNREADABLE = "!unreadable"
 
 
 # ---------------------------------------------------------------------------
-# 1. Snapshot: the workspace as a map path -> sha256
+# 1. Snapshot: the workspace as a map path -> sha256, with an incremental
+#    fast path keyed on the stat signature each hash was taken under
 # ---------------------------------------------------------------------------
+
+# A file whose mtime or ctime falls within this window of the cached
+# snapshot's start time is re-hashed even when its signature matches: the
+# classic "racy" case (git has the same rule) where a write lands inside
+# the same timestamp tick as the hash and leaves the signature unchanged.
+RACY_WINDOW_NS = 2_000_000_000
+
+StatSig = tuple[int, int, int, int]  # (size, mtime_ns, ctime_ns, inode)
+
+
+class Snapshot(dict[str, str]):
+    """{posix relative path: sha256}, plus per-path `stats` (the StatSig the
+    hash was taken under), `taken_ns` (when the walk started) and the
+    `hashed` / `reused` counts of this take. A plain dict works everywhere a
+    Snapshot is accepted; it just carries no stats, so nothing is reused."""
+
+    __slots__ = ("stats", "taken_ns", "hashed", "reused")
+
+    def __init__(
+        self,
+        hashes: Mapping[str, str] | None = None,
+        stats: Mapping[str, Sequence[int]] | None = None,
+        taken_ns: int = 0,
+        hashed: int = 0,
+        reused: int = 0,
+    ) -> None:
+        super().__init__(hashes or {})
+        self.stats: dict[str, StatSig] = {k: tuple(v) for k, v in (stats or {}).items()}  # type: ignore[misc]
+        self.taken_ns = taken_ns
+        self.hashed = hashed
+        self.reused = reused
+
+    @classmethod
+    def of(cls, files: Mapping[str, str]) -> Snapshot:
+        return files if isinstance(files, Snapshot) else cls(files)
 
 
 def _sha256_file(path: Path) -> str:
@@ -174,27 +215,67 @@ def _ignored(name: str, patterns: Sequence[str]) -> bool:
     return any(fnmatch(name, pat) for pat in patterns)
 
 
-def snapshot(root: str | Path, ignore: Sequence[str] = DEFAULT_IGNORE) -> dict[str, str]:
+def snapshot(
+    root: str | Path,
+    ignore: Sequence[str] = DEFAULT_IGNORE,
+    cache: Mapping[str, str] | None = None,
+) -> Snapshot:
     """Hash every regular file under `root` (recursively).
 
-    Returns {posix relative path: sha256 hex}. Directory symlinks are not
-    followed; file symlinks hash their target's content. Cost is linear in
-    the bytes under `root` -- see docs/RECEIPTS_SPEC.md for the incremental
-    fast path left as an open hole.
+    Directory symlinks are not followed; file symlinks hash their target's
+    content. With `cache` (a previous Snapshot of the same root) a file is
+    NOT re-read when all of these hold, and its cached hash is reused:
+
+      * its StatSig (size, mtime_ns, ctime_ns, inode) equals the cached one;
+      * its mtime and ctime are both older than the cached take minus
+        RACY_WINDOW_NS (a write inside the tick is never trusted);
+      * the cached hash is a real digest, not the unreadable sentinel.
+
+    Why ctime and inode, not just size+mtime: an agent with a shell can
+    forge mtime (`touch -d`, os.utime) after a same-size edit. ctime is set
+    by the kernel on every inode change, utime included, and cannot be
+    chosen from user space on Linux/macOS; a rename-over gets a new inode.
+    Residual holes, declared: Windows (st_ctime is creation time there),
+    a root that writes the raw device or steps the clock, and a cache the
+    caller lets the model edit. Pass cache=None for a full re-hash.
+    Cost without a cache is linear in the bytes under `root`; with one it
+    is linear in the number of files (one stat each) plus the changed bytes.
     """
     base = Path(root).resolve()
     if not base.is_dir():
         raise LedgerError(f"snapshot root is not a directory: {base}")
-    out: dict[str, str] = {}
+    taken_ns = time.time_ns()
+    cache_stats: Mapping[str, StatSig] = getattr(cache, "stats", None) or {}
+    trust_before = int(getattr(cache, "taken_ns", 0)) - RACY_WINDOW_NS
+    out = Snapshot(taken_ns=taken_ns)
     for dirpath, dirnames, filenames in os.walk(base):
         dirnames[:] = sorted(d for d in dirnames if not _ignored(d, ignore))
         for fn in sorted(filenames):
             if _ignored(fn, ignore):
                 continue
             p = Path(dirpath) / fn
-            if not p.is_file():
-                continue  # sockets, fifos, broken symlinks
-            out[p.relative_to(base).as_posix()] = _sha256_file(p)
+            try:
+                st = p.stat()
+            except OSError:
+                continue  # broken symlink, vanished mid-walk
+            if not statmod.S_ISREG(st.st_mode):
+                continue  # sockets, fifos
+            rel = p.relative_to(base).as_posix()
+            sig: StatSig = (st.st_size, st.st_mtime_ns, st.st_ctime_ns, st.st_ino)
+            cached = cache.get(rel) if cache is not None else None
+            if (
+                cached is not None
+                and cached != _UNREADABLE
+                and cache_stats.get(rel) == sig
+                and st.st_mtime_ns < trust_before
+                and st.st_ctime_ns < trust_before
+            ):
+                out[rel] = cached
+                out.reused += 1
+            else:
+                out[rel] = _sha256_file(p)
+                out.hashed += 1
+            out.stats[rel] = sig
     return out
 
 
@@ -449,20 +530,32 @@ _PATH_ONLY = re.compile(_PATH_RE)
 # past / perfective / participle: completed effects. Infinitives,
 # imperatives and progressives ("modificar", "update", "updating") are
 # deliberately absent -- they do not assert that anything happened.
+# Participle endings: gender and number ("fue editada", "quedaron cambiados").
+_P = r"[oa]s?"
+# Forms found in live Qwen2.5 generation (benchmarks/receipts_qwen_live_report.md,
+# 2026-10-01), not hand-written: reflexive passive ("se creó en X", "X se ha
+# modificado"), bare / "está" participles ("Clamp funcion creado en X",
+# "está creado en X"), feminine participles ("fue editada").
+# Auxiliaries that may precede a participle when the path FOLLOWS the verb:
+# "fue añadida al archivo X", "ha sido corregido en X", "está creado en X"
+# (DPO live run, 2026-10-01). Bare participles ("Sección 'Uso' añadida al
+# archivo X") are claims unless an article + noun precede them (see
+# _ADJECTIVAL_PRECEDER).
+_AUX = r"(?:(?:se\s+)?(?:he|hemos|ha|han)\s+|(?:fue|fueron|ha\s+sido|han\s+sido|est[áa]n?|quedan?|qued[oó]|quedaron)\s+)?"
 _ES_VERB_CLASSES: list[tuple[int, str]] = [
-    (KIND_CREATED, r"cre[eé]|(?:he|hemos|ha|han)\s+creado"),
-    (KIND_DELETED, r"elimin[eé]|borr[eé]|quit[eé]|(?:he|hemos|ha|han)\s+(?:eliminado|borrado|quitado)"),
+    (KIND_CREATED, rf"cre[eéoó]|{_AUX}cread{_P}"),
+    (KIND_DELETED, rf"elimin[eéoó]|borr[eéoó]|quit[eéoó]|{_AUX}(?:eliminad|borrad|quitad){_P}"),
     (
         KIND_MODIFIED,
-        r"modifiqu[eé]|actualic[eé]|edit[eé]|cambi[eé]|correg[ií]|arregl[eé]|parche[eé]|"
-        r"reescrib[ií]|ajust[eé]|refactoric[eé]|"
-        r"(?:he|hemos|ha|han)\s+(?:modificado|actualizado|editado|cambiado|corregido|"
-        r"arreglado|parcheado|reescrito|ajustado|refactorizado)",
+        rf"modifiqu[eé]|modific[oó]|actualic[eé]|actualiz[oó]|edit[eéoó]|cambi[eéoó]|correg[ií]|corrigi[oó]|"
+        rf"arregl[eéoó]|parche[eéoó]|reescrib[ií]|reescribi[oó]|ajust[eéoó]|refactoric[eé]|refactoriz[oó]|"
+        rf"{_AUX}(?:modificad|actualizad|editad|cambiad|corregid|arreglad|parchead|ajustad|refactorizad){_P}|"
+        rf"{_AUX}reescrito",
     ),
     (
         KIND_WRITTEN,
-        r"escrib[ií]|guard[eé]|agregu[eé]|añad[ií]|gener[eé]|"
-        r"(?:he|hemos|ha|han)\s+(?:escrito|guardado|agregado|añadido|generado)",
+        rf"escrib[ií]|escribi[oó]|guard[eéoó]|agregu[eé]|agreg[oó]|añad[ií]|añadi[oó]|gener[eéoó]|"
+        rf"{_AUX}(?:guardad|agregad|añadid|generad){_P}|{_AUX}escrito",
     ),
 ]
 _EN_VERB_CLASSES: list[tuple[int, str]] = [
@@ -479,8 +572,12 @@ _EN_VERB_CLASSES: list[tuple[int, str]] = [
 _ES_SUBJECT = r"(?:ya\s+)?"
 _EN_SUBJECT = r"(?:(?:I|we)(?:'ve|\s+have|\s+just|\s+also)?\s+|I've\s+|we've\s+)?"
 # Up to 60 chars of filler between the verb and the path, never crossing a
-# sentence / clause boundary.
-_FILLER = r"(?P<filler>[^.;:\n¿?!]{0,60}?)"
+# sentence / clause boundary. The comma is a boundary too: "README.md se
+# actualizó con la sección, pero el src/utils.py no se pudo editar" must not
+# bind "actualizó" to utils.py (false rejection found on live output,
+# PARTIAL family, 2026-10-01).
+_FILLER = r"(?P<filler>[^.;:,\n¿?!]{0,60}?)"
+_FILLER_CONTRAST = re.compile(r"\b(?:pero|sino|aunque|mientras|but|however|although|while|whereas)\b", re.IGNORECASE)
 
 
 def _active_pattern(subject: str, classes: list[tuple[int, str]]) -> re.Pattern[str]:
@@ -496,14 +593,14 @@ _ACTIVE_PATTERNS: list[tuple[re.Pattern[str], list[tuple[int, str]]]] = [
 # Passive / resultative: the path comes first. "`a.py` has been updated",
 # "el archivo a.py fue modificado", "a.py quedó actualizado".
 _ES_PASSIVE_CLASSES: list[tuple[int, str]] = [
-    (KIND_CREATED, r"creado"),
-    (KIND_DELETED, r"eliminado|borrado|quitado"),
+    (KIND_CREATED, rf"cread{_P}|cre[oó]"),
+    (KIND_DELETED, rf"(?:eliminad|borrad|quitad){_P}|elimin[oó]|borr[oó]|quit[oó]"),
     (
         KIND_MODIFIED,
-        r"modificado|actualizado|editado|cambiado|corregido|arreglado|parcheado|reescrito|"
-        r"ajustado|refactorizado",
+        rf"(?:modificad|actualizad|editad|cambiad|corregid|arreglad|parchead|ajustad|refactorizad){_P}|reescrito|"
+        rf"modific[oó]|actualiz[oó]|edit[oó]|cambi[oó]|corrigi[oó]|arregl[oó]|parche[oó]|reescribi[oó]|ajust[oó]|refactoriz[oó]",
     ),
-    (KIND_WRITTEN, r"escrito|guardado|generado|agregado|añadido"),
+    (KIND_WRITTEN, rf"(?:guardad|agregad|añadid|generad){_P}|escrito|escribi[oó]|guard[oó]|agreg[oó]|añadi[oó]|gener[oó]"),
 ]
 _EN_PASSIVE_CLASSES: list[tuple[int, str]] = [
     (KIND_CREATED, r"created"),
@@ -516,19 +613,95 @@ _EN_PASSIVE_CLASSES: list[tuple[int, str]] = [
 ]
 
 
+# "config/settings.py también quedó cambiado": an adverb may sit between the
+# path and the auxiliary (live finding, PARTIAL family).
+_ADVERB = r"(?:\s+(?:también|tambien|ya|ahora|finalmente|efectivamente|igualmente|also|now|already))?"
+
+
 def _passive_pattern(aux: str, classes: list[tuple[int, str]]) -> re.Pattern[str]:
     verbs = "|".join(rx for _, rx in classes)
-    return re.compile(rf"{_PATH_RE}\s+(?:{aux})\s+(?P<verb>{verbs})\b", re.IGNORECASE)
+    return re.compile(rf"{_PATH_RE}{_ADVERB}\s+(?:{aux})\s+(?P<verb>{verbs})\b", re.IGNORECASE)
 
 
 _PASSIVE_PATTERNS: list[tuple[re.Pattern[str], list[tuple[int, str]]]] = [
     (
-        _passive_pattern(r"fue|fueron|ha\s+sido|han\s+sido|qued[oó]|quedaron|ya\s+est[áa]n?|est[áa]n?\s+ahora", _ES_PASSIVE_CLASSES),
+        _passive_pattern(
+            r"fue|fueron|ha\s+sido|han\s+sido|qued[oó]|quedaron|quedan?|ya\s+est[áa]n?|est[áa]n?\s+ahora|est[áa]n?|"
+            r"se\s+ha|se\s+han|se",
+            _ES_PASSIVE_CLASSES,
+        ),
         _ES_PASSIVE_CLASSES,
     ),
     (
         _passive_pattern(r"has\s+been|have\s+been|was|were|is\s+now|are\s+now", _EN_PASSIVE_CLASSES),
         _EN_PASSIVE_CLASSES,
+    ),
+]
+
+# "README.md quedó con la sección 'Uso' agregada" / "quedó con la nueva
+# sección": a resultative that asserts new content without naming a verb of
+# change. Modified, unless the clause says the content is unchanged.
+_RESULTATIVE_CON = re.compile(
+    rf"{_PATH_RE}{_ADVERB}\s+(?P<verb>qued[oó]|quedaron|quedan?)\s+con\s+"
+    r"(?![^.;\n]{0,40}\b(?:mism[oa]s?|igual|sin\s+cambios|intact[oa]s?|idéntic[oa]s?)\b)",
+    re.IGNORECASE,
+)
+
+# "config/settings.py quedó en blanco": emptied is a modification (DPO live run).
+_RESULTATIVE_STATE = re.compile(
+    rf"{_PATH_RE}{_ADVERB}\s+(?P<verb>qued[oó]|quedaron|quedan?|est[áa]n?\s+ahora|ahora\s+est[áa]n?)\s+"
+    r"(?:en\s+blanco|vac[ií][oa]s?|limpi[oa]s?)\b",
+    re.IGNORECASE,
+)
+
+# "Archivo src/utils.py creado con la función clamp()": a telegraphic,
+# sentence-initial result with the participle AFTER the path and no article.
+# "El archivo X creado por el usuario ..." (article) stays a description.
+_POSTNOMINAL = re.compile(
+    rf"(?:^|[.!?\n]\s*)(?:archivo\s+|fichero\s+|file\s+)?{_PATH_RE}\s+(?P<verb>(?:cread|modificad|actualizad|editad|"
+    rf"cambiad|corregid|arreglad|eliminad|borrad|agregad|añadid|guardad|generad){_P}|created|modified|updated|"
+    r"edited|changed|fixed|deleted|removed|added|written|saved)\b",
+    re.IGNORECASE,
+)
+
+# "Ahora tu archivo config/settings.py tiene DEBUG = True": a result stated as
+# the file's new content. Only with "ahora" -- "X ya tiene esa función" is a
+# reason NOT to edit, never a claim. Spanish only: the English analog ("X now
+# has") was never seen live and the hand corpus holds a counter-example
+# ("The updated config.py now has the flag", a description).
+_NOW_HAS = re.compile(
+    rf"(?:\bahora\s+(?:tu\s+|el\s+|la\s+)?(?:archivo\s+|fichero\s+)?{_PATH_RE}\s+(?P<verb>tiene|contiene|incluye)\b"
+    rf"|{_PATH_RE.replace('(?P<path>', '(?P<path2>')}\s+(?P<verb2>ahora\s+(?:tiene|contiene|incluye))\b)",
+    re.IGNORECASE,
+)
+
+# "En el archivo src/utils.py, el cambio fue crear una función": the change is
+# narrated as an event in the file (DPO live run).
+_CHANGE_NARRATIVE = re.compile(
+    rf"(?:en\s+|in\s+)?(?:el\s+archivo\s+|the\s+file\s+)?{_PATH_RE}[,:]?\s+(?:el\s+|the\s+)?(?P<verb>cambio\s+(?:fue|es|consisti[oó]\s+en)|change\s+(?:was|is))\b",
+    re.IGNORECASE,
+)
+
+# "Se han editado los siguientes archivos:\n- config/settings.py": the verb,
+# a colon, then one path per bullet line (live finding, EDIT-RISK family).
+_LIST_HEAD = re.compile(
+    r"(?P<verb>(?:se\s+)?(?:he|hemos|ha|han)\s+(?:cread|eliminad|borrad|modificad|actualizad|editad|cambiad|"
+    r"corregid|arreglad|guardad|agregad|añadid|generad)[oa]s?|(?:I\s+|we\s+)?(?:created|deleted|removed|"
+    r"modified|updated|edited|changed|wrote|added|generated))\b[^\n:]{0,60}:\s*\n",
+    re.IGNORECASE,
+)
+_LIST_ITEM = re.compile(rf"^[ \t]*(?:[-*•]|\d+[.)])[ \t]*{_PATH_RE}", re.IGNORECASE | re.MULTILINE)
+_LIST_KIND: list[tuple[int, str]] = [
+    (KIND_CREATED, r"(?:se\s+)?(?:he|hemos|ha|han)\s+cread[oa]s?|(?:I\s+|we\s+)?created"),
+    (KIND_DELETED, r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:eliminad|borrad)[oa]s?|(?:I\s+|we\s+)?(?:deleted|removed)"),
+    (
+        KIND_MODIFIED,
+        r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:modificad|actualizad|editad|cambiad|corregid|arreglad)[oa]s?|"
+        r"(?:I\s+|we\s+)?(?:modified|updated|edited|changed)",
+    ),
+    (
+        KIND_WRITTEN,
+        r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:guardad|agregad|añadid|generad)[oa]s?|(?:I\s+|we\s+)?(?:wrote|added|generated)",
     ),
 ]
 
@@ -546,7 +719,11 @@ _CONTAINER_PREP = re.compile(
 # "the updated config.py", "el archivo creado x.py".
 _ADJECTIVAL_PRECEDER = re.compile(
     r"\b(?:the|a|an|this|that|newly|recently|already|el|la|un|una|los|las|este|esta|ese|esa|"
-    r"reci[eé]n|archivo|fichero|file)\s*$",
+    r"reci[eé]n|archivo|fichero|file)\s*$"
+    # "la función creada en X", "el módulo modificado en X": article + noun +
+    # participle is a description, not a claim. "Clamp funcion creado en X"
+    # (no article, live Qwen output) stays a claim.
+    r"|\b(?:el|la|los|las|un|una|unos|unas|the|a|an)\s+[\w()]+\s*$",
     re.IGNORECASE,
 )
 
@@ -648,6 +825,8 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
                 continue
             if _is_url(text, m.start("path")):
                 continue
+            if _FILLER_CONTRAST.search(m.group("filler")):
+                continue  # the path belongs to the contrasting clause
             kind = _kind_of(m.group("verb"), classes)
             if _CONTAINER_PREP.search(m.group("filler")):
                 kind = KIND_WRITTEN
@@ -669,6 +848,56 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
             if _is_url(text, m.start("path")):
                 continue
             add(m.group("path"), _kind_of(m.group("verb"), classes), m.group("verb"), (m.start(), m.end()))
+
+    for m in _RESULTATIVE_CON.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+            continue
+        add(m.group("path"), KIND_MODIFIED, m.group("verb"), (m.start(), m.end()))
+
+    for pattern, kind in ((_RESULTATIVE_STATE, KIND_MODIFIED), (_CHANGE_NARRATIVE, KIND_WRITTEN)):
+        for m in pattern.finditer(text):
+            v0 = m.start("verb")
+            if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+                continue
+            add(m.group("path"), kind, m.group("verb"), (m.start(), m.end()))
+
+    for m in _POSTNOMINAL.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+            continue
+        verb = m.group("verb")
+        classes = _ES_PASSIVE_CLASSES if re.search(r"[oa]s?$", verb, re.IGNORECASE) and not verb.lower().endswith("ed") else _EN_PASSIVE_CLASSES
+        try:
+            kind = _kind_of(verb, classes)
+        except ValueError:
+            kind = _kind_of(verb, _EN_PASSIVE_CLASSES)
+        add(m.group("path"), kind, verb, (m.start(), m.end()))
+
+    for m in _NOW_HAS.finditer(text):
+        path = m.group("path") or m.group("path2")
+        verb = m.group("verb") or m.group("verb2")
+        v0 = m.start("verb") if m.group("verb") else m.start("verb2")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path") if m.group("path") else m.start("path2")):
+            continue
+        add(path, KIND_MODIFIED, verb, (m.start(), m.end()))
+
+    for m in _LIST_HEAD.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0):
+            continue
+        kind = _kind_of(m.group("verb"), _LIST_KIND)
+        pos = m.end()
+        while True:
+            item = _LIST_ITEM.match(text, pos)
+            if not item:
+                break
+            if not _is_url(text, item.start("path")):
+                add(item.group("path"), kind, m.group("verb"), (m.start(), item.end()))
+            nl = text.find("\n", item.end())
+            if nl == -1:
+                break
+            pos = nl + 1
 
     claims.sort(key=lambda c: c.span)
     return claims
@@ -743,14 +972,18 @@ class MutationGuard:
         rule_path: str | Path = RULE_PATH,
         ignore: Sequence[str] = DEFAULT_IGNORE,
         strict: bool = False,
+        incremental: bool = True,
     ) -> None:
         self.root = Path(root).resolve()
         self.ledger = ledger if ledger is not None else ReceiptLedger()
         self.ignore = tuple(ignore)
         self.strict = strict
+        # incremental=False re-reads every byte on every snapshot (the
+        # paranoid setting, see snapshot() for the trust model).
+        self.incremental = incremental
         self._gate = Gate(rule_path)
-        self._before: dict[str, str] | None = None
-        self._after: dict[str, str] | None = None
+        self._before: Snapshot | None = None
+        self._after: Snapshot | None = None
         self._turn: int | None = None
         self._open = False
 
@@ -759,12 +992,28 @@ class MutationGuard:
     def turn(self) -> int | None:
         return self._turn
 
-    def begin(self, baseline: dict[str, str] | None = None, *, turn: int | None = None) -> int:
+    @property
+    def before(self) -> Snapshot | None:
+        """Baseline of the current/last turn."""
+        return self._before
+
+    @property
+    def after(self) -> Snapshot | None:
+        """Snapshot taken by the last end() (or adopted from disk)."""
+        return self._after
+
+    def _snapshot(self, cache: Snapshot | None) -> Snapshot:
+        return snapshot(self.root, self.ignore, cache=cache if self.incremental else None)
+
+    def begin(self, baseline: Mapping[str, str] | None = None, *, turn: int | None = None) -> int:
         """Start a turn: snapshot the workspace (or adopt `baseline`).
         Returns the turn number: `turn` if given (a harness that numbers
         turns itself, e.g. the CLI's snapshot.json), else ledger's latest
-        + 1."""
-        self._before = snapshot(self.root, self.ignore) if baseline is None else dict(baseline)
+        + 1. The previous turn's last snapshot serves as the hash cache."""
+        if baseline is None:
+            self._before = self._snapshot(self._after or self._before)
+        else:
+            self._before = Snapshot.of(baseline)
         self._after = None
         # A turn with no effects leaves no receipt, so the ledger alone
         # cannot number turns: the guard's own counter advances too.
@@ -777,15 +1026,15 @@ class MutationGuard:
         receipts. The new snapshot becomes the next turn's baseline."""
         if self._before is None or self._turn is None:
             raise LedgerError("end() called before begin()")
-        self._after = snapshot(self.root, self.ignore)
+        self._after = self._snapshot(self._before)
         receipts = self.ledger.record_diff(self._before, self._after, turn=self._turn)
         self._open = False
         return receipts
 
-    def adopt_snapshot(self, files: dict[str, str]) -> None:
+    def adopt_snapshot(self, files: Mapping[str, str]) -> None:
         """For a guard rebuilt from disk: the workspace as of the latest
         end(), so audit reasons can say whether a claimed path exists."""
-        self._after = dict(files)
+        self._after = Snapshot.of(files)
 
     # -- read path: ground truth for the model, never recall -------------
     def ground_truth(self, turn: int | None = None) -> str:
@@ -928,21 +1177,96 @@ def _state_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
     return root, state / SNAPSHOT_FILE, state / LEDGER_FILE
 
 
-def load_snapshot(path: Path) -> tuple[int, dict[str, str]] | None:
-    """(turn, files) from a snapshot.json written by `begin`, or None when
-    there is none. A corrupt file is a LedgerError, never an empty baseline."""
+def load_snapshot(path: Path) -> tuple[int, Snapshot] | None:
+    """(turn, snapshot) from a snapshot.json written by `begin`, or None when
+    there is none. A corrupt file is a LedgerError, never an empty baseline.
+    A file without `stats` (pre-fast-path format) loads as a full baseline
+    that reuses nothing."""
     if not path.exists():
         return None
     try:
         d = json.loads(path.read_text(encoding="utf-8"))
-        return int(d["turn"]), dict(d["files"])
+        files = dict(d["files"])
+        stats = {k: tuple(int(x) for x in v) for k, v in dict(d.get("stats", {})).items()}
+        if any(len(v) != 4 for v in stats.values()):
+            raise ValueError("stat signature must have 4 fields")
+        return int(d["turn"]), Snapshot(files, stats, int(d.get("taken_ns", 0)))
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
         raise LedgerError(f"{path}: unreadable snapshot: {e}") from e
 
 
-def save_snapshot(path: Path, turn: int, files: dict[str, str]) -> None:
+def save_snapshot(path: Path, turn: int, files: Mapping[str, str]) -> None:
+    snap = Snapshot.of(files)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"turn": turn, "files": files}, ensure_ascii=False), encoding="utf-8")
+    payload = {
+        "turn": turn,
+        "taken_ns": snap.taken_ns,
+        "files": dict(snap),
+        "stats": {k: list(v) for k, v in snap.stats.items()},
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _take_summary(snap: Snapshot) -> str:
+    return f"{len(snap)} files ({snap.hashed} hashed, {snap.reused} reused from cache)"
+
+
+@dataclass
+class TurnState:
+    """A turn opened from the on-disk state of a root (`open_turn`): the
+    guard already holds the baseline, the receipts of the live diff are in
+    the guard's in-memory ledger and nothing has been written to disk.
+    `commit()` persists the ledger and advances the on-disk baseline; a
+    turn that is never committed leaves the state exactly as found."""
+
+    root: Path
+    turn: int
+    guard: MutationGuard
+    snapshot_path: Path
+    ledger_path: Path
+    baseline_existed: bool
+
+    def commit(self) -> list[Receipt]:
+        after = self.guard.after
+        if after is None:  # pragma: no cover -- open_turn always ends the turn
+            raise LedgerError("commit() on a turn that was never observed")
+        self.guard.ledger.save(self.ledger_path)
+        save_snapshot(self.snapshot_path, self.turn, after)
+        return self.guard.ledger.for_turn(self.turn)
+
+
+def open_turn(
+    root: str | Path,
+    *,
+    state_dir: str | Path | None = None,
+    strict: bool = False,
+    incremental: bool = True,
+    take_baseline_if_missing: bool = False,
+) -> TurnState:
+    """Load `<state>/snapshot.json` + `receipts.jsonl`, begin a guard on that
+    baseline and observe the live diff (receipts in memory only). Shared by
+    the MCP tool and the Claude Code hook so both judge the same way.
+
+    Without a baseline: raise LedgerError, or with `take_baseline_if_missing`
+    hash the root now (an empty turn) so the NEXT turn has one.
+    """
+    base = Path(root).resolve()
+    state = Path(state_dir) if state_dir else base / STATE_DIR
+    snap_path, ledger_path = state / SNAPSHOT_FILE, state / LEDGER_FILE
+    ledger = ReceiptLedger.load(ledger_path)
+    loaded = load_snapshot(snap_path)
+    existed = loaded is not None
+    if loaded is None:
+        if not take_baseline_if_missing:
+            raise LedgerError(f"no baseline snapshot under {state}: run `begin` first")
+        turn = (ledger.latest_turn or 0) + 1
+        baseline = snapshot(base, DEFAULT_IGNORE)
+    else:
+        turn, baseline = loaded
+    guard = MutationGuard(base, ledger=ledger, strict=strict, incremental=incremental)
+    guard.begin(baseline, turn=turn)
+    guard.end()
+    return TurnState(base, turn, guard, snap_path, ledger_path, existed)
 
 
 def _cmd_begin(args: argparse.Namespace) -> int:
@@ -950,9 +1274,9 @@ def _cmd_begin(args: argparse.Namespace) -> int:
     ledger = ReceiptLedger.load(ledger_path)
     previous = load_snapshot(snap_path)
     turn = max(ledger.latest_turn or 0, previous[0] if previous else 0) + 1
-    files = snapshot(root, DEFAULT_IGNORE)
+    files = snapshot(root, DEFAULT_IGNORE, cache=None if args.full else (previous[1] if previous else None))
     save_snapshot(snap_path, turn, files)
-    print(f"turn {turn}: baseline of {len(files)} files hashed under {root}")
+    print(f"turn {turn}: baseline of {_take_summary(files)} under {root}")
     return 0
 
 
@@ -964,11 +1288,11 @@ def _cmd_end(args: argparse.Namespace) -> int:
         return 1
     turn, before = loaded
     ledger = ReceiptLedger.load(ledger_path)
-    after = snapshot(root, DEFAULT_IGNORE)
+    after = snapshot(root, DEFAULT_IGNORE, cache=None if args.full else before)
     receipts = ledger.record_diff(before, after, turn=turn)
     ledger.save(ledger_path)
     save_snapshot(snap_path, turn, after)
-    print(f"turn {turn}: {len(receipts)} receipt(s) recorded, chain head {ledger.head[:12]}")
+    print(f"turn {turn}: {len(receipts)} receipt(s) recorded, chain head {ledger.head[:12]}; {_take_summary(after)}")
     for r in receipts:
         print("  " + r.short())
     return 0
@@ -1040,6 +1364,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--root", default=".", help="workspace root (default: cwd)")
     parser.add_argument("--state", default=None, help=f"state dir (default: <root>/{STATE_DIR})")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="re-read every byte instead of reusing hashes of files whose stat signature is unchanged",
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("begin", help="hash the workspace as this turn's baseline").set_defaults(fn=_cmd_begin)
     sub.add_parser("end", help="hash again, record receipts for every changed path").set_defaults(fn=_cmd_end)

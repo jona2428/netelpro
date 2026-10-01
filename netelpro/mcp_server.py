@@ -1674,32 +1674,17 @@ def tool_receipts(action: str = "show", text: str = "", strict: bool = False) ->
     if err is not None:
         return err
 
-    from netelpro.receipts import (
-        LEDGER_FILE,
-        SNAPSHOT_FILE,
-        STATE_DIR,
-        LedgerError,
-        MutationGuard,
-        ReceiptLedger,
-        load_snapshot,
-    )
+    from netelpro.receipts import LedgerError, open_turn
 
     base = Path(root)
-    state = base / STATE_DIR
     try:
-        loaded = load_snapshot(state / SNAPSHOT_FILE)
-        if loaded is None:  # pragma: no cover -- ensure_baseline just wrote it
-            return _receipts_error("baseline snapshot missing after initialisation")
-        turn, baseline = loaded
-        # In-memory ledger: committed turns are visible, this turn's receipts
-        # are computed live and never saved from here.
-        guard = MutationGuard(base, ledger=ReceiptLedger.load(state / LEDGER_FILE), strict=bool(strict))
-        guard.begin(baseline, turn=turn)
-        receipts = guard.end()
+        # Live diff against the persisted baseline; receipts stay in memory,
+        # nothing is committed from here (turn boundaries are the harness's).
+        state = open_turn(base, strict=bool(strict))
     except LedgerError as e:
         return _receipts_error(str(e))
-
-    effects = [r.to_dict() for r in receipts]
+    guard, turn = state.guard, state.turn
+    effects = [r.to_dict() for r in guard.ledger.for_turn(turn)]
     if action == "show":
         return {
             "ok": True,

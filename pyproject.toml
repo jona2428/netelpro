@@ -28,6 +28,7 @@ Repository = "https://github.com/jona2428/netelpro"
 netelpro = "netelpro.__main__:main"
 netelpro-mcp = "netelpro.mcp_server:main"
 netelpro-receipts = "netelpro.receipts:main"
+netelpro-claude-hook = "netelpro.hooks.claude_code:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "numpy>=1.26", "torch>=2.2", "tokenizers>=0.19"]
