@@ -67,12 +67,13 @@ import hashlib
 import json
 import os
 import re
+import stat as statmod
 import sys
 import time
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from netelpro.gate import Gate
 
@@ -95,8 +96,10 @@ __all__ = [
     "MutationClaim",
     "MutationGuard",
     "MutationTheaterError",
+    "RACY_WINDOW_NS",
     "Receipt",
     "ReceiptLedger",
+    "Snapshot",
     "detect_mutation_claims",
     "diff_snapshots",
     "load_snapshot",
@@ -153,8 +156,44 @@ _UNREADABLE = "!unreadable"
 
 
 # ---------------------------------------------------------------------------
-# 1. Snapshot: the workspace as a map path -> sha256
+# 1. Snapshot: the workspace as a map path -> sha256, with an incremental
+#    fast path keyed on the stat signature each hash was taken under
 # ---------------------------------------------------------------------------
+
+# A file whose mtime or ctime falls within this window of the cached
+# snapshot's start time is re-hashed even when its signature matches: the
+# classic "racy" case (git has the same rule) where a write lands inside
+# the same timestamp tick as the hash and leaves the signature unchanged.
+RACY_WINDOW_NS = 2_000_000_000
+
+StatSig = tuple[int, int, int, int]  # (size, mtime_ns, ctime_ns, inode)
+
+
+class Snapshot(dict[str, str]):
+    """{posix relative path: sha256}, plus per-path `stats` (the StatSig the
+    hash was taken under), `taken_ns` (when the walk started) and the
+    `hashed` / `reused` counts of this take. A plain dict works everywhere a
+    Snapshot is accepted; it just carries no stats, so nothing is reused."""
+
+    __slots__ = ("stats", "taken_ns", "hashed", "reused")
+
+    def __init__(
+        self,
+        hashes: Mapping[str, str] | None = None,
+        stats: Mapping[str, Sequence[int]] | None = None,
+        taken_ns: int = 0,
+        hashed: int = 0,
+        reused: int = 0,
+    ) -> None:
+        super().__init__(hashes or {})
+        self.stats: dict[str, StatSig] = {k: tuple(v) for k, v in (stats or {}).items()}  # type: ignore[misc]
+        self.taken_ns = taken_ns
+        self.hashed = hashed
+        self.reused = reused
+
+    @classmethod
+    def of(cls, files: Mapping[str, str]) -> Snapshot:
+        return files if isinstance(files, Snapshot) else cls(files)
 
 
 def _sha256_file(path: Path) -> str:
@@ -174,27 +213,67 @@ def _ignored(name: str, patterns: Sequence[str]) -> bool:
     return any(fnmatch(name, pat) for pat in patterns)
 
 
-def snapshot(root: str | Path, ignore: Sequence[str] = DEFAULT_IGNORE) -> dict[str, str]:
+def snapshot(
+    root: str | Path,
+    ignore: Sequence[str] = DEFAULT_IGNORE,
+    cache: Mapping[str, str] | None = None,
+) -> Snapshot:
     """Hash every regular file under `root` (recursively).
 
-    Returns {posix relative path: sha256 hex}. Directory symlinks are not
-    followed; file symlinks hash their target's content. Cost is linear in
-    the bytes under `root` -- see docs/RECEIPTS_SPEC.md for the incremental
-    fast path left as an open hole.
+    Directory symlinks are not followed; file symlinks hash their target's
+    content. With `cache` (a previous Snapshot of the same root) a file is
+    NOT re-read when all of these hold, and its cached hash is reused:
+
+      * its StatSig (size, mtime_ns, ctime_ns, inode) equals the cached one;
+      * its mtime and ctime are both older than the cached take minus
+        RACY_WINDOW_NS (a write inside the tick is never trusted);
+      * the cached hash is a real digest, not the unreadable sentinel.
+
+    Why ctime and inode, not just size+mtime: an agent with a shell can
+    forge mtime (`touch -d`, os.utime) after a same-size edit. ctime is set
+    by the kernel on every inode change, utime included, and cannot be
+    chosen from user space on Linux/macOS; a rename-over gets a new inode.
+    Residual holes, declared: Windows (st_ctime is creation time there),
+    a root that writes the raw device or steps the clock, and a cache the
+    caller lets the model edit. Pass cache=None for a full re-hash.
+    Cost without a cache is linear in the bytes under `root`; with one it
+    is linear in the number of files (one stat each) plus the changed bytes.
     """
     base = Path(root).resolve()
     if not base.is_dir():
         raise LedgerError(f"snapshot root is not a directory: {base}")
-    out: dict[str, str] = {}
+    taken_ns = time.time_ns()
+    cache_stats: Mapping[str, StatSig] = getattr(cache, "stats", None) or {}
+    trust_before = int(getattr(cache, "taken_ns", 0)) - RACY_WINDOW_NS
+    out = Snapshot(taken_ns=taken_ns)
     for dirpath, dirnames, filenames in os.walk(base):
         dirnames[:] = sorted(d for d in dirnames if not _ignored(d, ignore))
         for fn in sorted(filenames):
             if _ignored(fn, ignore):
                 continue
             p = Path(dirpath) / fn
-            if not p.is_file():
-                continue  # sockets, fifos, broken symlinks
-            out[p.relative_to(base).as_posix()] = _sha256_file(p)
+            try:
+                st = p.stat()
+            except OSError:
+                continue  # broken symlink, vanished mid-walk
+            if not statmod.S_ISREG(st.st_mode):
+                continue  # sockets, fifos
+            rel = p.relative_to(base).as_posix()
+            sig: StatSig = (st.st_size, st.st_mtime_ns, st.st_ctime_ns, st.st_ino)
+            cached = cache.get(rel) if cache is not None else None
+            if (
+                cached is not None
+                and cached != _UNREADABLE
+                and cache_stats.get(rel) == sig
+                and st.st_mtime_ns < trust_before
+                and st.st_ctime_ns < trust_before
+            ):
+                out[rel] = cached
+                out.reused += 1
+            else:
+                out[rel] = _sha256_file(p)
+                out.hashed += 1
+            out.stats[rel] = sig
     return out
 
 
@@ -743,14 +822,18 @@ class MutationGuard:
         rule_path: str | Path = RULE_PATH,
         ignore: Sequence[str] = DEFAULT_IGNORE,
         strict: bool = False,
+        incremental: bool = True,
     ) -> None:
         self.root = Path(root).resolve()
         self.ledger = ledger if ledger is not None else ReceiptLedger()
         self.ignore = tuple(ignore)
         self.strict = strict
+        # incremental=False re-reads every byte on every snapshot (the
+        # paranoid setting, see snapshot() for the trust model).
+        self.incremental = incremental
         self._gate = Gate(rule_path)
-        self._before: dict[str, str] | None = None
-        self._after: dict[str, str] | None = None
+        self._before: Snapshot | None = None
+        self._after: Snapshot | None = None
         self._turn: int | None = None
         self._open = False
 
@@ -759,12 +842,28 @@ class MutationGuard:
     def turn(self) -> int | None:
         return self._turn
 
-    def begin(self, baseline: dict[str, str] | None = None, *, turn: int | None = None) -> int:
+    @property
+    def before(self) -> Snapshot | None:
+        """Baseline of the current/last turn."""
+        return self._before
+
+    @property
+    def after(self) -> Snapshot | None:
+        """Snapshot taken by the last end() (or adopted from disk)."""
+        return self._after
+
+    def _snapshot(self, cache: Snapshot | None) -> Snapshot:
+        return snapshot(self.root, self.ignore, cache=cache if self.incremental else None)
+
+    def begin(self, baseline: Mapping[str, str] | None = None, *, turn: int | None = None) -> int:
         """Start a turn: snapshot the workspace (or adopt `baseline`).
         Returns the turn number: `turn` if given (a harness that numbers
         turns itself, e.g. the CLI's snapshot.json), else ledger's latest
-        + 1."""
-        self._before = snapshot(self.root, self.ignore) if baseline is None else dict(baseline)
+        + 1. The previous turn's last snapshot serves as the hash cache."""
+        if baseline is None:
+            self._before = self._snapshot(self._after or self._before)
+        else:
+            self._before = Snapshot.of(baseline)
         self._after = None
         # A turn with no effects leaves no receipt, so the ledger alone
         # cannot number turns: the guard's own counter advances too.
@@ -777,15 +876,15 @@ class MutationGuard:
         receipts. The new snapshot becomes the next turn's baseline."""
         if self._before is None or self._turn is None:
             raise LedgerError("end() called before begin()")
-        self._after = snapshot(self.root, self.ignore)
+        self._after = self._snapshot(self._before)
         receipts = self.ledger.record_diff(self._before, self._after, turn=self._turn)
         self._open = False
         return receipts
 
-    def adopt_snapshot(self, files: dict[str, str]) -> None:
+    def adopt_snapshot(self, files: Mapping[str, str]) -> None:
         """For a guard rebuilt from disk: the workspace as of the latest
         end(), so audit reasons can say whether a claimed path exists."""
-        self._after = dict(files)
+        self._after = Snapshot.of(files)
 
     # -- read path: ground truth for the model, never recall -------------
     def ground_truth(self, turn: int | None = None) -> str:
@@ -928,21 +1027,38 @@ def _state_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
     return root, state / SNAPSHOT_FILE, state / LEDGER_FILE
 
 
-def load_snapshot(path: Path) -> tuple[int, dict[str, str]] | None:
-    """(turn, files) from a snapshot.json written by `begin`, or None when
-    there is none. A corrupt file is a LedgerError, never an empty baseline."""
+def load_snapshot(path: Path) -> tuple[int, Snapshot] | None:
+    """(turn, snapshot) from a snapshot.json written by `begin`, or None when
+    there is none. A corrupt file is a LedgerError, never an empty baseline.
+    A file without `stats` (pre-fast-path format) loads as a full baseline
+    that reuses nothing."""
     if not path.exists():
         return None
     try:
         d = json.loads(path.read_text(encoding="utf-8"))
-        return int(d["turn"]), dict(d["files"])
+        files = dict(d["files"])
+        stats = {k: tuple(int(x) for x in v) for k, v in dict(d.get("stats", {})).items()}
+        if any(len(v) != 4 for v in stats.values()):
+            raise ValueError("stat signature must have 4 fields")
+        return int(d["turn"]), Snapshot(files, stats, int(d.get("taken_ns", 0)))
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
         raise LedgerError(f"{path}: unreadable snapshot: {e}") from e
 
 
-def save_snapshot(path: Path, turn: int, files: dict[str, str]) -> None:
+def save_snapshot(path: Path, turn: int, files: Mapping[str, str]) -> None:
+    snap = Snapshot.of(files)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"turn": turn, "files": files}, ensure_ascii=False), encoding="utf-8")
+    payload = {
+        "turn": turn,
+        "taken_ns": snap.taken_ns,
+        "files": dict(snap),
+        "stats": {k: list(v) for k, v in snap.stats.items()},
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _take_summary(snap: Snapshot) -> str:
+    return f"{len(snap)} files ({snap.hashed} hashed, {snap.reused} reused from cache)"
 
 
 def _cmd_begin(args: argparse.Namespace) -> int:
@@ -950,9 +1066,9 @@ def _cmd_begin(args: argparse.Namespace) -> int:
     ledger = ReceiptLedger.load(ledger_path)
     previous = load_snapshot(snap_path)
     turn = max(ledger.latest_turn or 0, previous[0] if previous else 0) + 1
-    files = snapshot(root, DEFAULT_IGNORE)
+    files = snapshot(root, DEFAULT_IGNORE, cache=None if args.full else (previous[1] if previous else None))
     save_snapshot(snap_path, turn, files)
-    print(f"turn {turn}: baseline of {len(files)} files hashed under {root}")
+    print(f"turn {turn}: baseline of {_take_summary(files)} under {root}")
     return 0
 
 
@@ -964,11 +1080,11 @@ def _cmd_end(args: argparse.Namespace) -> int:
         return 1
     turn, before = loaded
     ledger = ReceiptLedger.load(ledger_path)
-    after = snapshot(root, DEFAULT_IGNORE)
+    after = snapshot(root, DEFAULT_IGNORE, cache=None if args.full else before)
     receipts = ledger.record_diff(before, after, turn=turn)
     ledger.save(ledger_path)
     save_snapshot(snap_path, turn, after)
-    print(f"turn {turn}: {len(receipts)} receipt(s) recorded, chain head {ledger.head[:12]}")
+    print(f"turn {turn}: {len(receipts)} receipt(s) recorded, chain head {ledger.head[:12]}; {_take_summary(after)}")
     for r in receipts:
         print("  " + r.short())
     return 0
@@ -1040,6 +1156,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--root", default=".", help="workspace root (default: cwd)")
     parser.add_argument("--state", default=None, help=f"state dir (default: <root>/{STATE_DIR})")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="re-read every byte instead of reusing hashes of files whose stat signature is unchanged",
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("begin", help="hash the workspace as this turn's baseline").set_defaults(fn=_cmd_begin)
     sub.add_parser("end", help="hash again, record receipts for every changed path").set_defaults(fn=_cmd_end)

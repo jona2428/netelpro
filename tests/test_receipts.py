@@ -19,8 +19,10 @@ Four layers, each tested on its own so a failure names the layer:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import time
 from itertools import product
 from pathlib import Path
 
@@ -38,8 +40,11 @@ from netelpro.receipts import (
     MutationGuard,
     MutationTheaterError,
     ReceiptLedger,
+    Snapshot,
     detect_mutation_claims,
     diff_snapshots,
+    load_snapshot,
+    save_snapshot,
     snapshot,
 )
 
@@ -173,6 +178,156 @@ def test_ledger_load_missing_file_is_empty(tmp_path: Path):
 def test_ledger_rejects_unknown_kind():
     with pytest.raises(LedgerError):
         ReceiptLedger().record("renamed", "a", None, None, turn=1)
+
+
+# ---------------------------------------------------------------------------
+# 2b. Incremental fast path (stat signature + racy window)
+# ---------------------------------------------------------------------------
+
+_OLD_NS = 60_000_000_000  # one minute: well outside RACY_WINDOW_NS
+
+
+def _age(root: Path, ns_ago: int = _OLD_NS) -> int:
+    """Push every file's mtime back; returns the timestamp used. ctime is
+    bumped to now by utime itself, so a snapshot taken right after this is
+    still inside the racy window -- callers settle with _settle()."""
+    t = time.time_ns() - ns_ago
+    for p in root.rglob("*"):
+        if p.is_file():
+            os.utime(p, ns=(t, t))
+    return t
+
+
+def _settle(root: Path) -> Snapshot:
+    """A cache whose take postdates every ctime by more than the window:
+    the state a real harness is in between turns."""
+    first = snapshot(root)
+    time.sleep(2.2)
+    return snapshot(root, cache=first)
+
+
+_posix_ctime = pytest.mark.skipif(
+    sys.platform == "win32", reason="st_ctime is creation time on Windows; the ctime defence does not apply"
+)
+
+
+def test_incremental_reuses_hashes_for_untouched_files(tmp_path: Path):
+    _seed(tmp_path)
+    _age(tmp_path)
+    cache = _settle(tmp_path)
+    again = snapshot(tmp_path, cache=cache)
+    assert again == cache
+    assert (again.hashed, again.reused) == (0, 3)
+    assert again.stats == cache.stats
+
+
+def test_incremental_rehashes_anything_touched_inside_the_racy_window(tmp_path: Path):
+    """A file whose ctime/mtime falls within RACY_WINDOW_NS of the CACHE's
+    take is never trusted, however much later the new snapshot runs."""
+    _seed(tmp_path)
+    _age(tmp_path)  # utime -> ctime = now, i.e. inside the window of the next take
+    cache = snapshot(tmp_path)
+    time.sleep(2.2)
+    later = snapshot(tmp_path, cache=cache)
+    assert (later.hashed, later.reused) == (3, 0)
+    assert later == cache
+
+
+def test_incremental_size_change_is_rehashed(tmp_path: Path):
+    _seed(tmp_path)
+    _age(tmp_path)
+    cache = _settle(tmp_path)
+    (tmp_path / "src" / "app.py").write_text("x = 100\n", encoding="utf-8")
+    after = snapshot(tmp_path, cache=cache)
+    assert after["src/app.py"] != cache["src/app.py"]
+    assert (after.hashed, after.reused) == (1, 2)
+    assert diff_snapshots(cache, after) == [("modified", "src/app.py", cache["src/app.py"], after["src/app.py"])]
+
+
+@_posix_ctime
+def test_incremental_detects_same_size_edit_with_forged_mtime(tmp_path: Path):
+    """The evasion the fast path must survive: an agent with a shell edits a
+    file without changing its size and resets mtime with utime. size+mtime
+    alone would reuse the stale hash; ctime (kernel-owned) gives it away."""
+    _seed(tmp_path)
+    old = _age(tmp_path)
+    cache = _settle(tmp_path)
+    target = tmp_path / "src" / "app.py"
+    target.write_text("x = 2\n", encoding="utf-8")  # same byte count as "x = 1\n"
+    os.utime(target, ns=(old, old))
+    st = target.stat()
+    assert (st.st_size, st.st_mtime_ns) == cache.stats["src/app.py"][:2], "forgery precondition"
+    time.sleep(2.2)  # take the racy window out of the picture: only the signature defends
+    after = snapshot(tmp_path, cache=cache)
+    assert after["src/app.py"] != cache["src/app.py"]
+    assert after.hashed == 1 and after.reused == 2
+
+
+def test_incremental_detects_rename_over_with_forged_mtime(tmp_path: Path):
+    _seed(tmp_path)
+    old = _age(tmp_path)
+    cache = _settle(tmp_path)
+    tmp = tmp_path / "README.md.tmp"
+    tmp.write_text("# DEMO\n", encoding="utf-8")  # same size as "# demo\n"
+    os.utime(tmp, ns=(old, old))
+    os.replace(tmp, tmp_path / "README.md")
+    time.sleep(2.2)
+    after = snapshot(tmp_path, cache=cache)
+    assert after["README.md"] != cache["README.md"]
+    assert after.stats["README.md"][3] != cache.stats["README.md"][3]  # new inode
+
+
+def test_plain_dict_cache_reuses_nothing_and_agrees(tmp_path: Path):
+    _seed(tmp_path)
+    _age(tmp_path)
+    cache = _settle(tmp_path)
+    plain = snapshot(tmp_path, cache=dict(cache))
+    assert plain == cache and (plain.hashed, plain.reused) == (3, 0)
+
+
+def test_unreadable_sentinel_is_never_reused(tmp_path: Path):
+    _seed(tmp_path)
+    _age(tmp_path)
+    cache = _settle(tmp_path)
+    cache["src/app.py"] = "!unreadable"  # simulate a take during which the file was locked
+    after = snapshot(tmp_path, cache=cache)
+    assert after["src/app.py"] != "!unreadable" and after.hashed == 1
+
+
+def test_snapshot_json_carries_stats_and_old_format_still_loads(tmp_path: Path):
+    _seed(tmp_path)
+    _age(tmp_path)
+    snap = _settle(tmp_path)
+    f = tmp_path / ".netelpro" / "snapshot.json"
+    save_snapshot(f, 3, snap)
+    turn, loaded = load_snapshot(f)
+    assert turn == 3 and loaded == snap and loaded.stats == snap.stats and loaded.taken_ns == snap.taken_ns
+    again = snapshot(tmp_path, cache=loaded)
+    assert (again.hashed, again.reused) == (0, 3)
+
+    f.write_text(json.dumps({"turn": 1, "files": dict(snap)}), encoding="utf-8")  # pre-fast-path format
+    turn, legacy = load_snapshot(f)
+    assert legacy == snap and legacy.stats == {} and legacy.taken_ns == 0
+    full = snapshot(tmp_path, cache=legacy)
+    assert (full.hashed, full.reused) == (3, 0)
+
+
+def test_guard_end_uses_the_baseline_as_cache_and_can_be_disabled(tmp_path: Path):
+    _seed(tmp_path)
+    _age(tmp_path)
+    settled = _settle(tmp_path)
+    guard = MutationGuard(tmp_path)
+    guard.begin(settled)
+    (tmp_path / "src" / "app.py").write_text("x = 2\n", encoding="utf-8")
+    receipts = guard.end()
+    assert [r.path for r in receipts] == ["src/app.py"]
+    assert guard.after is not None and (guard.after.hashed, guard.after.reused) == (1, 2)
+
+    paranoid = MutationGuard(tmp_path, incremental=False)
+    paranoid.begin(settled)
+    paranoid.end()
+    assert paranoid.after is not None and (paranoid.after.hashed, paranoid.after.reused) == (3, 0)
+    assert paranoid.after == guard.after
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +597,7 @@ def test_cli_begin_end_audit_roundtrip(tmp_path: Path):
     (tmp_path / "src" / "app.py").write_text("x = 3\n", encoding="utf-8")
     r = _cli(tmp_path, "end")
     assert r.returncode == 0 and "1 receipt(s)" in r.stdout and "modified src/app.py" in r.stdout
+    assert "hashed" in r.stdout and "reused from cache" in r.stdout
     assert (tmp_path / ".netelpro" / "receipts.jsonl").exists()
 
     r = _cli(tmp_path, "audit", "--text", "-", stdin="Actualicé src/app.py.")
@@ -479,3 +635,20 @@ def test_cli_turn_counter_advances_and_strict_flag(tmp_path: Path):
     _cli(tmp_path, "end")
     r = _cli(tmp_path, "audit", "--strict", "--text", "-", stdin="Nada que reportar.")
     assert r.returncode == 2 and "b.txt" in r.stdout and "a.txt" not in r.stdout
+
+
+def test_cli_full_flag_rereads_everything(tmp_path: Path):
+    _seed(tmp_path)
+    _age(tmp_path)
+    r = _cli(tmp_path, "begin")
+    assert "3 files (3 hashed, 0 reused from cache)" in r.stdout
+    time.sleep(2.2)
+    # Take 2 is cached on take 1, which was inside the racy window of the
+    # utime above: still a full read, by the rule. Take 3 is cached on take
+    # 2, which postdates every ctime by more than the window: reuse.
+    r = _cli(tmp_path, "begin")
+    assert "3 files (3 hashed, 0 reused from cache)" in r.stdout
+    r = _cli(tmp_path, "begin")
+    assert "3 files (0 hashed, 3 reused from cache)" in r.stdout
+    r = _cli(tmp_path, "--full", "begin")
+    assert "3 files (3 hashed, 0 reused from cache)" in r.stdout

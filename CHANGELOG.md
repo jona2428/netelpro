@@ -55,6 +55,20 @@ commit hash until the first tagged release.
   `tests/test_mcp_receipts.py`: 12 cases, in-process and over the real stdio
   process.
 
+- **Incremental snapshots** (`docs/RECEIPTS_SPEC.md` §9). A `Snapshot` now
+  carries each hash's stat signature `(size, mtime_ns, ctime_ns, inode)` and
+  the take's start time; `snapshot(root, cache=previous)` re-reads only files
+  whose signature changed or that were touched within a 2 s racy window of
+  the cached take (git's rule). ctime and inode are part of the signature on
+  purpose: an agent with a shell can forge mtime after a same-size edit but
+  cannot set ctime from user space on Linux/macOS, and a rename-over changes
+  the inode — both evasions are tests. `MutationGuard(incremental=False)` and
+  CLI `--full` force a full re-read; the pre-fast-path `snapshot.json` still
+  loads (as a cache that reuses nothing). Measured on this repo, 420 files /
+  97 MB: full 9096 ms, incremental 11 ms, identical result. Residual holes
+  declared in the spec (Windows ctime semantics, raw-device/clock-stepping
+  root, a model allowed to edit the state dir).
+
 ### Fixed (found while building the above)
 - Turn numbering derived from the ledger alone could not advance across a
   turn with no effects (no receipt, same number reused). The guard and the

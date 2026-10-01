@@ -1,6 +1,6 @@
 # Receipts — File-Effect Honesty, Specification v0.1
 
-**Status:** v0.1 implemented — `netelpro/receipts.py`,
+**Status:** v0.1 implemented, incremental snapshots added (§9) — `netelpro/receipts.py`,
 `netelpro/rules/mutation_receipt.sl`, `examples/receipts_demo.py`,
 `tests/test_receipts.py` (58 cases), `tests/test_receipts_demo.py`,
 `netelpro/mcp_server.py` tool `netelpro_receipts` + `tests/test_mcp_receipts.py`.
@@ -166,10 +166,9 @@ each with the reason for its label.
   sentence is rejected after generation, not prevented during it.
 - **Renames.** Observed as delete + create. A rename claim ("renombré X a
   Y") is not a verb class yet.
-- **Cost.** `snapshot()` hashes every byte under the root, twice per turn.
-  Fine for a repository; wrong for a 50 GB tree. Hole: an mtime+size fast
-  path that re-hashes only candidates, or inotify. Deliberately not built
-  until a real tree demands it.
+- **Cost.** Resolved by the incremental fast path (§9): with a cache the
+  take is one `stat` per file plus the bytes that actually changed. The
+  first take of a root is still linear in its bytes.
 - **Detection recall.** Regex. Some phrasing will get through ("the change
   landed in X"). Each miss found in live generation should be added to the
   labeled corpus with provenance, as `guard.py` does.
@@ -230,3 +229,44 @@ action, so the model cannot move the baseline to erase its own receipts.
 ```bash
 NETELPRO_RECEIPTS_ROOT=/path/to/repo python -m netelpro --mcp
 ```
+
+---
+
+## 9. Incremental snapshots (fast path)
+
+Each `Snapshot` carries, per path, the **stat signature** the hash was taken
+under: `(size, mtime_ns, ctime_ns, inode)`, plus `taken_ns`, the instant the
+walk started. `snapshot(root, cache=previous)` reuses the cached hash of a
+file only when all of these hold:
+
+1. its signature equals the cached one;
+2. its mtime **and** ctime are both older than `previous.taken_ns -
+   RACY_WINDOW_NS` (2 s). A write that lands inside the same timestamp tick
+   as the hash leaves size and mtime unchanged — git's "racy" case — so
+   anything touched near the cached take is never trusted by that cache;
+3. the cached value is a real digest, not the unreadable sentinel.
+
+Everything else is re-read. A plain `dict` cache (no stats) reuses nothing
+and gives the same result; `incremental=False` on the guard and `--full`
+on the CLI force a full re-read.
+
+**Why not size + mtime.** The threat model is an agent with a shell. After
+a same-size edit it can run `touch -d` / `os.utime` and restore the exact
+mtime; size+mtime would then reuse the stale hash and the receipt would
+vanish. `ctime` is set by the kernel on every inode change, utime included,
+and cannot be chosen from user space on Linux/macOS; a rename-over gets a
+new inode. Both evasions are tests
+(`test_incremental_detects_same_size_edit_with_forged_mtime`,
+`test_incremental_detects_rename_over_with_forged_mtime`).
+
+**Residual holes, declared:** Windows, where `st_ctime` is the creation
+time and only the racy window and size+mtime defend; a root that writes
+the raw device or steps the clock; a `.netelpro/snapshot.json` the model
+is allowed to edit (keep the state dir out of its write scope, or run
+`--full`).
+
+**Measured on this repository** (420 files, 97 MB tracked, cloud container
+disk, 2026-10-01): full take 9096 ms with 420 files hashed; incremental take
+11 ms with 0 hashed and 420 reused, identical result. The MCP tool and the
+CLI `end` use the baseline as cache automatically; `begin` uses the previous
+turn's snapshot.
