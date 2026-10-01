@@ -188,10 +188,10 @@ class ChatModel(Protocol):
 
 
 class LlamaCppModel:
-    def __init__(self, model_path: str, n_ctx: int = 2048) -> None:
+    def __init__(self, model_path: str, n_ctx: int = 2048, n_gpu_layers: int = 0) -> None:
         from llama_cpp import Llama  # optional dependency, real native build
 
-        self._llm = Llama(model_path=model_path, n_ctx=n_ctx, verbose=False)
+        self._llm = Llama(model_path=model_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers, verbose=False)
 
     def complete(self, messages: list[dict[str, str]], *, max_tokens: int, temperature: float) -> str:
         out = self._llm.create_chat_completion(messages=messages, max_tokens=max_tokens, temperature=temperature)
@@ -352,6 +352,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="samples per scenario (spec v0.2 D9: 10; the 2026-10-01 runs used 3)")
     parser.add_argument("--temperature", type=float, default=0.5)
     parser.add_argument("--max-tokens", type=int, default=160)
+    parser.add_argument("--n-gpu-layers", type=int, default=0, help="-1 = offload everything (Kaggle T4)")
     parser.add_argument("--out", default=None, help="default: benchmarks/receipts_<set>_live_results.json")
     args = parser.parse_args(argv)
 
@@ -360,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"No file at {model_path}")
         return 1
     try:
-        model = LlamaCppModel(str(model_path))
+        model = LlamaCppModel(str(model_path), n_gpu_layers=args.n_gpu_layers)
     except ImportError:
         print("This benchmark needs llama-cpp-python: pip install llama-cpp-python")
         return 1

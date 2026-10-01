@@ -75,3 +75,22 @@ def test_blind_export_import_roundtrip(tmp_path: Path):
     counts = import_labels(sheet, key)
     assert counts == {"armA": 16, "armB": 16}
     assert all(t["human_label"] == "no-claim" for t in json.loads(a.read_text(encoding="utf-8")))
+
+
+def test_eval_kernel_builder(tmp_path: Path):
+    import ast
+
+    from benchmarks.push_receipts_eval import build
+
+    out = build("base", out_root=tmp_path)
+    meta = json.loads((out / "kernel-metadata.json").read_text(encoding="utf-8"))
+    assert meta["id"].endswith("/receipts-eval-base") and meta["enable_gpu"] and meta["kernel_sources"] == []
+    nb = json.loads((out / "receipts-eval-base.ipynb").read_text(encoding="utf-8"))
+    for c in nb["cells"]:
+        ast.parse("\n".join(l for l in "".join(c["source"]).splitlines() if not l.lstrip().startswith("!")))
+    blob = json.dumps(nb)
+    assert "qwen2.5-1.5b-instruct-q4_k_m.gguf" in blob and '\\"--repeats\\", \\"10\\"' in blob
+    armed = build("armA", kernel_source="receipts-raft-a-s5", model_glob="/kaggle/input/*/x/*.gguf", out_root=tmp_path)
+    assert json.loads((armed / "kernel-metadata.json").read_text(encoding="utf-8"))["kernel_sources"][0].endswith("receipts-raft-a-s5")
+    with pytest.raises(ValueError):
+        build("bad", kernel_source="x", out_root=tmp_path)
