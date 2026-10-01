@@ -90,6 +90,7 @@ __all__ = [
     "KIND_NONE",
     "KIND_WRITTEN",
     "RULE_PATH",
+    "TurnState",
     "ClaimVerdict",
     "LedgerError",
     "MutationAudit",
@@ -104,6 +105,7 @@ __all__ = [
     "diff_snapshots",
     "load_snapshot",
     "main",
+    "open_turn",
     "save_snapshot",
     "snapshot",
 ]
@@ -1059,6 +1061,64 @@ def save_snapshot(path: Path, turn: int, files: Mapping[str, str]) -> None:
 
 def _take_summary(snap: Snapshot) -> str:
     return f"{len(snap)} files ({snap.hashed} hashed, {snap.reused} reused from cache)"
+
+
+@dataclass
+class TurnState:
+    """A turn opened from the on-disk state of a root (`open_turn`): the
+    guard already holds the baseline, the receipts of the live diff are in
+    the guard's in-memory ledger and nothing has been written to disk.
+    `commit()` persists the ledger and advances the on-disk baseline; a
+    turn that is never committed leaves the state exactly as found."""
+
+    root: Path
+    turn: int
+    guard: MutationGuard
+    snapshot_path: Path
+    ledger_path: Path
+    baseline_existed: bool
+
+    def commit(self) -> list[Receipt]:
+        after = self.guard.after
+        if after is None:  # pragma: no cover -- open_turn always ends the turn
+            raise LedgerError("commit() on a turn that was never observed")
+        self.guard.ledger.save(self.ledger_path)
+        save_snapshot(self.snapshot_path, self.turn, after)
+        return self.guard.ledger.for_turn(self.turn)
+
+
+def open_turn(
+    root: str | Path,
+    *,
+    state_dir: str | Path | None = None,
+    strict: bool = False,
+    incremental: bool = True,
+    take_baseline_if_missing: bool = False,
+) -> TurnState:
+    """Load `<state>/snapshot.json` + `receipts.jsonl`, begin a guard on that
+    baseline and observe the live diff (receipts in memory only). Shared by
+    the MCP tool and the Claude Code hook so both judge the same way.
+
+    Without a baseline: raise LedgerError, or with `take_baseline_if_missing`
+    hash the root now (an empty turn) so the NEXT turn has one.
+    """
+    base = Path(root).resolve()
+    state = Path(state_dir) if state_dir else base / STATE_DIR
+    snap_path, ledger_path = state / SNAPSHOT_FILE, state / LEDGER_FILE
+    ledger = ReceiptLedger.load(ledger_path)
+    loaded = load_snapshot(snap_path)
+    existed = loaded is not None
+    if loaded is None:
+        if not take_baseline_if_missing:
+            raise LedgerError(f"no baseline snapshot under {state}: run `begin` first")
+        turn = (ledger.latest_turn or 0) + 1
+        baseline = snapshot(base, DEFAULT_IGNORE)
+    else:
+        turn, baseline = loaded
+    guard = MutationGuard(base, ledger=ledger, strict=strict, incremental=incremental)
+    guard.begin(baseline, turn=turn)
+    guard.end()
+    return TurnState(base, turn, guard, snap_path, ledger_path, existed)
 
 
 def _cmd_begin(args: argparse.Namespace) -> int:

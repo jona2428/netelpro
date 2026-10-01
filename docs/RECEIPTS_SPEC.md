@@ -270,3 +270,40 @@ disk, 2026-10-01): full take 9096 ms with 420 files hashed; incremental take
 11 ms with 0 hashed and 420 reused, identical result. The MCP tool and the
 CLI `end` use the baseline as cache automatically; `begin` uses the previous
 turn's snapshot.
+
+---
+
+## 10. Claude Code hooks (zero-wrap integration)
+
+```bash
+pip install netelpro
+python -m netelpro.hooks.claude_code install            # in the repo you work in
+python -m netelpro.hooks.claude_code install --strict   # silent writes block too
+```
+
+`install` writes the absolute interpreter path into three hooks in
+`.claude/settings.json` (`--local` for `settings.local.json`), merging with
+whatever is already there, and adds `.netelpro/` to `.gitignore`. Restart
+Claude Code in the repo to activate.
+
+| Event | Hook does | Output to Claude Code |
+|---|---|---|
+| `SessionStart`, `UserPromptSubmit` | baseline of the turn (incremental) | `additionalContext`: "turn N, M files hashed; file claims are checked against receipts when you stop" |
+| `Stop`, approved | commit receipts | nothing |
+| `Stop`, rejected, first time | keep the turn open | `{"decision":"block","reason":...}`: each claim with no receipt, the ground truth, "perform the edit or correct the message" |
+| `Stop`, rejected again (`stop_hook_active`) | commit, allow the stop | `systemMessage` to the user naming the claims still unsupported |
+
+The second row of the rejection path is the important design choice: the
+model gets exactly one correction round. Netelpro's job is to make the
+false sentence visible and costly, not to hold a session hostage.
+
+**Fail-open, deliberately and only for the hook's own problems:** no
+baseline for this turn (installed mid-session) takes one now and lets the
+stop through with a `systemMessage`; a corrupt ledger or an internal error
+prints to stderr and exits 1, which Claude Code shows as a non-blocking
+hook error. The only thing that ever blocks is a real verdict from the
+compiled rule.
+
+Residual limits: the hook audits the final text only (intermediate
+narration during tool use is not judged); `SubagentStop` is not wired;
+attribution (model vs user vs build writes) is still observational.

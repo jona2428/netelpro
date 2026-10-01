@@ -69,6 +69,25 @@ commit hash until the first tagged release.
   declared in the spec (Windows ctime semantics, raw-device/clock-stepping
   root, a model allowed to edit the state dir).
 
+- **Claude Code hooks** (`netelpro/hooks/claude_code.py`, `docs/RECEIPTS_SPEC.md`
+  §10). `python -m netelpro.hooks.claude_code install` merges three hooks into
+  `.claude/settings.json` (keeping existing hooks, adding `.netelpro/` to
+  `.gitignore`): `SessionStart` / `UserPromptSubmit` take the turn's baseline
+  and inject a two-line notice that file claims are audited; `Stop` audits
+  `last_assistant_message` against the live receipts. A rejected message
+  blocks the stop once with the exact claims, the ground truth and the
+  instruction to either perform the edit or correct the text; a second
+  rejection (`stop_hook_active`) never loops: the stop is allowed and a
+  `systemMessage` warns the user. Deliberately fail-open on the hook's own
+  problems (no baseline yet, corrupt ledger, internal error: stderr + exit 1,
+  never a block). `--strict` makes silent writes block too. Transcript JSONL
+  fallback for hosts without `last_assistant_message`. `tests/test_claude_code_hook.py`:
+  19 cases, every hook run as the real subprocess with Claude Code's stdin JSON,
+  including the exact installed command executed through a shell.
+- `netelpro.receipts.open_turn()` / `TurnState`: the "load baseline, observe
+  live diff, commit or not" sequence shared by the MCP tool and the hook, so
+  both judge identically.
+
 ### Fixed (found while building the above)
 - Turn numbering derived from the ledger alone could not advance across a
   turn with no effects (no receipt, same number reused). The guard and the

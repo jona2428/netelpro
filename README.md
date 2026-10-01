@@ -283,6 +283,15 @@ python -m netelpro.receipts end
 python -m netelpro.receipts audit --text answer.md     # exit 2 = theater
 ```
 
+**Claude Code, two minutes, nothing to wrap** — three hooks that take the
+baseline at every prompt and audit the final message at every stop. A claim
+with no receipt blocks the stop once, with the file, its unchanged hash and
+the ground truth; the model gets one correction round, never a loop:
+
+```bash
+python -m netelpro.hooks.claude_code install     # merges into .claude/settings.json
+```
+
 From inside the agent, the same ground truth is an MCP tool: launch the server
 with `NETELPRO_RECEIPTS_ROOT=/path/to/repo python -m netelpro --mcp` and the model
 can call `netelpro_receipts` (`show`: what actually changed; `audit`: is my draft
