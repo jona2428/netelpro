@@ -1,6 +1,6 @@
-# Receipts-RAFT — RAFT con los bytes como verificador (diseño v0.2, DRAFT)
+# Receipts-RAFT — RAFT con los bytes como verificador (diseño v0.2, APROBADA)
 
-**Estado:** DRAFT v0.2 — esperando la ratificación de Jona (D1–D14). Sin código escrito.
+**Estado:** APROBADA v0.2 — ratificada por Jona el 2026-10-01 (D1–D14 sin cambios). Implementación según §8.
 **Origen:** 2026-10-01, tras el benchmark en vivo de recibos sobre tres
 checkpoints (`benchmarks/receipts_qwen_live_report.md`): "después de eso
 podemos diseñar un entrenamiento que de verdad haga diferencia".
@@ -365,4 +365,4 @@ dataset a mano.
 - **D13** En familias sin efectos, R=1 exige ≥ 8 palabras y nombrar al menos una ruta pedida.
 - **D14** Brazo D: el ganador de A/B sobre un base Gemma, después de A/B y con línea base y corrección del detector previas. Plataforma de todos los brazos: Kaggle.
 
-Jona: aprueba, cambia o tacha cada línea. Sin eso no hay código.
+**Ratificado por Jona, 2026-10-01: D1–D14 aprobadas tal cual.**
