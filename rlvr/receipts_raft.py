@@ -39,6 +39,11 @@ MAX_PAIRS_PER_SCENARIO = 2  # arm B
 AUDIT_SIZE = 48  # §6.1
 MAX_HACKED_PER_48 = 1  # D11: "<= 2% (<= 1 de 48)" -- the spec's 2% is 1/48 = 2.08%; the count is the rule
 ARMS = ("A", "B")
+# Stage 0 is the base model harvesting round 0 -- identical for both arms
+# (same model, scenarios, seed). It runs once, as arm B, and both arms' stage
+# 1 start from that output and that single hand audit: D8 gets the SAME data
+# instead of two near-identical samplings, and the audit is labelled once.
+SHARED_STAGE0_ARM = "B"
 
 SampleFn = Callable[[list[dict[str, str]], int, float], list[str]]
 
@@ -150,7 +155,8 @@ def audit_gate(labelled_sheet: list[dict[str, Any]]) -> tuple[float, bool, str]:
 
 
 def audit_labels_path(repo_root: Path, arm: str, round_num: int) -> Path:
-    return repo_root / "benchmarks" / "receipts_raft_audit" / f"arm{arm}_r{round_num}_labels.json"
+    owner = SHARED_STAGE0_ARM if round_num == 0 else arm
+    return repo_root / "benchmarks" / "receipts_raft_audit" / f"arm{owner}_r{round_num}_labels.json"
 
 
 def require_audit(repo_root: Path, arm: str, round_num: int) -> str:

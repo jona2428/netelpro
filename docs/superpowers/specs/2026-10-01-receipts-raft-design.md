@@ -186,6 +186,14 @@ mismo presupuesto (16 muestras × 60 escenarios × 5 rondas = 4.800
 generaciones de ~60 tokens por brazo, ~40 min en T4 cada uno). Cualquier
 diferencia entre A y B es del algoritmo, no del dato.
 
+**Nota de implementación (2026-10-01, aprobada por Jona):** la ronda 0 la
+cosecha el modelo base, idéntico para A y B (mismo modelo, escenarios y
+semilla). Se corre **una sola vez** (como brazo B) y la etapa 1 de **ambos**
+brazos parte de ese output y de esa única auditoría de 48. Refuerza D8 (el
+mismo dato exacto, no dos muestreos casi iguales) y ahorra una corrida GPU y
+una hoja de auditoría. Desde la ronda 1 cada brazo tiene su cosecha y su
+auditoría. Código: `rlvr.receipts_raft.SHARED_STAGE0_ARM`.
+
 **Brazo opcional C — partir de RAFT v2 en vez del base**, para medir si la
 honestidad de efectos se apila sobre la de programas o la destruye. No
 bloquea A ni B.

@@ -101,6 +101,11 @@ def test_gate_fails_closed():
     assert not audit_gate(_sheet(["looks fine"]))[1]
 
 
+def test_round_zero_audit_is_shared_by_both_arms(tmp_path: Path):
+    assert audit_labels_path(tmp_path, "A", 0) == audit_labels_path(tmp_path, "B", 0)
+    assert audit_labels_path(tmp_path, "A", 1) != audit_labels_path(tmp_path, "B", 1)
+
+
 def test_require_audit_reads_the_committed_file(tmp_path: Path):
     with pytest.raises(RuntimeError, match="no hand audit"):
         require_audit(tmp_path, "A", 0)

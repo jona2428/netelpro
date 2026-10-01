@@ -40,7 +40,7 @@ def test_missing_anchor_aborts(monkeypatch):
 
 def test_stage_kernels_chain_and_gate(tmp_path, monkeypatch):
     monkeypatch.setattr(push, "KERNELS_DIR", tmp_path)
-    out = push.build("B", 0)
+    out = push.build("B", 0)  # stage 0 runs once, as the shared arm
     meta = json.loads((out / "kernel-metadata.json").read_text(encoding="utf-8"))
     assert meta["id"].endswith("/receipts-raft-b-s0") and meta["kernel_sources"] == [] and meta["enable_gpu"]
     nb = json.loads((out / "receipts-raft-b-s0.ipynb").read_text(encoding="utf-8"))
@@ -50,12 +50,21 @@ def test_stage_kernels_chain_and_gate(tmp_path, monkeypatch):
         push.build("B", 1)  # no committed audit for round 0 yet
 
 
-def test_stage_one_points_at_stage_zero(tmp_path, monkeypatch):
+def test_stage_zero_is_shared_and_both_arms_start_from_it(tmp_path, monkeypatch):
     repo = tmp_path / "repo"
-    labels = repo / "benchmarks" / "receipts_raft_audit" / "armA_r0_labels.json"
+    labels = repo / "benchmarks" / "receipts_raft_audit" / "armB_r0_labels.json"  # ONE audit for round 0
     labels.parent.mkdir(parents=True)
     labels.write_text("[]", encoding="utf-8")
     monkeypatch.setattr(push, "REPO", repo)
     monkeypatch.setattr(push, "KERNELS_DIR", tmp_path / "k")
-    meta = json.loads((push.build("A", 1) / "kernel-metadata.json").read_text(encoding="utf-8"))
-    assert meta["kernel_sources"] == [f"{push.KAGGLE_USER}/receipts-raft-a-s0"]
+    with pytest.raises(SystemExit, match="shared"):
+        push.build("A", 0)
+    for arm in ("A", "B"):
+        meta = json.loads((push.build(arm, 1) / "kernel-metadata.json").read_text(encoding="utf-8"))
+        assert meta["kernel_sources"] == [f"{push.KAGGLE_USER}/receipts-raft-b-s0"]
+    labels_a1 = repo / "benchmarks" / "receipts_raft_audit" / "armA_r1_labels.json"
+    with pytest.raises(SystemExit, match="hand audit"):
+        push.build("A", 2)  # from round 1 on, each arm has its own audit
+    labels_a1.write_text("[]", encoding="utf-8")
+    meta = json.loads((push.build("A", 2) / "kernel-metadata.json").read_text(encoding="utf-8"))
+    assert meta["kernel_sources"] == [f"{push.KAGGLE_USER}/receipts-raft-a-s1"]

@@ -24,6 +24,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from rlvr.receipts_raft import SHARED_STAGE0_ARM, audit_labels_path  # noqa: E402
+
 TRAINING_DIR = Path(__file__).parent
 REPO = TRAINING_DIR.parent
 NOTEBOOK = TRAINING_DIR / "train_receipts_raft_kaggle.ipynb"
@@ -39,8 +42,10 @@ def slug(arm: str, stage: int) -> str:
 def build(arm: str, stage: int, *, user: str = KAGGLE_USER) -> Path:
     if arm not in ("A", "B") or not 0 <= stage <= NUM_ROUNDS:
         raise ValueError(f"arm {arm!r} stage {stage}")
+    if stage == 0 and arm != SHARED_STAGE0_ARM:
+        raise SystemExit(f"stage 0 is shared: it runs once as arm {SHARED_STAGE0_ARM} (rlvr.receipts_raft.SHARED_STAGE0_ARM)")
     if stage > 0:
-        labels = REPO / "benchmarks" / "receipts_raft_audit" / f"arm{arm}_r{stage - 1}_labels.json"
+        labels = audit_labels_path(REPO, arm, stage - 1)
         if not labels.exists():
             raise SystemExit(f"stage {stage} needs {labels.relative_to(REPO)} (hand audit of round {stage - 1}), committed and pushed")
     nb = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
@@ -74,7 +79,7 @@ def build(arm: str, stage: int, *, user: str = KAGGLE_USER) -> Path:
         "machine_shape": "NvidiaTeslaT4",
         "keywords": ["gpu"],
         "dataset_sources": [],
-        "kernel_sources": [f"{user}/{slug(arm, stage - 1)}"] if stage > 0 else [],
+        "kernel_sources": [f"{user}/{slug(SHARED_STAGE0_ARM if stage == 1 else arm, stage - 1)}"] if stage > 0 else [],
         "competition_sources": [],
         "model_sources": [],
     }
