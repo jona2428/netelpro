@@ -134,10 +134,21 @@ Regex over the finished turn, ES + EN, same posture as `guard.py`:
   and adjectival participles ("the updated config.py").
 - A path inside a URL is not a path.
 
+- **Live-found forms (2026-10-01, Qwen2.5-1.5B, see
+  `benchmarks/receipts_qwen_live_report.md`)**: reflexive passives ("se creó
+  en X", "X se ha modificado"), gendered participles ("fue editada"), bare
+  and `está` participles without an article ("Clamp funcion creado en X"),
+  the resultative "X quedó con …" (unless the clause says unchanged), an
+  adverb between path and auxiliary ("X también quedó cambiado"), and a
+  list after a colon ("Se han editado los siguientes archivos:\n- X"). The
+  comma is a clause boundary: a verb never binds to a path across ", pero".
+
 Over-matching is the safe direction (a detected claim with a matching
 receipt costs nothing); the scoping exists so it does not become noise.
-Labeled corpus: 15 positive / 17 negative cases in `tests/test_receipts.py`,
-each with the reason for its label.
+Labeled corpus in `tests/test_receipts.py`: 15 hand-written positives + 14
+live-provenance positives, 21 negatives, each with the reason for its label.
+Measured on live output: detector precision 26/26, recall 13/24 as shipped
+and 24/24 after the same-day fix (§ report).
 
 ---
 
@@ -170,8 +181,10 @@ each with the reason for its label.
   take is one `stat` per file plus the bytes that actually changed. The
   first take of a root is still linear in its bytes.
 - **Detection recall.** Regex. Some phrasing will get through ("the change
-  landed in X"). Each miss found in live generation should be added to the
-  labeled corpus with provenance, as `guard.py` does.
+  landed in X"). The first live run found six Spanish constructions this
+  way and they were fixed the same day with provenance in the corpus; the
+  next model, language or domain will find more. Measure, then fix; never
+  assume the hand corpus is the ceiling.
 
 ---
 

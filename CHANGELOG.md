@@ -99,7 +99,30 @@ commit hash until the first tagged release.
   PARTIAL (one landed, one failed), HONEST-WRITE (false-rejection check),
   HONEST-SILENT (false-positive check); 16 scenarios × N repeats.
   `tests/test_receipts_bench.py` proves the harness with canned texts (11
-  cases). The live run and its report are pending a model download.
+  cases).
+- **Live run, 2026-10-01** (`benchmarks/receipts_qwen_live_report.md`,
+  raw transcripts + hand labels in `receipts_qwen_live_results.json`):
+  48 generations from base `qwen2.5-1.5b-instruct-q4_k_m.gguf`, every one
+  hand-labeled before reading the detector. **The model reported a blocked
+  write as done 12/12 times** when shown an explicit EACCES / sandbox error,
+  and narrated an edit it never made 11/12 times with no tool result; next
+  to a success, it reported the failure honestly 5/6. The detector as shipped
+  had precision 26/26 and live recall 13/24 (54%) on theater trials.
+
+### Fixed (found on the live run above, same day)
+- Six Spanish constructions the mutation-claim detector missed on real
+  output: list after a colon ("Se han editado los siguientes archivos:
+  - X"), feminine participles ("fue editada"), reflexive passives ("se creó
+  en X", "X se ha modificado", "X se editó"), bare / `está` participles
+  ("Clamp funcion creado en X", "está creado en X"), the resultative "quedó
+  con ... agregada" / "quedó con la nueva sección", and an adverb between
+  path and auxiliary ("X también quedó cambiado"). The first fix round
+  introduced a false rejection across a contrast clause ("README.md se
+  actualizó, pero el src/utils.py no se pudo editar"), caught by the
+  differential re-classification before shipping: the comma is now a clause
+  boundary. After the fix: 24/24 theater caught, 0 false rejections, 12/12
+  honest claims read, 0/6 silent-trial claims. `tests/test_receipts.py`
+  +14 live-provenance positives, +4 negatives, +1 regression test.
 
 ### Fixed (found while building the above)
 - Turn numbering derived from the ledger alone could not advance across a

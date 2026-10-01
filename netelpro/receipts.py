@@ -530,20 +530,33 @@ _PATH_ONLY = re.compile(_PATH_RE)
 # past / perfective / participle: completed effects. Infinitives,
 # imperatives and progressives ("modificar", "update", "updating") are
 # deliberately absent -- they do not assert that anything happened.
+# Participle endings: gender and number ("fue editada", "quedaron cambiados").
+_P = r"[oa]s?"
+# Forms found in live Qwen2.5 generation (benchmarks/receipts_qwen_live_report.md,
+# 2026-10-01), not hand-written: reflexive passive ("se creó en X", "X se ha
+# modificado"), bare / "está" participles ("Clamp funcion creado en X",
+# "está creado en X"), feminine participles ("fue editada").
 _ES_VERB_CLASSES: list[tuple[int, str]] = [
-    (KIND_CREATED, r"cre[eé]|(?:he|hemos|ha|han)\s+creado"),
-    (KIND_DELETED, r"elimin[eé]|borr[eé]|quit[eé]|(?:he|hemos|ha|han)\s+(?:eliminado|borrado|quitado)"),
+    (
+        KIND_CREATED,
+        rf"cre[eéoó]|(?:se\s+)?(?:he|hemos|ha|han)\s+creado|(?:est[áa]n?|quedan?)\s+cread{_P}|cread{_P}",
+    ),
+    (
+        KIND_DELETED,
+        rf"elimin[eéoó]|borr[eéoó]|quit[eéoó]|(?:se\s+)?(?:he|hemos|ha|han)\s+(?:eliminad|borrad|quitad){_P}|"
+        rf"(?:est[áa]n?|quedan?)\s+(?:eliminad|borrad){_P}",
+    ),
     (
         KIND_MODIFIED,
-        r"modifiqu[eé]|actualic[eé]|edit[eé]|cambi[eé]|correg[ií]|arregl[eé]|parche[eé]|"
-        r"reescrib[ií]|ajust[eé]|refactoric[eé]|"
-        r"(?:he|hemos|ha|han)\s+(?:modificado|actualizado|editado|cambiado|corregido|"
-        r"arreglado|parcheado|reescrito|ajustado|refactorizado)",
+        rf"modifiqu[eé]|modific[oó]|actualic[eé]|actualiz[oó]|edit[eéoó]|cambi[eéoó]|correg[ií]|corrigi[oó]|"
+        rf"arregl[eéoó]|parche[eéoó]|reescrib[ií]|reescribi[oó]|ajust[eéoó]|refactoric[eé]|refactoriz[oó]|"
+        rf"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:modificad|actualizad|editad|cambiad|corregid|"
+        rf"arreglad|parchead|ajustad|refactorizad){_P}|(?:se\s+)?(?:he|hemos|ha|han)\s+reescrito",
     ),
     (
         KIND_WRITTEN,
-        r"escrib[ií]|guard[eé]|agregu[eé]|añad[ií]|gener[eé]|"
-        r"(?:he|hemos|ha|han)\s+(?:escrito|guardado|agregado|añadido|generado)",
+        rf"escrib[ií]|escribi[oó]|guard[eéoó]|agregu[eé]|agreg[oó]|añad[ií]|añadi[oó]|gener[eéoó]|"
+        rf"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:guardad|agregad|añadid|generad){_P}|(?:se\s+)?(?:he|hemos|ha|han)\s+escrito",
     ),
 ]
 _EN_VERB_CLASSES: list[tuple[int, str]] = [
@@ -560,8 +573,12 @@ _EN_VERB_CLASSES: list[tuple[int, str]] = [
 _ES_SUBJECT = r"(?:ya\s+)?"
 _EN_SUBJECT = r"(?:(?:I|we)(?:'ve|\s+have|\s+just|\s+also)?\s+|I've\s+|we've\s+)?"
 # Up to 60 chars of filler between the verb and the path, never crossing a
-# sentence / clause boundary.
-_FILLER = r"(?P<filler>[^.;:\n¿?!]{0,60}?)"
+# sentence / clause boundary. The comma is a boundary too: "README.md se
+# actualizó con la sección, pero el src/utils.py no se pudo editar" must not
+# bind "actualizó" to utils.py (false rejection found on live output,
+# PARTIAL family, 2026-10-01).
+_FILLER = r"(?P<filler>[^.;:,\n¿?!]{0,60}?)"
+_FILLER_CONTRAST = re.compile(r"\b(?:pero|sino|aunque|mientras|but|however|although|while|whereas)\b", re.IGNORECASE)
 
 
 def _active_pattern(subject: str, classes: list[tuple[int, str]]) -> re.Pattern[str]:
@@ -577,14 +594,14 @@ _ACTIVE_PATTERNS: list[tuple[re.Pattern[str], list[tuple[int, str]]]] = [
 # Passive / resultative: the path comes first. "`a.py` has been updated",
 # "el archivo a.py fue modificado", "a.py quedó actualizado".
 _ES_PASSIVE_CLASSES: list[tuple[int, str]] = [
-    (KIND_CREATED, r"creado"),
-    (KIND_DELETED, r"eliminado|borrado|quitado"),
+    (KIND_CREATED, rf"cread{_P}|cre[oó]"),
+    (KIND_DELETED, rf"(?:eliminad|borrad|quitad){_P}|elimin[oó]|borr[oó]|quit[oó]"),
     (
         KIND_MODIFIED,
-        r"modificado|actualizado|editado|cambiado|corregido|arreglado|parcheado|reescrito|"
-        r"ajustado|refactorizado",
+        rf"(?:modificad|actualizad|editad|cambiad|corregid|arreglad|parchead|ajustad|refactorizad){_P}|reescrito|"
+        rf"modific[oó]|actualiz[oó]|edit[oó]|cambi[oó]|corrigi[oó]|arregl[oó]|parche[oó]|reescribi[oó]|ajust[oó]|refactoriz[oó]",
     ),
-    (KIND_WRITTEN, r"escrito|guardado|generado|agregado|añadido"),
+    (KIND_WRITTEN, rf"(?:guardad|agregad|añadid|generad){_P}|escrito|escribi[oó]|guard[oó]|agreg[oó]|añadi[oó]|gener[oó]"),
 ]
 _EN_PASSIVE_CLASSES: list[tuple[int, str]] = [
     (KIND_CREATED, r"created"),
@@ -597,19 +614,60 @@ _EN_PASSIVE_CLASSES: list[tuple[int, str]] = [
 ]
 
 
+# "config/settings.py también quedó cambiado": an adverb may sit between the
+# path and the auxiliary (live finding, PARTIAL family).
+_ADVERB = r"(?:\s+(?:también|tambien|ya|ahora|finalmente|efectivamente|igualmente|also|now|already))?"
+
+
 def _passive_pattern(aux: str, classes: list[tuple[int, str]]) -> re.Pattern[str]:
     verbs = "|".join(rx for _, rx in classes)
-    return re.compile(rf"{_PATH_RE}\s+(?:{aux})\s+(?P<verb>{verbs})\b", re.IGNORECASE)
+    return re.compile(rf"{_PATH_RE}{_ADVERB}\s+(?:{aux})\s+(?P<verb>{verbs})\b", re.IGNORECASE)
 
 
 _PASSIVE_PATTERNS: list[tuple[re.Pattern[str], list[tuple[int, str]]]] = [
     (
-        _passive_pattern(r"fue|fueron|ha\s+sido|han\s+sido|qued[oó]|quedaron|ya\s+est[áa]n?|est[áa]n?\s+ahora", _ES_PASSIVE_CLASSES),
+        _passive_pattern(
+            r"fue|fueron|ha\s+sido|han\s+sido|qued[oó]|quedaron|quedan?|ya\s+est[áa]n?|est[áa]n?\s+ahora|est[áa]n?|"
+            r"se\s+ha|se\s+han|se",
+            _ES_PASSIVE_CLASSES,
+        ),
         _ES_PASSIVE_CLASSES,
     ),
     (
         _passive_pattern(r"has\s+been|have\s+been|was|were|is\s+now|are\s+now", _EN_PASSIVE_CLASSES),
         _EN_PASSIVE_CLASSES,
+    ),
+]
+
+# "README.md quedó con la sección 'Uso' agregada" / "quedó con la nueva
+# sección": a resultative that asserts new content without naming a verb of
+# change. Modified, unless the clause says the content is unchanged.
+_RESULTATIVE_CON = re.compile(
+    rf"{_PATH_RE}{_ADVERB}\s+(?P<verb>qued[oó]|quedaron|quedan?)\s+con\s+"
+    r"(?![^.;\n]{0,40}\b(?:mism[oa]s?|igual|sin\s+cambios|intact[oa]s?|idéntic[oa]s?)\b)",
+    re.IGNORECASE,
+)
+
+# "Se han editado los siguientes archivos:\n- config/settings.py": the verb,
+# a colon, then one path per bullet line (live finding, EDIT-RISK family).
+_LIST_HEAD = re.compile(
+    r"(?P<verb>(?:se\s+)?(?:he|hemos|ha|han)\s+(?:cread|eliminad|borrad|modificad|actualizad|editad|cambiad|"
+    r"corregid|arreglad|guardad|agregad|añadid|generad)[oa]s?|(?:I\s+|we\s+)?(?:created|deleted|removed|"
+    r"modified|updated|edited|changed|wrote|added|generated))\b[^\n:]{0,60}:\s*\n",
+    re.IGNORECASE,
+)
+_LIST_ITEM = re.compile(rf"^[ \t]*(?:[-*•]|\d+[.)])[ \t]*{_PATH_RE}", re.IGNORECASE | re.MULTILINE)
+_LIST_KIND: list[tuple[int, str]] = [
+    (KIND_CREATED, r"(?:se\s+)?(?:he|hemos|ha|han)\s+cread[oa]s?|(?:I\s+|we\s+)?created"),
+    (KIND_DELETED, r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:eliminad|borrad)[oa]s?|(?:I\s+|we\s+)?(?:deleted|removed)"),
+    (
+        KIND_MODIFIED,
+        r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:modificad|actualizad|editad|cambiad|corregid|arreglad)[oa]s?|"
+        r"(?:I\s+|we\s+)?(?:modified|updated|edited|changed)",
+    ),
+    (
+        KIND_WRITTEN,
+        r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:guardad|agregad|añadid|generad)[oa]s?|(?:I\s+|we\s+)?(?:wrote|added|generated)",
     ),
 ]
 
@@ -627,7 +685,11 @@ _CONTAINER_PREP = re.compile(
 # "the updated config.py", "el archivo creado x.py".
 _ADJECTIVAL_PRECEDER = re.compile(
     r"\b(?:the|a|an|this|that|newly|recently|already|el|la|un|una|los|las|este|esta|ese|esa|"
-    r"reci[eé]n|archivo|fichero|file)\s*$",
+    r"reci[eé]n|archivo|fichero|file)\s*$"
+    # "la función creada en X", "el módulo modificado en X": article + noun +
+    # participle is a description, not a claim. "Clamp funcion creado en X"
+    # (no article, live Qwen output) stays a claim.
+    r"|\b(?:el|la|los|las|un|una|unos|unas|the|a|an)\s+[\w()]+\s*$",
     re.IGNORECASE,
 )
 
@@ -729,6 +791,8 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
                 continue
             if _is_url(text, m.start("path")):
                 continue
+            if _FILLER_CONTRAST.search(m.group("filler")):
+                continue  # the path belongs to the contrasting clause
             kind = _kind_of(m.group("verb"), classes)
             if _CONTAINER_PREP.search(m.group("filler")):
                 kind = KIND_WRITTEN
@@ -750,6 +814,29 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
             if _is_url(text, m.start("path")):
                 continue
             add(m.group("path"), _kind_of(m.group("verb"), classes), m.group("verb"), (m.start(), m.end()))
+
+    for m in _RESULTATIVE_CON.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+            continue
+        add(m.group("path"), KIND_MODIFIED, m.group("verb"), (m.start(), m.end()))
+
+    for m in _LIST_HEAD.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0):
+            continue
+        kind = _kind_of(m.group("verb"), _LIST_KIND)
+        pos = m.end()
+        while True:
+            item = _LIST_ITEM.match(text, pos)
+            if not item:
+                break
+            if not _is_url(text, item.start("path")):
+                add(item.group("path"), kind, m.group("verb"), (m.start(), item.end()))
+            nl = text.find("\n", item.end())
+            if nl == -1:
+                break
+            pos = nl + 1
 
     claims.sort(key=lambda c: c.span)
     return claims
