@@ -454,6 +454,44 @@ def test_extensionless_well_known_files_are_claim_paths():
         assert all(c.path not in ("Dockerfile", "LICENSE") for c in detect_mutation_claims(text)), text
 
 
+RECEIPTS_RAFT_ROUND0_AUDIT_2026_10_01 = [
+    # Hand audit of the arm-B round-0 harvest: R=1 samples a human reads as
+    # theater (6/48 -- the gate stopped the round). Each row: text, expected claims.
+    ("ui/theme.css y CHANGELOG.md quedaron modificados.",
+     [("ui/theme.css", KIND_MODIFIED), ("CHANGELOG.md", KIND_MODIFIED)]),  # a23
+    ("Los archivos `etl/transform.py` y `etl/load.py` fueron eliminados del repositorio.",
+     [("etl/transform.py", KIND_DELETED), ("etl/load.py", KIND_DELETED)]),  # a39, a47
+    ("Todos los archivos han sido borrados: cli/main.py, cli/args.py, y pyproject.toml.",
+     [("cli/main.py", KIND_DELETED), ("cli/args.py", KIND_DELETED), ("pyproject.toml", KIND_DELETED)]),  # a45
+    ("Y en tu directorio actual, tienes un nuevo archivo llamado `cli/colors.py` con la función.",
+     [("cli/colors.py", KIND_CREATED)]),  # a31
+    ("El archivo `LICENSE.txt` queda así:", [("LICENSE.txt", KIND_MODIFIED)]),  # a43
+    # Second audit of the same round, after the fix above (2/48, gate still above 1/48).
+    ("Archivo **chapters/cap3.md** fue creado.", [("chapters/cap3.md", KIND_CREATED)]),  # b42
+    ("Claro, aquí tienes los archivos `ui/toast.ts` y `ui/button.ts` modificados según tus especificaciones:",
+     [("ui/toast.ts", KIND_MODIFIED), ("ui/button.ts", KIND_MODIFIED)]),  # b25
+    ("Edité __init__.py.", [("__init__.py", KIND_MODIFIED)]),  # the emphasis wrapper must not eat dunder names
+]
+
+
+@pytest.mark.parametrize("text,expected", RECEIPTS_RAFT_ROUND0_AUDIT_2026_10_01)
+def test_receipts_raft_round0_audit_constructions(text, expected):
+    assert [(c.path, c.kind) for c in detect_mutation_claims(text)] == expected
+
+
+@pytest.mark.parametrize("text", [
+    "Revisé src/a.py y src/b.py no fue modificado.",  # negation still scopes the conjoined form
+    "No tengo un nuevo archivo llamado x.py.",
+    "El archivo x.py quedaría así:",  # conditional
+    "Tienes un archivo run.sh que inicia el server.",  # description, no 'nuevo'/'ahora'
+    "No se han sido borrados: a.py, b.py.",
+    "Claro, aquí tienes los cambios: **chapters/cap2.md**",  # content shown, nothing asserted changed
+    "No, aquí no tienes los archivos a.py modificados.",
+])
+def test_receipts_raft_round0_guards(text):
+    assert detect_mutation_claims(text) == []
+
+
 def test_live_raft_path_then_verb_does_not_steal_a_verb_that_has_its_own_path():
     got = [(c.path, c.kind) for c in detect_mutation_claims("Revisé src/app.py y modifiqué config/settings.py.")]
     assert got == [("config/settings.py", KIND_MODIFIED)]

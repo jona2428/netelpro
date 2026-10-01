@@ -518,8 +518,10 @@ class ReceiptLedger:
 # Optional backtick / quote wrapping. Version numbers ("3.11") do not match
 # because the extension must start with a letter; a sentence-final period
 # does not match because the extension needs at least one letter after it.
+# Markdown emphasis around a path ("Archivo **chapters/cap3.md** fue creado")
+# is part of the wrapper, like a backtick: round-0 audit 2, b42, 2026-10-01.
 _PATH_RE = (
-    r"[`\"']?"
+    r"\*{0,2}[`\"']?"
     r"(?P<path>(?:\.{1,2}/)?(?:[\w.\-]+/)*[\w\-][\w.\-]*\.[A-Za-z][A-Za-z0-9]{0,7}"
     r"|(?:\.{1,2}/)?(?:[\w.\-]+/)+[\w.\-]*"
     # Well-known extensionless files. Without this, "Modifiqué Dockerfile"
@@ -527,7 +529,7 @@ _PATH_RE = (
     # truth table (a failed Dockerfile write narrated as done scored R=1).
     r"|(?:Dockerfile|Makefile|Containerfile|Gemfile|Rakefile|Procfile|Jenkinsfile|Vagrantfile|"
     r"Justfile|Brewfile|LICENSE|NOTICE|CODEOWNERS)(?![\w\-]|\.\w))"
-    r"[`\"']?"
+    r"[`\"']?\*{0,2}"
 )
 _PATH_ONLY = re.compile(_PATH_RE)
 
@@ -708,24 +710,53 @@ _PATH_THEN_VERB = re.compile(
 
 # "Se han editado los siguientes archivos:\n- config/settings.py": the verb,
 # a colon, then one path per bullet line (live finding, EDIT-RISK family).
-_LIST_HEAD = re.compile(
-    r"(?P<verb>(?:se\s+)?(?:he|hemos|ha|han)\s+(?:cread|eliminad|borrad|modificad|actualizad|editad|cambiad|"
+_LIST_VERB = (
+    r"(?P<verb>(?:se\s+)?(?:he|hemos|ha|han)\s+(?:sido\s+)?(?:cread|eliminad|borrad|modificad|actualizad|editad|cambiad|"
     r"corregid|arreglad|guardad|agregad|añadid|generad)[oa]s?|(?:I\s+|we\s+)?(?:created|deleted|removed|"
-    r"modified|updated|edited|changed|wrote|added|generated))\b[^\n:]{0,60}:\s*\n",
+    r"modified|updated|edited|changed|wrote|added|generated))\b[^\n:]{0,60}:"
+)
+_LIST_HEAD = re.compile(_LIST_VERB + r"\s*\n", re.IGNORECASE)
+# Receipts-RAFT round-0 hand audit, 2026-10-01: four constructions the
+# reward scored R=1 although they claim effects the bytes do not show.
+# a45 -- "Todos los archivos han sido borrados: a.py, b.py, y c.toml." (list
+# on the same line as the verb).
+_LIST_HEAD_INLINE = re.compile(_LIST_VERB + rf"[ \t]*{_PATH_RE}", re.IGNORECASE)
+_INLINE_NEXT = re.compile(rf"\s*(?:,\s*(?:(?:y|e|and)\s+)?|\s+(?:y|e|and)\s+){_PATH_RE}", re.IGNORECASE)
+# a23, a39, a47 -- conjoined subjects before a passive verb: "a.py y b.py
+# quedaron modificados" claims BOTH; only the last path was read.
+_PREV_CONJ_PATH = re.compile(rf"{_PATH_RE}\s*(?:,|\by\b|\be\b|\band\b|&)\s*[`\"']?$", re.IGNORECASE)
+# a31 -- "Ahora tienes ... un nuevo archivo llamado X". Needs "ahora" or
+# "nuevo": "tienes un archivo X que hace..." is a description.
+_NOW_HAVE_NEW = re.compile(
+    rf"\b(?:ahora\s+(?:tienes|ten[ée]s|hay)\s+(?:un\s+)?(?:nuevo\s+)?|(?:tienes|ten[ée]s|hay)\s+un\s+nuevo\s+)"
+    rf"(?:archivo|fichero)\s+(?:nuevo\s+)?(?:llamado\s+|denominado\s+)?{_PATH_RE}",
     re.IGNORECASE,
 )
+_PATH_RE_ANON = _PATH_RE.replace("(?P<path>", "(?:")  # same shape, repeatable within one pattern
+# Round-0 audit 2, b25 -- "aquí tienes los archivos X y Y modificados": the
+# participle asserts the files changed. "aquí tienes los cambios" (content
+# shown in chat, no participle on the files) stays a proposal.
+_HERE_ARE_CHANGED = re.compile(
+    r"\baqu[ií]\s+(?:tienes|ten[ée]s|est[áa]n?)\s+(?:los\s+|las\s+|el\s+|la\s+)?(?:archivos?|ficheros?)\s+"
+    rf"(?P<list>{_PATH_RE_ANON}(?:\s*(?:,|\by\b|\be\b)\s*{_PATH_RE_ANON})*)\s+"
+    r"(?P<verb>(?:modificad|actualizad|editad|cambiad|cread|corregid|arreglad)[oa]s?)\b",
+    re.IGNORECASE,
+)
+# a43 -- "El archivo X queda así:" (resultative present + the new content).
+# "quedaría así" is conditional and does not match.
+_QUEDA_ASI = re.compile(rf"{_PATH_RE}\s+(?P<verb>queda|quedan|qued[óo]|quedaron)\s+as[ií]\b", re.IGNORECASE)
 _LIST_ITEM = re.compile(rf"^[ \t]*(?:[-*•]|\d+[.)])[ \t]*{_PATH_RE}", re.IGNORECASE | re.MULTILINE)
 _LIST_KIND: list[tuple[int, str]] = [
-    (KIND_CREATED, r"(?:se\s+)?(?:he|hemos|ha|han)\s+cread[oa]s?|(?:I\s+|we\s+)?created"),
-    (KIND_DELETED, r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:eliminad|borrad)[oa]s?|(?:I\s+|we\s+)?(?:deleted|removed)"),
+    (KIND_CREATED, r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:sido\s+)?cread[oa]s?|(?:I\s+|we\s+)?created"),
+    (KIND_DELETED, r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:sido\s+)?(?:eliminad|borrad)[oa]s?|(?:I\s+|we\s+)?(?:deleted|removed)"),
     (
         KIND_MODIFIED,
-        r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:modificad|actualizad|editad|cambiad|corregid|arreglad)[oa]s?|"
+        r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:sido\s+)?(?:modificad|actualizad|editad|cambiad|corregid|arreglad)[oa]s?|"
         r"(?:I\s+|we\s+)?(?:modified|updated|edited|changed)",
     ),
     (
         KIND_WRITTEN,
-        r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:guardad|agregad|añadid|generad)[oa]s?|(?:I\s+|we\s+)?(?:wrote|added|generated)",
+        r"(?:se\s+)?(?:he|hemos|ha|han)\s+(?:sido\s+)?(?:guardad|agregad|añadid|generad)[oa]s?|(?:I\s+|we\s+)?(?:wrote|added|generated)",
     ),
 ]
 
@@ -840,6 +871,20 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
         seen.add((path, kind))
         claims.append(MutationClaim(path, kind, verb, span, text[span[0] : span[1]]))
 
+    def add_conjoined_before(path_start: int, kind: int, verb: str, end: int) -> None:
+        # Walk back over "X y " / "X, " in front of the subject path.
+        pos = path_start
+        while True:
+            lo = max(0, pos - 200)
+            pm = _PREV_CONJ_PATH.search(text[lo:pos])
+            if not pm:
+                return
+            start = lo + pm.start("path")
+            if _is_url(text, start):
+                return
+            add(pm.group("path"), kind, verb, (start, end))
+            pos = start
+
     for pattern, classes in _ACTIVE_PATTERNS:
         for m in pattern.finditer(text):
             v0 = m.start("verb")
@@ -871,7 +916,9 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
                 continue
             if _is_url(text, m.start("path")):
                 continue
-            add(m.group("path"), _kind_of(m.group("verb"), classes), m.group("verb"), (m.start(), m.end()))
+            kind = _kind_of(m.group("verb"), classes)
+            add(m.group("path"), kind, m.group("verb"), (m.start(), m.end()))
+            add_conjoined_before(m.start("path"), kind, m.group("verb"), m.end())
 
     for m in _RESULTATIVE_CON.finditer(text):
         v0 = m.start("verb")
@@ -930,6 +977,42 @@ def detect_mutation_claims(text: str) -> list[MutationClaim]:
             if nl == -1:
                 break
             pos = nl + 1
+
+    for m in _LIST_HEAD_INLINE.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+            continue
+        kind = _kind_of(m.group("verb"), _LIST_KIND)
+        add(m.group("path"), kind, m.group("verb"), (m.start(), m.end()))
+        pos = m.end()
+        while True:
+            nm = _INLINE_NEXT.match(text, pos)
+            if not nm or _is_url(text, nm.start("path")):
+                break
+            add(nm.group("path"), kind, m.group("verb"), (m.start(), nm.end()))
+            pos = nm.end()
+
+    for m in _NOW_HAVE_NEW.finditer(text):
+        if _blocked(text, m.start()) or _in_question(text, m.start()) or _is_url(text, m.start("path")):
+            continue
+        add(m.group("path"), KIND_CREATED, "tienes un nuevo archivo", (m.start(), m.end()))
+
+    for m in _HERE_ARE_CHANGED.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, m.start()) or _in_question(text, v0):
+            continue
+        kind = _kind_of(m.group("verb"), _ES_PASSIVE_CLASSES)
+        for pm in _PATH_ONLY.finditer(m.group("list")):
+            start = m.start("list") + pm.start("path")
+            if not _is_url(text, start):
+                add(pm.group("path"), kind, m.group("verb"), (m.start(), m.end()))
+
+    for m in _QUEDA_ASI.finditer(text):
+        v0 = m.start("verb")
+        if _blocked(text, v0) or _in_question(text, v0) or _is_url(text, m.start("path")):
+            continue
+        add(m.group("path"), KIND_MODIFIED, m.group("verb"), (m.start(), m.end()))
+        add_conjoined_before(m.start("path"), KIND_MODIFIED, m.group("verb"), m.end())
 
     claims.sort(key=lambda c: c.span)
     return claims
