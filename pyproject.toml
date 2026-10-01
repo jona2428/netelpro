@@ -27,6 +27,7 @@ Repository = "https://github.com/jona2428/netelpro"
 [project.scripts]
 netelpro = "netelpro.__main__:main"
 netelpro-mcp = "netelpro.mcp_server:main"
+netelpro-receipts = "netelpro.receipts:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "numpy>=1.26", "torch>=2.2", "tokenizers>=0.19"]
@@ -43,7 +44,8 @@ exclude = ["netelpro.tests", "netelpro.tests.*"]
 # lib/*.sl:    the standard prelude, concatenated before rule source by the
 #              host (netelpro.lib.concat_with_prelude). Without this it would
 #              not travel in the wheel and an installed netelpro would lose it.
-# rules/*.sl:  rules bundled for the packaged gate demo (netelpro.gate_demo).
+# rules/*.sl:  rules bundled for the packaged gate demo (netelpro.gate_demo)
+#              and the file-effect guard (netelpro.receipts).
 netelpro = ["spec/*.json", "lib/*.sl", "rules/*.sl"]
 
 [tool.mypy]

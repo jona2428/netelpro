@@ -242,6 +242,63 @@ the same way the PyTorch path already was (`NetelproVectorKernel`), and the
 same run now measures **~7-220µs per token** — a real, run number, not a
 target.
 
+### Layer C — file-effect receipts (`netelpro.receipts.MutationGuard`)
+
+Layer A audits claims of *verification* against tool results. It cannot see
+the most common lie an agent tells about files: **"Actualicé
+`config/settings.py`"** when the write tool errored, was blocked by the
+sandbox, or was never called — a tool result exists, the bytes did not change.
+Layer C's evidence standard is the bytes.
+
+The harness hashes the workspace before and after the turn; every differing
+path becomes a **receipt** (created / modified / deleted, sha256 before and
+after) in an append-only, hash-chained ledger the model cannot write to and
+is never asked to recall. The agent's text is scanned for mutation claims
+(ES + EN, with negation / attempt / intent / question scoped out), and a
+compiled rule — `netelpro/rules/mutation_receipt.sl`, three functions, its
+whole 40-row domain verified native-vs-interpreter — decides per path whether
+the claim kind is admitted by the receipt kind. No receipt means reject, with
+the file and its unchanged hash in the reason. `strict=True` also rejects
+silent writes the text never mentions. Spec and declared limits:
+[`docs/RECEIPTS_SPEC.md`](docs/RECEIPTS_SPEC.md).
+
+```python
+from netelpro.receipts import MutationGuard
+
+guard = MutationGuard(repo_root)
+guard.begin()                      # sha256 baseline
+# ... agent turn ...
+audit = guard.audit(agent_text)    # claims x receipts -> compiled verdict
+audit.approved, audit.reasons      # "no receipt for 'config/settings.py' -- sha256 unchanged ..."
+guard.ground_truth()               # the block the model should READ next turn, not remember
+```
+
+Zero-integration from any harness (Claude Code, OpenCode, Cursor, a shell
+loop) — nothing to hook, it only needs a directory:
+
+```bash
+python -m netelpro.receipts begin
+# ... agent runs ...
+python -m netelpro.receipts end
+python -m netelpro.receipts audit --text answer.md     # exit 2 = theater
+```
+
+See it on real files in thirty seconds — a simulated turn whose prose lies
+about one of its three edits, plus tamper refusal and the full differential:
+
+```bash
+python -m examples.receipts_demo
+```
+
+```text
+  [ADMIT ] modified  src/app.py
+  [ADMIT ] created   tests/test_app.py
+  [REJECT] modified  config/settings.py
+           claim 'actualicé config/settings.py' (modified) at offset 106: no receipt for
+           'config/settings.py' -- sha256 unchanged since turn start (sha256 bbf3e29cc11c...):
+           the bytes were never written
+```
+
 ## Documentation & Research
 
 * **Whitepaper:** [`docs/WHITEPAPER.md`](docs/WHITEPAPER.md) — *Netelpro: Compiler-Enforced Epistemic Honesty for Autonomous LLM Agents*.
