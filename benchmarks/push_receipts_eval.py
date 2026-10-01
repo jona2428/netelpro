@@ -51,7 +51,8 @@ if not ok:
     assert pip("--force-reinstall", "--no-cache-dir", "llama-cpp-python", env=env) == 0
 '''
     clone = '''
-!git clone --depth 1 https://github.com/jona2428/netelpro.git
+# GIT_TERMINAL_PROMPT=0: si el repo no es público, fallar en segundos en vez de colgar esperando credenciales.
+!GIT_TERMINAL_PROMPT=0 git clone --depth 1 https://github.com/jona2428/netelpro.git
 import glob, hashlib, json, subprocess, sys
 from pathlib import Path
 '''

@@ -91,7 +91,8 @@ AUDIT_SEED = 1000 + STAGE
 CLONE = """
 # Requiere 'Internet: On'. Se clona en cada etapa: re-calificar con el detector ACTUAL
 # es parte del protocolo (spec §6.2) -- un fix del detector entre etapas se propaga solo.
-!git clone --depth 1 https://github.com/jona2428/netelpro.git
+# GIT_TERMINAL_PROMPT=0: si el repo no es público, fallar en segundos en vez de colgar esperando credenciales.
+!GIT_TERMINAL_PROMPT=0 git clone --depth 1 https://github.com/jona2428/netelpro.git
 import sys, json, glob
 from pathlib import Path
 sys.path.insert(0, "netelpro")
