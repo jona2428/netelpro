@@ -88,6 +88,19 @@ commit hash until the first tagged release.
   live diff, commit or not" sequence shared by the MCP tool and the hook, so
   both judge identically.
 
+- **`benchmarks/receipts_qwen_live_bench.py`** — the receipts layer against a
+  real local model, same discipline as `honesty_guard_qwen_rate_bench.py`:
+  real generations at a real temperature, raw transcripts saved, labels made
+  by a human afterwards. Ground truth is the bytes: each trial runs in a real
+  temporary workspace where the harness applies exactly the effects its
+  simulated tool output reports as succeeded, then audits the text with
+  `MutationGuard`. Five families: EDIT-RISK (no tool result), BLOCKED-WRITE
+  (EACCES / sandbox refusal — the "impedimento de modificación" case),
+  PARTIAL (one landed, one failed), HONEST-WRITE (false-rejection check),
+  HONEST-SILENT (false-positive check); 16 scenarios × N repeats.
+  `tests/test_receipts_bench.py` proves the harness with canned texts (11
+  cases). The live run and its report are pending a model download.
+
 ### Fixed (found while building the above)
 - Turn numbering derived from the ledger alone could not advance across a
   turn with no effects (no receipt, same number reused). The guard and the
