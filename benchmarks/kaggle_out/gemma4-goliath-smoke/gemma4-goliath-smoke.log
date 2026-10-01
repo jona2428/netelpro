@@ -1,0 +1,121 @@
+[{"stream_name":"stderr","time":7.164620445,"data":"/usr/local/lib/python3.12/dist-packages/nbformat/__init__.py:96: MissingIDFieldWarning: Cell is missing an id field, this will become a hard error in future nbformat versions. You may want to use `normalize()` on your notebooks before validations (available since nbformat 5.1.4). Previous versions of nbformat are fixing this issue transparently, and will stop doing so in the future.\n"}
+,{"stream_name":"stderr","time":7.164698354,"data":"  validate(nb)\n"}
+,{"stream_name":"stderr","time":8.104310972,"data":"0.00s - Debugger warning: It seems that frozen modules are being used, which may\n"}
+,{"stream_name":"stderr","time":8.104342674,"data":"0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off\n"}
+,{"stream_name":"stderr","time":8.104379482,"data":"0.00s - to python to disable frozen modules.\n"}
+,{"stream_name":"stderr","time":8.104389606,"data":"0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.\n"}
+,{"stream_name":"stderr","time":8.779972119,"data":"0.00s - Debugger warning: It seems that frozen modules are being used, which may\n"}
+,{"stream_name":"stderr","time":8.780005546,"data":"0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off\n"}
+,{"stream_name":"stderr","time":8.780010857,"data":"0.00s - to python to disable frozen modules.\n"}
+,{"stream_name":"stderr","time":8.780014768000001,"data":"0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.\n"}
+,{"stream_name":"stdout","time":10.687724164,"data":"modelo: /kaggle/input/models/google/gemma-4/transformers/gemma-4-e2b-it/1\n"}
+,{"stream_name":"stdout","time":10.687794938,"data":"['config.json', 'README.md', 'tokenizer.json', 'tokenizer_config.json', 'chat_template.jinja', 'model.safetensors', 'processor_config.json', 'generation_config.json']\n"}
+,{"stream_name":"stdout","time":10.919679343,"data":"Tue Sep 29 22:25:03 2026       \n"}
+,{"stream_name":"stdout","time":10.919715204,"data":"+-----------------------------------------------------------------------------------------+\n"}
+,{"stream_name":"stdout","time":10.919720759,"data":"| NVIDIA-SMI 580.159.04             Driver Version: 580.159.04     CUDA Version: 13.0     |\n"}
+,{"stream_name":"stdout","time":10.919725385,"data":"+-----------------------------------------+------------------------+----------------------+\n"}
+,{"stream_name":"stdout","time":10.919729791,"data":"| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n"}
+,{"stream_name":"stdout","time":10.919733887,"data":"| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n"}
+,{"stream_name":"stdout","time":10.919738916,"data":"|                                         |                        |               MIG M. |\n"}
+,{"stream_name":"stdout","time":10.919742981,"data":"|=========================================+========================+======================|\n"}
+,{"stream_name":"stdout","time":10.919747173,"data":"|   0  Tesla T4                       Off |   00000000:00:04.0 Off |                    0 |\n"}
+,{"stream_name":"stdout","time":10.919751325,"data":"| N/A   52C    P8              9W /   70W |       0MiB /  15360MiB |      0%      Default |\n"}
+,{"stream_name":"stdout","time":10.919755273,"data":"|                                         |                        |                  N/A |\n"}
+,{"stream_name":"stdout","time":10.919759274,"data":"+-----------------------------------------+------------------------+----------------------+\n"}
+,{"stream_name":"stdout","time":10.919763705,"data":"|   1  Tesla T4                       Off |   00000000:00:05.0 Off |                    0 |\n"}
+,{"stream_name":"stdout","time":10.919781973,"data":"| N/A   53C    P8              9W /   70W |       0MiB /  15360MiB |      0%      Default |\n"}
+,{"stream_name":"stdout","time":10.919786559,"data":"|                                         |                        |                  N/A |\n"}
+,{"stream_name":"stdout","time":10.919790655,"data":"+-----------------------------------------+------------------------+----------------------+\n"}
+,{"stream_name":"stdout","time":10.919794945,"data":"\n"}
+,{"stream_name":"stdout","time":10.919799208,"data":"+-----------------------------------------------------------------------------------------+\n"}
+,{"stream_name":"stdout","time":10.919803644,"data":"| Processes:                                                                              |\n"}
+,{"stream_name":"stdout","time":10.919808364,"data":"|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n"}
+,{"stream_name":"stdout","time":10.919812786,"data":"|        ID   ID                                                               Usage      |\n"}
+,{"stream_name":"stdout","time":10.919816884,"data":"|=========================================================================================|\n"}
+,{"stream_name":"stdout","time":10.919821591,"data":"|  No running processes found                                                             |\n"}
+,{"stream_name":"stdout","time":10.919826465,"data":"+-----------------------------------------------------------------------------------------+\n"}
+,{"stream_name":"stdout","time":10.919831288,"data":"\n"}
+,{"stream_name":"stdout","time":33.257620714,"data":"transformers 5.0.0 torch 2.10.0+cu128 gpus 2\n"}
+,{"stream_name":"stdout","time":33.811820225,"data":"AutoConfig falla ( The checkpoint you are trying to load has model type `gemma4` but Transformers does not recognize this architecture. This could be because of an issue with the checkpoint, or because your version of T ) -\u003e actualizo transformers\n"}
+,{"stream_name":"stdout","time":52.252732116,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.3/12.3 MB 94.5 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":52.25278759,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 394.3/394.3 kB 16.8 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":52.252796155,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 835.4/835.4 kB 31.3 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":52.252802887,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 516.0/516.0 kB 20.5 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":52.252809316,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.4/3.4 MB 75.8 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":52.252815002,"data":"\n"}
+,{"stream_name":"stdout","time":233.532869207,"data":"[transformers] `torch_dtype` is deprecated! Use `dtype` instead!\n"}
+,{"stream_name":"stdout","time":233.532916372,"data":"\n"}
+,{"stream_name":"stdout","time":233.532921635,"data":"Loading weights:   0%|          | 0/1951 [00:00\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":233.532926012,"data":"Loading weights:   5%|▍         | 96/1951 [00:00\u003c00:02, 775.40it/s]\n"}
+,{"stream_name":"stdout","time":233.532930739,"data":"Loading weights:   9%|▉         | 174/1951 [00:00\u003c00:03, 496.44it/s]\n"}
+,{"stream_name":"stdout","time":233.532934539,"data":"Loading weights:  12%|█▏        | 229/1951 [00:00\u003c00:03, 491.28it/s]\n"}
+,{"stream_name":"stdout","time":233.532953179,"data":"Loading weights:  14%|█▍        | 281/1951 [00:00\u003c00:03, 482.27it/s]\n"}
+,{"stream_name":"stdout","time":233.532956219,"data":"Loading weights:  17%|█▋        | 331/1951 [00:00\u003c00:03, 452.01it/s]\n"}
+,{"stream_name":"stdout","time":233.532958924,"data":"Loading weights:  20%|██        | 392/1951 [00:00\u003c00:03, 482.82it/s]\n"}
+,{"stream_name":"stdout","time":233.532961769,"data":"Loading weights:  23%|██▎       | 442/1951 [00:00\u003c00:03, 475.90it/s]\n"}
+,{"stream_name":"stdout","time":233.532965049,"data":"Loading weights:  26%|██▌       | 499/1951 [00:01\u003c00:03, 469.20it/s]\n"}
+,{"stream_name":"stdout","time":233.532967791,"data":"Loading weights:  29%|██▉       | 561/1951 [00:01\u003c00:02, 499.38it/s]\n"}
+,{"stream_name":"stdout","time":233.53297051,"data":"Loading weights:  32%|███▏      | 623/1951 [00:01\u003c00:02, 524.23it/s]\n"}
+,{"stream_name":"stdout","time":233.532973357,"data":"Loading weights:  35%|███▌      | 685/1951 [00:01\u003c00:02, 507.41it/s]\n"}
+,{"stream_name":"stdout","time":233.532976171,"data":"Loading weights:  38%|███▊      | 746/1951 [00:01\u003c00:02, 521.82it/s]\n"}
+,{"stream_name":"stdout","time":233.532978967,"data":"Loading weights:  38%|███▊      | 746/1951 [00:20\u003c00:02, 521.82it/s]\n"}
+,{"stream_name":"stdout","time":233.532981769,"data":"Loading weights:  39%|███▊      | 755/1951 [00:21\u003c02:45,  7.22it/s] \n"}
+,{"stream_name":"stdout","time":233.532984509,"data":"Loading weights: 100%|██████████| 1951/1951 [00:21\u003c00:00, 89.52it/s]\n"}
+,{"stream_name":"stdout","time":233.532987409,"data":"--- muestra sl (7.8s) ---\n"}
+,{"stream_name":"stdout","time":233.532990007,"data":"```netelpro\n"}
+,{"stream_name":"stdout","time":233.532992558,"data":"(defn ceil-div (a b)\n"}
+,{"stream_name":"stdout","time":233.532995142,"data":"  (if (== b 0)\n"}
+,{"stream_name":"stdout","time":233.532998104,"data":"      (error \"Divisor no puede ser cero\")\n"}
+,{"stream_name":"stdout","time":233.533000893,"data":"      (if (rem a b)\n"}
+,{"stream_name":"stdout","time":233.533003512,"data":"          (+ 1 (/ a b))\n"}
+,{"stream_name":"stdout","time":233.533006117,"data":"          (/ a b))))\n"}
+,{"stream_name":"stdout","time":233.533008705,"data":"```\n"}
+,{"stream_name":"stdout","time":233.53301123,"data":"\n"}
+,{"stream_name":"stdout","time":233.533013801,"data":"--- muestra py (9.8s) ---\n"}
+,{"stream_name":"stdout","time":233.533016387,"data":"```python\n"}
+,{"stream_name":"stdout","time":233.533018917,"data":"def ceil_div(a, b):\n"}
+,{"stream_name":"stdout","time":233.533021487,"data":"    \"\"\"\n"}
+,{"stream_name":"stdout","time":233.533024135,"data":"    Calcula la división de a entre b redondeada hacia arriba (ceiling division).\n"}
+,{"stream_name":"stdout","time":233.533027084,"data":"\n"}
+,{"stream_name":"stdout","time":233.533029559,"data":"    Args:\n"}
+,{"stream_name":"stdout","time":233.533032098,"data":"        a (int): El dividendo, no negativo.\n"}
+,{"stream_name":"stdout","time":233.53303471,"data":"        b (int): El divisor, positivo.\n"}
+,{"stream_name":"stdout","time":233.533037294,"data":"\n"}
+,{"stream_name":"stdout","time":233.533039774,"data":"    Returns:\n"}
+,{"stream_name":"stdout","time":233.533042317,"data":"        int: El resultado de ceil(a / b).\n"}
+,{"stream_name":"stdout","time":233.533044934,"data":"    \"\"\"\n"}
+,{"stream_name":"stdout","time":233.533047566,"data":"    return (a + b - 1) // b\n"}
+,{"stream_name":"stdout","time":233.533053156,"data":"```\n"}
+,{"stream_name":"stdout","time":233.533055794,"data":"\n"}
+,{"stream_name":"stdout","time":233.533058297,"data":"{\n"}
+,{"stream_name":"stdout","time":233.533060857,"data":" \"model\": \"/kaggle/input/models/google/gemma-4/transformers/gemma-4-e2b-it/1\",\n"}
+,{"stream_name":"stdout","time":233.533063754,"data":" \"load_s\": 41.4,\n"}
+,{"stream_name":"stdout","time":233.533066375,"data":" \"gpus\": [\n"}
+,{"stream_name":"stdout","time":233.533068999,"data":"  \"Tesla T4\",\n"}
+,{"stream_name":"stdout","time":233.533073864,"data":"  \"Tesla T4\"\n"}
+,{"stream_name":"stdout","time":233.533076779,"data":" ],\n"}
+,{"stream_name":"stdout","time":233.533080036,"data":" \"vram_gb_after_load\": [\n"}
+,{"stream_name":"stdout","time":233.533082784,"data":"  0.3,\n"}
+,{"stream_name":"stdout","time":233.533085851,"data":"  9.9\n"}
+,{"stream_name":"stdout","time":233.533088488,"data":" ],\n"}
+,{"stream_name":"stdout","time":233.533091143,"data":" \"eval_s\": 118.6,\n"}
+,{"stream_name":"stdout","time":233.533093902,"data":" \"n_generations\": 48,\n"}
+,{"stream_name":"stdout","time":233.533096924,"data":" \"s_per_generation\": 2.47,\n"}
+,{"stream_name":"stdout","time":233.533099587,"data":" \"vram_gb_peak\": [\n"}
+,{"stream_name":"stdout","time":233.533103511,"data":"  0.4,\n"}
+,{"stream_name":"stdout","time":233.533106094,"data":"  10.2\n"}
+,{"stream_name":"stdout","time":233.53310867,"data":" ]\n"}
+,{"stream_name":"stdout","time":233.533111263,"data":"}\n"}
+,{"stream_name":"stdout","time":233.533114049,"data":"sl_ood pass@k 17% pass@1 17% {'ceil_div': 0, 'collatz_steps': 0, 'concat_with_separator': 0, 'count_occurrences': 0, 'count_zero': 0, 'gcd_pair': 4}\n"}
+,{"stream_name":"stdout","time":233.53311703399999,"data":"py_ood pass@k 100% pass@1 100% {'ceil_div': 4, 'collatz_steps': 4, 'concat_with_separator': 4, 'count_occurrences': 4, 'count_zero': 4, 'gcd_pair': 4}\n"}
+,{"stream_name":"stdout","time":233.533120009,"data":"\n"}
+,{"stream_name":"stdout","time":233.53312308900001,"data":"exit code: 0\n"}
+,{"stream_name":"stderr","time":236.696119717,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":236.696168151,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":236.864992539,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":236.865022341,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":237.523056145,"data":"[NbConvertApp] Converting notebook __notebook__.ipynb to notebook\n"}
+,{"stream_name":"stderr","time":237.843906143,"data":"[NbConvertApp] Writing 11950 bytes to __notebook__.ipynb\n"}
+,{"stream_name":"stderr","time":240.413835896,"data":"[NbConvertApp] Converting notebook __notebook__.ipynb to html\n"}
+,{"stream_name":"stderr","time":241.359866925,"data":"[NbConvertApp] Writing 289857 bytes to __results__.html\n"}
+]

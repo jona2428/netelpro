@@ -1,0 +1,57 @@
+{
+ "model": "/kaggle/input/models/google/gemma-4/transformers/gemma-4-e2b-it/1",
+ "load_s": 41.4,
+ "gpus": [
+  "Tesla T4",
+  "Tesla T4"
+ ],
+ "vram_gb_after_load": [
+  0.3,
+  9.9
+ ],
+ "sample_sl": {
+  "task": "ceil_div",
+  "seconds": 7.8,
+  "chars": 158,
+  "output": "```netelpro\n(defn ceil-div (a b)\n  (if (== b 0)\n      (error \"Divisor no puede ser cero\")\n      (if (rem a b)\n          (+ 1 (/ a b))\n          (/ a b))))\n```"
+ },
+ "sample_py": {
+  "task": "ceil_div",
+  "seconds": 9.8,
+  "chars": 308,
+  "output": "```python\ndef ceil_div(a, b):\n    \"\"\"\n    Calcula la división de a entre b redondeada hacia arriba (ceiling division).\n\n    Args:\n        a (int): El dividendo, no negativo.\n        b (int): El divisor, positivo.\n\n    Returns:\n        int: El resultado de ceil(a / b).\n    \"\"\"\n    return (a + b - 1) // b\n```"
+ },
+ "sl_ood": {
+  "tasks": 6,
+  "pass@k": 0.16666666666666666,
+  "pass@1_mean": 0.16666666666666666,
+  "per_task": {
+   "ceil_div": 0,
+   "collatz_steps": 0,
+   "concat_with_separator": 0,
+   "count_occurrences": 0,
+   "count_zero": 0,
+   "gcd_pair": 4
+  }
+ },
+ "py_ood": {
+  "tasks": 6,
+  "pass@k": 1.0,
+  "pass@1_mean": 1.0,
+  "per_task": {
+   "ceil_div": 4,
+   "collatz_steps": 4,
+   "concat_with_separator": 4,
+   "count_occurrences": 4,
+   "count_zero": 4,
+   "gcd_pair": 4
+  }
+ },
+ "eval_s": 118.6,
+ "n_generations": 48,
+ "s_per_generation": 2.47,
+ "vram_gb_peak": [
+  0.4,
+  10.2
+ ]
+}

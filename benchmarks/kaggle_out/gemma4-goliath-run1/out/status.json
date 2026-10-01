@@ -1,0 +1,62 @@
+{
+ "stages": {
+  "train_test": {
+   "rc": 0,
+   "seconds": 51,
+   "tail": ""
+  },
+  "A_eval_base": {
+   "rc": 0,
+   "reused": true
+  },
+  "datos": {
+   "rc": 0,
+   "seconds": 3155,
+   "tail": ""
+  },
+  "C_train_L1": {
+   "rc": 0,
+   "seconds": 80,
+   "tail": ""
+  },
+  "C_gate_L1": {
+   "rc": 0,
+   "seconds": 124,
+   "tail": ""
+  },
+  "C_eval": {
+   "rc": 0,
+   "seconds": 1686,
+   "tail": ""
+  },
+  "B_train": {
+   "rc": 0,
+   "seconds": 87,
+   "tail": ""
+  },
+  "B_eval": {
+   "rc": 0,
+   "seconds": 1978,
+   "tail": ""
+  },
+  "report": {
+   "rc": 0,
+   "seconds": 0,
+   "tail": ""
+  }
+ },
+ "verified": {
+  "ejemplos": 17,
+  "tareas": 13
+ },
+ "gate_L1": {
+  "config": {
+   "r": 16,
+   "epochs": 3,
+   "lr": 0.0002
+  },
+  "pass@8_en_tareas_entrenadas": 0.9230769230769231
+ },
+ "gate_passed": true,
+ "done": true
+}

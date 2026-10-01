@@ -26,3 +26,9 @@ training/data/teo_v2_corpus/
 # límite de 100MB de GitHub) — se regenera con training/data/build_massive_corpus.py
 data/*.tar.gz
 models/teo_sds/
+
+# Kaggle run outputs: keep logs/evals/reports, never weights or repo snapshots
+benchmarks/kaggle_out/**/*.safetensors
+benchmarks/kaggle_out/**/*.npz
+benchmarks/kaggle_out/**/*.llg
+benchmarks/kaggle_out/**/netelpro_repo/

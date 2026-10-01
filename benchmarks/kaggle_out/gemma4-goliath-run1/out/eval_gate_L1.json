@@ -1,0 +1,23 @@
+{
+ "sl_train": {
+  "tasks": 13,
+  "mean_chars": 103,
+  "pass@k": 0.9230769230769231,
+  "pass@1_mean": 0.9134615384615384,
+  "per_task": {
+   "concat_strings": 8,
+   "concat_three": 8,
+   "double_concat": 8,
+   "double_value": 8,
+   "factorial": 8,
+   "list_length": 8,
+   "list_product": 8,
+   "max_of_three": 8,
+   "prefix_or_default": 8,
+   "shorter_of_two": 8,
+   "strings_equal": 7,
+   "sum_of_digits": 0,
+   "sum_of_squares": 8
+  }
+ }
+}
