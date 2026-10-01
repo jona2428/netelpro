@@ -57,7 +57,9 @@ module = "llvmlite.*"
 ignore_missing_imports = true
 
 [tool.ruff]
-extend-exclude = ["*.ipynb"]
+# benchmarks/kaggle_out: code snapshots downloaded from finished Kaggle runs --
+# the record of what ran, not maintained source; linting it would mean editing history.
+extend-exclude = ["*.ipynb", "benchmarks/kaggle_out"]
 
 [tool.ruff.lint]
 # E741: `l`/`r` are the deliberate Clojure-style names for AND/OR AST nodes
